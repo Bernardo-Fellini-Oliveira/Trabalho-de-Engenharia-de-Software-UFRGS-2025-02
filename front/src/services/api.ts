@@ -1,0 +1,12 @@
+import axios, { type AxiosInstance } from 'axios';
+
+// Usando a axios, além de deixar a declaração das requisições mais concisas definindo uma URL base e deixando evidente o método HTTP usado, 
+// temos Conversão automática de JSON e Tratamento automático de erros na chamada da requisição
+
+const api:AxiosInstance = axios.create({
+      /*baseURL: import.meta.env.VITE_API_URL*/
+      baseURL: 'http://localhost:3333' 
+
+})
+
+export default api;
