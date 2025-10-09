@@ -1,5 +1,5 @@
 <?php
-$db_file = './Banco.db';
+$db_file = __DIR__ . '/../Banco.db';
 header('Content-Type: application/json');
 
 try {
@@ -16,7 +16,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $data = json_decode(file_get_contents('php://input'), true);
 
     // Verifica se os dados necessários foram recebidos
-    if (isset($data['id_pessoa']) {
+    if (isset($data['id_pessoa'])) {
         
         // SQL com placeholders para todos os valores que vêm do cliente
         $sql = "INSERT INTO Pessoa (id_pessoa, nome) VALUES (?, ?)";

@@ -1,5 +1,5 @@
 <?php
-$db_file = __DIR__ . '/Banco.db';
+$db_file = __DIR__ . '/../Banco.db';
 
 // Define o cabeçalho da resposta como JSON
 header('Content-Type: application/json');
