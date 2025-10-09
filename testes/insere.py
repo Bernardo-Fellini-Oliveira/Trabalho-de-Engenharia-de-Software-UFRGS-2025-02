@@ -107,4 +107,4 @@ def cria_ocupacao(id_ocupacao, id_pessoa, id_cargo, id_portaria, data_inicio, da
         return None
 
 
-cria_ocupacao(1, 1, 1, 1, '08/10/2025', '08/10/2027', 1, 'Comecou a ditadura')
+cria_pessoa(1, "luciano")
