@@ -1,14 +1,52 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import api from "../../services/api";
 
 function TestPage() {
-  const [historicoPessoas, setHistoricoPessoas] = useState<string[]>([]);
-  const [pessoas, setPessoas] = useState<string[]>([]);
 
-  const [historicoOrgaos, setHistoricoOrgaos] = useState<string[]>([]);
-  const [orgaos, setOrgaos] = useState<string[]>([]);
 
-  const [historicoCargos, setHistoricoCargos] = useState<{ nome: string; orgao: string }[]>([]);
-  const [cargos, setCargos] = useState<{ nome: string; orgao: string }[]>([]);
+  interface Pessoa{
+    "id_pessoa": number,
+    "nome": string
+  }
+
+  interface Cargo{
+    "id_cargo": number,
+    "nome": string,
+    "ativo": boolean,
+    "id_orgao": number
+
+  }
+
+  interface Orgao{
+    "id_orgao": number,
+    "nome": string
+    "ativo": boolean
+  }
+
+  interface Portaria{
+      "id_portaria": number,
+      "numero": string,
+      "data": string,
+  }
+
+  interface Ocupacao{
+      "id_ocupacao": number,
+      "id_pessoa": number,
+      "id_cargo": number,
+      "id_portaria": number,
+      "data_inicio": string,
+      "data_fim": string | null
+      "observacoes": string | null
+  }
+
+  const [historicoPessoas, setHistoricoPessoas] = useState<Pessoa[]>([]);
+  const [pessoas, setPessoas] = useState<Pessoa[]>([]);
+
+  const [historicoOrgaos, setHistoricoOrgaos] = useState<Orgao[]>([]);
+  const [orgaos, setOrgaos] = useState<Orgao[]>([]);
+
+  const [historicoCargos, setHistoricoCargos] = useState<Cargo[]>([]);
+  const [cargos, setCargos] = useState<Cargo[]>([]);
 
   const [vinculos, setVinculos] = useState<{ pessoa: string; cargo: {nome: string; orgao: string}; data: string }[]>([]);
 
@@ -29,11 +67,91 @@ function TestPage() {
   const [cargoSelecionado, setCargoSelecionado] = useState<{ nome: string; orgao: string } | null>(null);
   const [cargoSelecionadoRemovido, setCargoSelecionadoRemovido] = useState<{ nome: string; orgao: string } | null>(null);
 
+  const [loading, setLoading] = useState<boolean>(true);
+
+  useEffect(() => {
+    async function fetchData() {
+    try{
+      const response_cargos =  await api.get('/carregar/carregar_cargo.php', 
+      {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    const response_pessoas = await api.get('/carregar/carregar_pessoa.php', 
+      {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+    setCargos(response_cargos.data);
+    setPessoas(response_pessoas.data);
+    setLoading(false);
+  }
+  catch(error){
+    console.error("Erro ao carregar dados:", error);
+    setLoading(false);
+    }    
+  }
+    fetchData();
+
+  });
   
+
+
   function handleRemoveVinculo(v: { pessoa: string; cargo: { nome: string; orgao: string; }; data: string; }): void {
     console.log('Removendo vínculo:', v.pessoa, v.cargo, v.data);
     setVinculos(vinculos.filter((item) => item !== v));
   }
+
+
+  const handleCreatePessoa = async (nomePessoa: string) => {
+try{
+      const response =  await api.post('/adicionar/adicionar_pessoa.php', 
+      {"idPessoa": 10, "nome": nomePessoa},
+      {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+
+    const pessoa = {"id_pessoa": response.data.id_pessoa, "nome": nomePessoa};
+    setHistoricoPessoas([...historicoPessoas, pessoa]);
+    setPessoas([...pessoas, pessoa]);
+    setNomePessoa("");
+  }
+  catch(error){
+
+
+    console.error("Erro ao carregar dados:", error);
+    setLoading(false);
+    }    
+  }
+
+ async function criar_cargo(nome: string, orgao: number) {
+    const response = await api.post('/adicionar/adicionar_cargo.php', {
+      id_cargo: 1,
+      nome: nome,
+      ativo: 1,
+      id_orgao: orgao
+    }, {
+      headers: {
+        'Content-Type': 'application/json'
+      }
+    });
+
+
+    setCargos([])
+    
+  }
+
+
+
+  if (loading) return <div>Carregando usuários...</div>;
+
 
   return (
     <div style={{ padding: "20px", display: "flex", flexDirection: "column", gap: "16px" }}>
@@ -53,13 +171,8 @@ function TestPage() {
           onChange={(e) => setNomePessoa(e.target.value)}
         />
         <button
-          onClick={() => {
-            if (nomePessoa.trim()) {
-              setHistoricoPessoas([...historicoPessoas, nomePessoa]);
-              setPessoas([...pessoas, nomePessoa]);
-              setNomePessoa("");
-            }
-          }}
+          onClick={() => handleCreatePessoa(nomePessoa)}
+
         >
           Adicionar
         </button>
@@ -77,9 +190,9 @@ function TestPage() {
         <button
           onClick={() => {
             if (nomeOrgao.trim()) {
-              setOrgaos([...orgaos, nomeOrgao]);
-              setHistoricoOrgaos([...historicoOrgaos, nomeOrgao]);
-              setNomeOrgao("");
+              //setOrgaos([...orgaos, nomeOrgao]);
+              //setHistoricoOrgaos([...historicoOrgaos, nomeOrgao]);
+              //setNomeOrgao("");
             }
           }}
         >
@@ -102,20 +215,21 @@ function TestPage() {
         >
           <option value="">Selecione um órgão</option>
           {orgaos.map((orgao, i) => (
-            <option key={i} value={orgao}>
-              {orgao}
+            <option key={i} value={orgao.nome}>
+              {orgao.nome}
             </option>
           ))}
         </select>
         <button
           onClick={() => {
-            if (nomeCargo.trim()) {
-              setCargos([...cargos, { nome: nomeCargo, orgao: orgaoSelecionado }]);
-              setHistoricoCargos([...historicoCargos, { nome: nomeCargo, orgao: orgaoSelecionado }]);
-              setNomeCargo("");
-              setOrgaoSelecionado("");
+           // if (nomeCargo.trim()) {
+           //   setCargos([...cargos, { nome: nomeCargo, orgao: orgaoSelecionado }]);
+           //   setHistoricoCargos([...historicoCargos, { nome: nomeCargo, orgao: orgaoSelecionado }]);
+           //   setNomeCargo("");
+           //   setOrgaoSelecionado("");
             }
-          }}
+        //  }
+        }
         >
           Adicionar
         </button>
@@ -130,8 +244,8 @@ function TestPage() {
         >
           <option value="">Selecione uma pessoa</option>
           {pessoas.map((p, i) => (
-            <option key={i} value={p}>
-              {p}
+            <option key={i} value={p.nome}>
+              {p.nome}
             </option>
           ))}
         </select>
@@ -144,11 +258,11 @@ function TestPage() {
           }}
         >
           <option value="">Selecione um cargo</option>
-          {cargos.map((c, i) => (
+          {/* {cargos.map((c, i) => (
             <option key={i} value={`${c.nome} (${c.orgao})`}>
               {c.nome} ({c.orgao})
             </option>
-          ))}
+          ))} */}
         </select>
 
         <input
@@ -179,9 +293,9 @@ function TestPage() {
         <p><strong>Órgãos:</strong> {orgaos.join(", ") || "Nenhum"}</p>
         <p>
           <strong>Cargos:</strong>{" "}
-          {cargos.length
+          {/* {cargos.length
             ? cargos.map((c) => `${c.nome} (${c.orgao})`).join(", ")
-            : "Nenhum"}
+            : "Nenhum"} */}
         </p>
         
         <div>
@@ -202,9 +316,9 @@ function TestPage() {
         <p><strong>Histórico de Órgãos:</strong> {historicoOrgaos.join(", ") || "Nenhum"}</p>
         <p>
           <strong>Histórico de Cargos:</strong>{" "}
-          {historicoCargos.length
+          {/* {historicoCargos.length
             ? historicoCargos.map((c) => `${c.nome} (${c.orgao})`).join(", ")
-            : "Nenhum"}
+            : "Nenhum"} */}
         </p>
       </div>
 
@@ -223,25 +337,25 @@ function TestPage() {
             onChange={(e) => setNomePessoaRemovida(e.target.value)}
           />
           <button
-            onClick={() => {
-              if (nomePessoaRemovida.trim()) {
-                setPessoas(pessoas.filter(p => p !== nomePessoaRemovida));
-                setNomePessoaRemovida("");
-              }
-            }}
+            // onClick={() => {
+            //   if (nomePessoaRemovida.trim()) {
+            //     setPessoas(pessoas.filter(p => p !== nomePessoaRemovida));
+            //     setNomePessoaRemovida("");
+            //   }
+            // }}
           >
             Soft Remove
           </button>
 
           <button
-            onClick={() => {
-              if (nomePessoaRemovida.trim()) {
-                setPessoas(pessoas.filter(p => p !== nomePessoaRemovida));
-                setHistoricoPessoas(historicoPessoas.filter(p => p !== nomePessoaRemovida));
-                setVinculos(vinculos.filter(v => v.pessoa !== nomePessoaRemovida));
-                setNomePessoaRemovida("");
-              }
-            }}
+            // onClick={() => {
+            //   if (nomePessoaRemovida.trim()) {
+            //     setPessoas(pessoas.filter(p => p !== nomePessoaRemovida));
+            //     setHistoricoPessoas(historicoPessoas.filter(p => p !== nomePessoaRemovida));
+            //     setVinculos(vinculos.filter(v => v.pessoa !== nomePessoaRemovida));
+            //     setNomePessoaRemovida("");
+            //   }
+            // }}
           >
             Hard Remove
           </button>
@@ -260,28 +374,28 @@ function TestPage() {
             onChange={(e) => setNomeOrgaoRemovido(e.target.value)}
           />
           <button
-            onClick={() => {
-              if (nomeOrgaoRemovido.trim()) {
-                setOrgaos(orgaos.filter(o => o !== nomeOrgaoRemovido));
-                setCargos(cargos.filter(c => c.orgao !== nomeOrgaoRemovido));
-                setNomeOrgao("");
-              }
-            }}
+            // onClick={() => {
+            //   if (nomeOrgaoRemovido.trim()) {
+            //     setOrgaos(orgaos.filter(o => o !== nomeOrgaoRemovido));
+            //     setCargos(cargos.filter(c => c.orgao !== nomeOrgaoRemovido));
+            //     setNomeOrgao("");
+            //   }
+            // }}
           >
             Soft Remove
           </button>
 
           <button
-            onClick={() => {
-              if (nomeOrgaoRemovido.trim()) {
-                setOrgaos(orgaos.filter(o => o !== nomeOrgaoRemovido));
-                setCargos(cargos.filter(c => c.orgao !== nomeOrgaoRemovido));
-                setHistoricoCargos(historicoCargos.filter(c => c.orgao !== nomeOrgaoRemovido));
-                setHistoricoOrgaos(historicoOrgaos.filter(o => o !== nomeOrgaoRemovido));
-                setVinculos(vinculos.filter(v => v.cargo !== null && v.cargo.orgao !== nomeOrgaoRemovido));
-                setNomeOrgaoRemovido("");
-              }
-            }}
+            // onClick={() => {
+            //   if (nomeOrgaoRemovido.trim()) {
+            //     setOrgaos(orgaos.filter(o => o !== nomeOrgaoRemovido));
+            //     setCargos(cargos.filter(c => c.orgao !== nomeOrgaoRemovido));
+            //     setHistoricoCargos(historicoCargos.filter(c => c.orgao !== nomeOrgaoRemovido));
+            //     setHistoricoOrgaos(historicoOrgaos.filter(o => o !== nomeOrgaoRemovido));
+            //     setVinculos(vinculos.filter(v => v.cargo !== null && v.cargo.orgao !== nomeOrgaoRemovido));
+            //     setNomeOrgaoRemovido("");
+            //   }
+            // }}
           >
             Hard Remove
           </button>
@@ -305,34 +419,34 @@ function TestPage() {
           value={orgaoSelecionadoRemovido}
           onChange={(e) => setOrgaoSelecionadoRemovido(e.target.value)}
         >
-          <option value="">Selecione um órgão</option>
+          {/* <option value="">Selecione um órgão</option>
           {historicoOrgaos.map((orgao, i) => (
             <option key={i} value={orgao}>
               {orgao}
             </option>
-          ))}
+          ))} */}
         </select>
 
           <button
-            onClick={() => {
-              if (nomeCargoRemovido.trim()) {
-                setCargos(cargos.filter(c => c.nome !== nomeCargoRemovido || c.orgao !== orgaoSelecionadoRemovido));
-                setNomeCargoRemovido("");
-              }
-            }}
+            // onClick={() => {
+            //   if (nomeCargoRemovido.trim()) {
+            //     setCargos(cargos.filter(c => c.nome !== nomeCargoRemovido || c.orgao !== orgaoSelecionadoRemovido));
+            //     setNomeCargoRemovido("");
+            //   }
+            // }}
           >
             Soft Remove
           </button>
 
           <button
-            onClick={() => {
-              if (nomeCargoRemovido.trim()) {
-                setCargos(cargos.filter(c => c.nome !== nomeCargoRemovido || c.orgao !== orgaoSelecionadoRemovido));
-                setHistoricoCargos(historicoCargos.filter(c => c.nome !== nomeCargoRemovido || c.orgao !== orgaoSelecionadoRemovido));
-                setVinculos(vinculos.filter(v => v.cargo.nome !== nomeCargoRemovido || v.cargo.orgao !== orgaoSelecionadoRemovido));
-                setNomeCargoRemovido("");
-              }
-            }}
+            // onClick={() => {
+            //   if (nomeCargoRemovido.trim()) {
+            //     setCargos(cargos.filter(c => c.nome !== nomeCargoRemovido || c.orgao !== orgaoSelecionadoRemovido));
+            //     setHistoricoCargos(historicoCargos.filter(c => c.nome !== nomeCargoRemovido || c.orgao !== orgaoSelecionadoRemovido));
+            //     setVinculos(vinculos.filter(v => v.cargo.nome !== nomeCargoRemovido || v.cargo.orgao !== orgaoSelecionadoRemovido));
+            //     setNomeCargoRemovido("");
+            //   }
+            // }}
           >
             Hard Remove
           </button>
