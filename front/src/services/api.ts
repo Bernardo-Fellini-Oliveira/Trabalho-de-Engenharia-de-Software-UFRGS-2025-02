@@ -9,7 +9,7 @@ import React, { useState, useEffect, use } from 'react';
 
 const api:AxiosInstance = axios.create({
       /*baseURL: import.meta.env.VITE_API_URL*/
-      baseURL: 'https://www.inf.ufrgs.br/~ikscarvalho/eng-software' 
+      baseURL: 'http://localhost:8000/api' 
 
 })
 
