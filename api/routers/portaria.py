@@ -50,9 +50,16 @@ def adicionar_portaria(portaria: PortariaIn):
         cursor = conn.cursor()
         
         # O id_portaria é AUTOINCREMENTADO, não precisa ser incluído no INSERT.
+        print(portaria)
+        
         cursor.execute(
-            "INSERT INTO Portaria (numero, data_portaria, observacoes, ativo) VALUES (?, ?, ?, ?)",
-            (portaria.numero, portaria.data_portaria, portaria.observacoes, 1)
+            "INSERT INTO Portaria (numero, data_portaria, observacoes, ativo) VALUES (%(numero)s, %(data_portaria)s, %(observacoes)s, %(ativo)s)",
+            {
+                "numero": portaria.numero,
+                "data_portaria": portaria.data_portaria,
+                "observacoes": portaria.observacoes,
+                "ativo": 1
+            }
         )
 
         conn.commit()
@@ -80,8 +87,8 @@ def remover_portaria(id_portaria: int = Path(..., description="ID da Portaria a 
         if soft:
             # AÇÃO DE SOFT DELETE (Define ativo=0)
             cursor.execute(
-                "UPDATE Portaria SET ativo = 0 WHERE id_portaria = ? AND ativo = 1",
-                (id_portaria,)
+                "UPDATE Portaria SET ativo = 0 WHERE id_portaria = %(id_portaria)s AND ativo = 1",
+                {"id_portaria": id_portaria}
             )
 
             if cursor.rowcount == 0:
@@ -94,7 +101,7 @@ def remover_portaria(id_portaria: int = Path(..., description="ID da Portaria a 
 
         else:
             # HARD DELETE (Exclusão permanente)
-            cursor.execute("DELETE FROM Portaria WHERE id_portaria = ?", (id_portaria,))
+            cursor.execute("DELETE FROM Portaria WHERE id_portaria = %(id_portaria)s", {"id_portaria": id_portaria})
 
             if cursor.rowcount == 0:
                 conn.close()
@@ -110,5 +117,31 @@ def remover_portaria(id_portaria: int = Path(..., description="ID da Portaria a 
     except Exception as e:
         # Captura erros como violação de chave estrangeira (se houver Ocupações ligadas a esta Portaria)
         raise HTTPException(status_code=500, detail=f"Erro ao remover Portaria: {str(e)}. Verifique se há ocupações vinculadas.")
+    
+
+@router.put("/reativar/{id_portaria}")
+def reativar_portaria(id_portaria: int = Path(..., description="ID da Portaria a ser reativada")):
+        """Reativa uma portaria inativa pelo seu ID."""
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute(
+                "UPDATE Portaria SET ativo = 1 WHERE id_portaria = %(id_portaria)s AND ativo = 0",
+                {"id_portaria": id_portaria}
+            )
+            
+            if cursor.rowcount == 0:
+                conn.close()
+                raise HTTPException(status_code=404, detail=f"Portaria com ID {id_portaria} não encontrada ou já ativa.")
+            
+            conn.commit()
+            conn.close()
+            
+            return {"status": "success", "message": f"Portaria com ID {id_portaria} reativada com sucesso."}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro ao reativar Portaria: {str(e)}")
 
 

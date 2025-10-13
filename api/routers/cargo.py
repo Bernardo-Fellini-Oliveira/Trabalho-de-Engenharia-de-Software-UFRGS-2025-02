@@ -9,6 +9,7 @@ class CargoIn(BaseModel):
     nome: str
     ativo: int
     id_orgao: int
+    exclusivo: int | None = 1  # Novo campo, padrão 1 (exclusivo)
 
 @router.post("/")
 def adicionar_cargo(cargo: CargoIn):
@@ -16,8 +17,8 @@ def adicionar_cargo(cargo: CargoIn):
         conn = get_connection()
         cursor = conn.cursor()
         cursor.execute(
-            "INSERT INTO Cargo (nome, ativo, id_orgao) VALUES (?, ?, ?)",
-            (cargo.nome, 1, cargo.id_orgao)
+            "INSERT INTO Cargo (nome, ativo, id_orgao, exclusivo) VALUES (%(nome)s, %(ativo)s, %(id_orgao)s, %(exclusivo)s)",
+            {"nome": cargo.nome, "ativo": 1, "id_orgao": cargo.id_orgao, "exclusivo": cargo.exclusivo}
         )
         conn.commit()
         
@@ -40,7 +41,10 @@ def carregar_cargo():
         cursor.execute("SELECT * FROM Cargo")
         results = cursor.fetchall()
         conn.close()
-        return [{"id_cargo": r[0], "nome": r[1], "ativo": r[2], "id_orgao": r[3]} for r in results]
+
+        # Mapeia os resultados para uma lista de dicionários
+        # 4 e 5 são created_at e updated_at, que não precisamos retornar
+        return [{"id_cargo": r[0], "nome": r[1], "ativo": r[2], "id_orgao": r[3], "exclusivo": r[6]} for r in results]
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -60,8 +64,8 @@ def remover_cargo(
         if soft:
             # AÇÃO DE SOFT DELETE (Define ativo=0)
             cursor.execute(
-                "UPDATE Cargo SET ativo = 0 WHERE id_cargo = ? AND ativo = 1", 
-                (id_cargo,)
+                "UPDATE Cargo SET ativo = 0 WHERE id_cargo = %(id_cargo)s AND ativo = 1", 
+                {"id_cargo": id_cargo}
             )
             
             if cursor.rowcount == 0:
@@ -74,7 +78,7 @@ def remover_cargo(
         
         else:
             # HARD DELETE (Exclusão permanente)
-            cursor.execute("DELETE FROM Cargo WHERE id_cargo = ?", (id_cargo,))
+            cursor.execute("DELETE FROM Cargo WHERE id_cargo = %(id_cargo)s", {"id_cargo": id_cargo})
             
             if cursor.rowcount == 0:
                 conn.close()
@@ -90,3 +94,29 @@ def remover_cargo(
     except Exception as e:
         # Captura erros como violação de chave estrangeira
         raise HTTPException(status_code=500, detail=f"Erro ao remover Cargo: {str(e)}. Verifique se há ocupações vinculadas.")
+    
+
+@router.put("/reativar/{id_cargo}")
+def reativar_cargo(id_cargo: int = Path(..., description="ID do Cargo a ser reativado")):
+    """Reativa um cargo inativo pelo seu ID."""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            "UPDATE Cargo SET ativo = 1 WHERE id_cargo = %(id_cargo)s AND ativo = 0",
+            {"id_cargo": id_cargo}
+        )
+        
+        if cursor.rowcount == 0:
+            conn.close()
+            raise HTTPException(status_code=404, detail=f"Cargo com ID {id_cargo} não encontrado ou já ativo.")
+        
+        conn.commit()
+        conn.close()
+        
+        return {"status": "success", "message": f"Cargo com ID {id_cargo} reativado com sucesso."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

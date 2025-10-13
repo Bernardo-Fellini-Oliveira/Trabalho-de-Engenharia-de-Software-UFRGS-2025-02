@@ -37,8 +37,8 @@ def adicionar_pessoa(pessoa: PessoaIn):
         
         # O id_pessoa é autoincrementado, não incluímos ele na inserção
         cursor.execute(
-            "INSERT INTO Pessoa (nome, ativo) VALUES (?, ?)",
-            (pessoa.nome, 1)
+            "INSERT INTO Pessoa (nome, ativo) VALUES (%(nome)s, %(ativo)s)",
+            {"nome": pessoa.nome, "ativo": 1}
         )
         
         conn.commit()
@@ -69,8 +69,8 @@ def remover_pessoa(
         if soft:
             # AÇÃO DE SOFT DELETE (Define ativo=0)
             cursor.execute(
-                "UPDATE Pessoa SET ativo = 0 WHERE id_pessoa = ? AND ativo = 1", 
-                (id_pessoa,)
+                "UPDATE Pessoa SET ativo = 0 WHERE id_pessoa = %(id_pessoa)s AND ativo = 1",
+                {"id_pessoa": id_pessoa}
             )
             
             if cursor.rowcount == 0:
@@ -83,7 +83,7 @@ def remover_pessoa(
         
         else:
             # HARD DELETE (Exclusão permanente)
-            cursor.execute("DELETE FROM Pessoa WHERE id_pessoa = ?", (id_pessoa,))
+            cursor.execute("DELETE FROM Pessoa WHERE id_pessoa = %(id_pessoa)s", {"id_pessoa": id_pessoa})
             
             if cursor.rowcount == 0:
                 conn.close()
@@ -101,3 +101,27 @@ def remover_pessoa(
         raise HTTPException(status_code=500, detail=f"Erro ao remover Pessoa: {str(e)}. Verifique se há vínculos (Ocupações) ativos.")
 
 
+@router.put("/reativar/{id_pessoa}")
+def reativar_pessoa(id_pessoa: int = Path(..., description="ID da Pessoa a ser reativada")):
+    """Reativa uma pessoa inativa pelo seu ID."""
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        
+        cursor.execute(
+            "UPDATE Pessoa SET ativo = 1 WHERE id_pessoa = %(id_pessoa)s AND ativo = 0",
+            {"id_pessoa": id_pessoa}
+        )
+        
+        if cursor.rowcount == 0:
+            conn.close()
+            raise HTTPException(status_code=404, detail=f"Pessoa com ID {id_pessoa} não encontrada ou já ativa.")
+        
+        conn.commit()
+        conn.close()
+        
+        return {"status": "success", "message": f"Pessoa com ID {id_pessoa} reativada com sucesso."}
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao reativar Pessoa: {str(e)}")

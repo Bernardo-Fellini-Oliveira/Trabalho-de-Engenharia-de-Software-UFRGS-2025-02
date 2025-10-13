@@ -24,13 +24,14 @@ function TestPage() {
         id_cargo: number;
         nome: string;
         ativo: number; // No DB é INTEGER (0 ou 1)
+        exclusivo: number; // No DB é INTEGER (0 ou 1)
         id_orgao: number;
     }
 
     interface Portaria {
         id_portaria: number;
         numero: number; // Corrigido para number, já que no DB é INTEGER
-        data: string;
+        data_portaria: string;
         observacoes: string | null;
         ativo: number;
     }
@@ -53,16 +54,23 @@ function TestPage() {
     const [portarias, setPortarias] = useState<Portaria[]>([]);
     const [ocupacoes, setOcupacoes] = useState<Ocupacao[]>([]);
 
+    console.log(portarias);
+
     // Estados dos inputs de criação
     const [nomePessoa, setNomePessoa] = useState("");
     const [nomeOrgao, setNomeOrgao] = useState("");
     const [nomeCargo, setNomeCargo] = useState("");
+    
+    // Estados para Cargo
     const [orgaoSelecionadoId, setOrgaoSelecionadoId] = useState<number | null>(null);
+    const [exclusivoCargo, setExclusivoCargo] = useState(1); // Padrão 1 (true)
 
     // Estados dos inputs de Ocupação (Vínculo)
     const [pessoaSelecionadaId, setPessoaSelecionadaId] = useState<number | null>(null);
     const [cargoSelecionadoId, setCargoSelecionadoId] = useState<number | null>(null);
+    const [portariaSelecionadaId, setPortariaSelecionadaId] = useState<number | null>(null);
     const [dataInicio, setDataInicio] = useState("");
+    const [dataFim, setDataFim] = useState("");
     
     // Inputs para Portaria
     const [numeroPortaria, setNumeroPortaria] = useState("");
@@ -176,12 +184,14 @@ function TestPage() {
             const payload = { 
                 nome: nomeCargo, 
                 ativo: 1, 
-                id_orgao: orgaoSelecionadoId 
+                id_orgao: orgaoSelecionadoId,
+                exclusivo: exclusivoCargo? 1 : 0
             };
             const response = await api.post("/cargo/", payload);
             setFeedback(`Cargo adicionado com ID: ${response.data.id_cargo}`);
             setNomeCargo("");
             setOrgaoSelecionadoId(null);
+            setExclusivoCargo(1);
             fetchAllData();
         } catch (error: unknown) {
             let errorMessage = "Erro desconhecido ao adicionar cargo.";
@@ -234,9 +244,9 @@ function TestPage() {
             const payload = { 
                 id_pessoa: pessoaSelecionadaId,
                 id_cargo: cargoSelecionadoId,
-                id_portaria: null, 
+                id_portaria: portariaSelecionadaId, 
                 data_inicio: dataInicio.trim() || null,
-                data_fim: null,
+                data_fim: dataFim.trim() || null,
                 mandato: mandatoValue,
                 observacoes: null
             };
@@ -244,7 +254,9 @@ function TestPage() {
             setFeedback(`Ocupação adicionada com ID: ${response.data.id_ocupacao}`);
             setPessoaSelecionadaId(null);
             setCargoSelecionadoId(null);
+            setPortariaSelecionadaId(null);
             setDataInicio("");
+            setDataFim("");
             fetchAllData();
         } catch (error: unknown) {
             let errorMessage = "Erro desconhecido ao adicionar ocupação.";
@@ -258,7 +270,32 @@ function TestPage() {
 
 
     // --- Funções de API de Remoção (DELETE) ------------------------------------
-    
+
+    const handleReactivateEntity = async (entity: string, id: number) => {
+        if (!window.confirm(`Tem certeza que deseja reativar o(a) ${entity} com ID ${id}?`)) {
+            return;
+        }
+        try {
+            setFeedback(`A reativar ${entity} com ID ${id}...`);
+            const response = await api.put(`/${entity}/reativar/${id}`);
+            setFeedback(response.data.message || `${entity} reativado com sucesso.`);
+            fetchAllData();
+        } catch (error: unknown) {
+            let errorMessage = `Erro ao reativar ${entity}.`;
+            if (axios.isAxiosError(error) && error.response) {
+                errorMessage = error.response.data.detail ?
+                    (Array.isArray(error.response.data.detail) ? error.response.data.detail[0].msg : error.response.data.detail)
+                    : error.message;
+            }
+            else if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+            setFeedback(`Erro: ${errorMessage}`);
+            console.error(`Erro ao reativar ${entity}:`, error);
+        }
+    };
+
+
     const handleDeleteEntity = async (entity: string, id: number, soft: boolean = false) => {
         const type = soft ? 'Inativação (Soft Delete)' : 'Exclusão Permanente (Hard Delete)';
         
@@ -306,14 +343,39 @@ function TestPage() {
     };
 
 
+    const handleEndOcupacao = async (id_ocupacao: number) => {
+        if (!window.confirm(`Tem certeza que deseja finalizar a Ocupação com ID ${id_ocupacao}?`)) {
+            return;
+        }
+        try {
+            setFeedback(`A finalizar Ocupação com ID ${id_ocupacao}...`);
+            const response = await api.put(`/ocupacao/finalizar/${id_ocupacao}`);
+            setFeedback(response.data.message || `Ocupação finalizada com sucesso.`);
+            fetchAllData();
+        } catch (error: unknown) {
+            let errorMessage = `Erro ao finalizar Ocupação.`;
+            if (axios.isAxiosError(error) && error.response) {
+                errorMessage = error.response.data.detail ?
+                    (Array.isArray(error.response.data.detail) ? error.response.data.detail[0].msg : error.response.data.detail)
+                    : error.message;
+            }
+            else if (error instanceof Error) {
+                errorMessage = error.message;
+            }
+            setFeedback(`Erro: ${errorMessage}`);
+            console.error(`Erro ao finalizar Ocupação:`, error);
+        }
+    };
+
+
     // Função para renderizar botões de remoção (Soft/Hard)
-    const renderDeleteButtons = (entity: string, id: number, isSoftDeletable: boolean) => {
+    const renderDeleteButtons = (entity: string, id: number, isSoftDeletable: boolean, isActive: boolean) => {
         if (!isSoftDeletable) {
             // Hard Delete simples para Portaria e Ocupação
             return (
                 <button 
                     onClick={() => handleDeleteEntity(entity, id, false)}
-                    className="text-white bg-red-500 hover:bg-red-700 font-bold ml-2 text-xs p-1 rounded-md transition disabled:bg-gray-400"
+                    
                     disabled={loading}
                     title={`Excluir permanentemente ${entity} (ID: ${id})`}
                 >
@@ -324,95 +386,96 @@ function TestPage() {
 
         // Botões duplos para Pessoa, Órgão, Cargo, Portaria
         return (
-            <div className="flex space-x-1">
+            <>
                 <button 
-                    onClick={() => handleDeleteEntity(entity, id, true)}
-                    className="text-white bg-yellow-500 hover:bg-yellow-600 font-bold text-xs p-1 rounded-md transition disabled:bg-gray-400"
+                    onClick={isActive? () => handleDeleteEntity(entity, id, true) : () => handleReactivateEntity(entity, id)}
+                    
                     disabled={loading}
-                    title={`Inativar ${entity} (Soft Delete) (ID: ${id})`}
+                    title={isActive? `Inativar ${entity} (Soft Delete) (ID: ${id})` : `Reativar ${entity} (ID: ${id})`}
                 >
-                    Inativar
+                    {isActive? "Inativar" : "Reativar"}
+
                 </button>
                 <button 
                     onClick={() => handleDeleteEntity(entity, id, false)}
-                    className="text-white bg-red-500 hover:bg-red-700 font-bold text-xs p-1 rounded-md transition disabled:bg-gray-400"
+                    
                     disabled={loading}
                     title={`Excluir permanentemente ${entity} (Hard Delete) (ID: ${id})`}
                 >
                     Excluir
                 </button>
-            </div>
+            </>
         );
     };
 
     // === Render ===============================================================
     return (
-        <div className="p-5 flex flex-col gap-6 max-w-4xl mx-auto bg-gray-50 min-h-screen">
-            <h1 className="text-3xl font-bold text-center text-blue-600 mb-4">
-                Teste de Integração FastAPI/SQLite (CRUD Básico)
+        <div >
+            <h1 >
+                Teste de Integração
             </h1>
 
-            <div className={`p-3 text-center rounded-lg font-medium ${loading ? 'bg-yellow-100 text-yellow-800' : 'bg-green-100 text-green-800'}`}>
+            <div>
                 {loading ? "Aguarde..." : feedback}
             </div>
 
-            <div className="flex flex-col md:flex-row gap-8">
+            <div >
                 {/* Coluna de Adição (POST) */}
-                <div className="flex flex-col gap-6 w-full md:w-1/2 p-4 bg-white shadow-lg rounded-xl">
-                    <h2 className="text-xl font-semibold text-blue-700 border-b pb-2">Adicionar Entidades</h2>
+                <div >
+                    <h2 >Adicionar Entidades</h2>
 
                     {/* Adicionar Pessoa */}
-                    <div className="space-y-2">
-                        <h3 className="font-semibold">Pessoa</h3>
+                    <div >
+                        <h3 >Pessoa</h3>
                         <input
                             type="text"
                             placeholder="Nome da pessoa"
                             value={nomePessoa}
                             onChange={(e) => setNomePessoa(e.target.value)}
-                            className="w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            
                         />
                         <button 
                             onClick={handleCreatePessoa} 
                             disabled={loading || !nomePessoa.trim()}
-                            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md disabled:bg-gray-400 transition"
+                            
                         >
                             Adicionar Pessoa
                         </button>
                     </div>
 
                     {/* Adicionar Órgão */}
-                    <div className="space-y-2">
-                        <h3 className="font-semibold">Órgão</h3>
+                    <div >
+                        <h3 >Órgão</h3>
                         <input
                             type="text"
                             placeholder="Nome do órgão"
                             value={nomeOrgao}
                             onChange={(e) => setNomeOrgao(e.target.value)}
-                            className="w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            
                         />
                         <button
                             onClick={handleCreateOrgao}
                             disabled={loading || !nomeOrgao.trim()}
-                            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md disabled:bg-gray-400 transition"
+                            
                         >
-                            Adicionar Órgão (Ativo: 1)
+                            Adicionar Órgão
                         </button>
                     </div>
 
                     {/* Adicionar Cargo */}
-                    <div className="space-y-2">
-                        <h3 className="font-semibold">Cargo</h3>
+                    <div >
+                        <h3 >Cargo</h3>
                         <input
                             type="text"
                             placeholder="Nome do cargo"
                             value={nomeCargo}
                             onChange={(e) => setNomeCargo(e.target.value)}
-                            className="w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500 mb-2"
+                            
                         />
                         <select 
                             value={orgaoSelecionadoId || ""} 
                             onChange={(e) => setOrgaoSelecionadoId(parseInt(e.target.value))}
-                            className="w-full p-2 border rounded-md bg-white focus:ring-blue-500 focus:border-blue-500"
+                            
                         >
                             <option value="">Selecione um órgão</option>
                             {orgaos.map((orgao) => (
@@ -422,55 +485,59 @@ function TestPage() {
                                 </option>)
                             ))}
                         </select>
+
+                        <label htmlFor="exclusivoCargo">Cargo Exclusivo?</label>
+                        <input id="exclusivoCargo" type="checkbox" style={{ width: '20px', height: '20px' }} value={exclusivoCargo} checked={exclusivoCargo === 1} onChange={(e) => setExclusivoCargo(e.target.checked ? 1 : 0)} />
+
                         <button
                             onClick={handleCreateCargo}
                             disabled={loading || !nomeCargo.trim() || orgaoSelecionadoId === null}
-                            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md disabled:bg-gray-400 transition mt-2"
+                            
                         >
                             Adicionar Cargo
                         </button>
                     </div>
 
                     {/* Adicionar Portaria */}
-                    <div className="space-y-2">
-                        <h3 className="font-semibold">Portaria</h3>
+                    <div >
+                        <h3 >Portaria</h3>
                         <input
                             type="number"
                             placeholder="Número da Portaria (Ex: 100)"
                             value={numeroPortaria}
                             onChange={(e) => setNumeroPortaria(e.target.value)}
-                            className="w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            
                         />
                         <input
                             type="text"
                             placeholder="Data (AAAA-MM-DD)"
                             value={dataPortaria}
                             onChange={(e) => setDataPortaria(e.target.value)}
-                            className="w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            
                         />
                         <input
                             type="text"
                             placeholder="Observações (Opcional)"
                             value={obsPortaria}
                             onChange={(e) => setObsPortaria(e.target.value)}
-                            className="w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            
                         />
                         <button
                             onClick={handleCreatePortaria}
                             disabled={loading || !numeroPortaria.trim() || !dataPortaria.trim()}
-                            className="w-full bg-blue-500 hover:bg-blue-600 text-white font-bold py-2 px-4 rounded-md disabled:bg-gray-400 transition"
+                            
                         >
                             Adicionar Portaria
                         </button>
                     </div>
 
                     {/* Adicionar Ocupação (Vínculo) */}
-                    <div className="space-y-2 border-t pt-4">
-                        <h3 className="font-semibold">Vincular Pessoa a Cargo (Ocupação)</h3>
+                    <div >
+                        <h3 >Vincular Pessoa a Cargo (Ocupação)</h3>
                         <select 
                             value={pessoaSelecionadaId || ""} 
                             onChange={(e) => setPessoaSelecionadaId(parseInt(e.target.value))}
-                            className="w-full p-2 border rounded-md bg-white mb-2"
+                            
                         >
                             <option value="">Selecione uma pessoa</option>
                             {pessoas.map((p) => (
@@ -485,7 +552,7 @@ function TestPage() {
                         <select
                             value={cargoSelecionadoId || ""}
                             onChange={(e) => setCargoSelecionadoId(parseInt(e.target.value))}
-                            className="w-full p-2 border rounded-md bg-white mb-2"
+                            
                         >
                             <option value="">Selecione um cargo</option>
                             {cargos.map((c) => (
@@ -497,18 +564,42 @@ function TestPage() {
                             ))}
                         </select>
 
+                        <select
+                            value={portariaSelecionadaId || ""}
+                            onChange={(e) => setPortariaSelecionadaId(parseInt(e.target.value))}
+                            
+                        >
+                            <option value="">Selecione uma portaria</option>
+                            {portarias.map((p) => (
+                            
+                              p.ativo === 1 && ( 
+                                <option key={p.id_portaria} value={p.id_portaria}>
+                                    N° {p.numero} - {p.data_portaria}
+                                </option>
+                              )
+                            ))}
+                        </select>
+
                         <input
                             type="text"
                             placeholder="Data de início (AAAA-MM-DD)"
                             value={dataInicio}
                             onChange={(e) => setDataInicio(e.target.value)}
-                            className="w-full p-2 border rounded-md focus:ring-blue-500 focus:border-blue-500"
+                            
                         />
-                        
+
+                        <input
+                            type="text"
+                            placeholder="Data de fim (AAAA-MM-DD)"
+                            value={dataFim}
+                            onChange={(e) => setDataFim(e.target.value)}
+
+                        />
+
                         <button
                             onClick={handleCreateOcupacao}
                             disabled={loading || pessoaSelecionadaId === null || cargoSelecionadoId === null}
-                            className="w-full bg-green-500 hover:bg-green-600 text-white font-bold py-2 px-4 rounded-md disabled:bg-gray-400 transition mt-2"
+                            
                         >
                             Criar Ocupação (Vínculo)
                         </button>
@@ -517,34 +608,34 @@ function TestPage() {
                 </div>
 
                 {/* Coluna de Listas (GET) */}
-                <div className="flex flex-col gap-6 w-full md:w-1/2 p-4 bg-white shadow-lg rounded-xl">
-                    <h2 className="text-xl font-semibold text-green-700 border-b pb-2">Dados Carregados (GET)</h2>
+                <div >
+                    <h2 >Dados Carregados (GET)</h2>
                     
                     {/* Lista de Pessoas */}
-                    <div className="border p-3 rounded-md">
-                        <strong className="block mb-1">Pessoas ({pessoas.length}):</strong>
-                        <ul className="list-disc list-inside text-sm max-h-32 overflow-y-auto">
+                    <div>
+                        <strong >Pessoas ({pessoas.length}):</strong>
+                        <ul >
                             {pessoas.map((p) => (
                                 <li key={p.id_pessoa}>
                                   <span>
                                     [ID {p.id_pessoa}] {p.nome} ({p.ativo === 1 ? 'Ativo' : 'Inativo'})
                                   </span>
-                                    {renderDeleteButtons('pessoa', p.id_pessoa, true)}
+                                    {renderDeleteButtons('pessoa', p.id_pessoa, true, p.ativo === 1)}
                                 </li>
                             ))}
                         </ul>
                     </div>
 
                     {/* Lista de Órgãos */}
-                    <div className="border p-3 rounded-md">
-                        <strong className="block mb-1">Órgãos ({orgaos.length}):</strong>
-                        <ul className="list-disc list-inside text-sm max-h-32 overflow-y-auto">
+                    <div >
+                        <strong >Órgãos ({orgaos.length}):</strong>
+                        <ul >
                             {orgaos.map((o) => (
                                 <li key={o.id_orgao}>
                                   <span>
-                                    [ID {o.id_orgao}] {o.nome} (Ativo: {o.ativo})
+                                    [ID {o.id_orgao}] {o.nome} ({o.ativo === 1 ? 'Ativo' : 'Inativo'})
                                   </span>
-                                    {renderDeleteButtons('orgao', o.id_orgao, true)}
+                                    {renderDeleteButtons('orgao', o.id_orgao, true, o.ativo === 1)}
 
                                 </li>
                             ))}
@@ -552,15 +643,15 @@ function TestPage() {
                     </div>
 
                     {/* Lista de Cargos */}
-                    <div className="border p-3 rounded-md">
-                        <strong className="block mb-1">Cargos ({cargos.length}):</strong>
-                        <ul className="list-disc list-inside text-sm max-h-32 overflow-y-auto">
+                    <div >
+                        <strong >Cargos ({cargos.length}):</strong>
+                        <ul >
                             {cargos.map((c) => (
                                 <li key={c.id_cargo}>
                                   <span>
-                                    [ID {c.id_cargo}] {c.nome} ({getOrgaoName(c.id_orgao)}) (Ativo: {c.ativo})
+                                    [ID {c.id_cargo}] {c.nome} ({getOrgaoName(c.id_orgao)}) ({c.ativo === 1 ? "Ativo" : "Inativo"}) (Exclusivo: {c.exclusivo === 1 ? 'Sim' : 'Não'})
                                   </span>
-                                    {renderDeleteButtons('cargo', c.id_cargo, true)}
+                                    {renderDeleteButtons('cargo', c.id_cargo, true, c.ativo === 1)}
                                  
                                 </li>
                             ))}
@@ -568,36 +659,50 @@ function TestPage() {
                     </div>
 
                     {/* Lista de Portarias */}
-                    <div className="border p-3 rounded-md">
-                        <strong className="block mb-1">Portarias ({portarias.length}):</strong>
-                        <ul className="list-disc list-inside text-sm max-h-32 overflow-y-auto">
+                    <div >
+                        <strong >Portarias ({portarias.length}):</strong>
+                        <ul >
                             {portarias.map((p) => (
                                 <li key={p.id_portaria}>
                                   <span>
-                                    [ID {p.id_portaria}] N° {p.numero} - {p.data} Ativo: {p.ativo}
+                                    [ID {p.id_portaria}] N° {p.numero} - {p.data_portaria} {p.ativo === 1 ? '(Ativo)' : '(Inativo)'}
                                   </span>
-                                    {renderDeleteButtons('portaria', p.id_portaria, true)}
+                                    {renderDeleteButtons('portaria', p.id_portaria, true, p.ativo === 1)}
                                 </li>
                             ))}
                         </ul>
                     </div>
 
                     {/* Lista de Ocupações (Vínculos Persistentes) */}
-                    <div className="border p-3 rounded-md">
-                        <strong className="block mb-1">Ocupações ({ocupacoes.length}):</strong>
-                        <ul className="list-disc list-inside text-sm max-h-48 overflow-y-auto">
+                    <div >
+                        <strong >Ocupações ({ocupacoes.length}):</strong>
+                        <ul >
                             {ocupacoes.map((oc, index) => {
                                 const pessoa = pessoas.find(p => p.id_pessoa === oc.id_pessoa);
                                 const cargo = cargos.find(c => c.id_cargo === oc.id_cargo);
                                 const nomePessoa = pessoa ? pessoa.nome : 'Pessoa Não Encontrada';
                                 const nomeCargo = cargo ? cargo.nome : 'Cargo Não Encontrado';
+                                const portaria = oc.id_portaria ? portarias.find(p => p.id_portaria === oc.id_portaria) : null;
+                                const nomeOrgao = cargo ? getOrgaoName(cargo.id_orgao) : 'Órgão Desconhecido';
                                 return (
                                     <li key={oc.id_ocupacao || index}>
                                       <span>
-                                        [ID {oc.id_ocupacao}] <strong>{nomePessoa}</strong> &rarr; <strong>{nomeCargo}</strong>
-                                        (Início: {oc.data_inicio || 'N/A'})
+                                        [ID {oc.id_ocupacao}] <strong>{nomePessoa}</strong> &rarr; <strong>{nomeCargo} ({nomeOrgao})</strong>
+                                         (Início: {oc.data_inicio || 'N/A'})
+                                         (Fim: {oc.data_fim || 'N/A'})
+                                         (Portaria: {portaria ? `N° ${portaria.numero} - ${portaria.data_portaria}` : 'Nenhuma'})
                                       </span>
-                                        {renderDeleteButtons('ocupacao', oc.id_ocupacao, false)}
+                                        {renderDeleteButtons('ocupacao', oc.id_ocupacao, false, true)}
+
+                                        {!oc.data_fim &&
+                                        <button 
+                                            onClick={() => handleEndOcupacao(oc.id_ocupacao)}
+                                            disabled={loading}
+                                        >
+                                            Finalizar
+                                        </button>
+                                        }
+
                                     </li>
                                 );
                             })}

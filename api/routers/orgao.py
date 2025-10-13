@@ -17,8 +17,8 @@ def adicionar_orgao(orgao: OrgaoIn):
         
         # O id_orgao é autoincrementado, não incluímos ele na inserção
         cursor.execute(
-            "INSERT INTO Orgao (nome, ativo) VALUES (?, ?)",
-            (orgao.nome, 1)
+            "INSERT INTO Orgao (nome, ativo) VALUES (%(nome)s, %(ativo)s)",
+            {"nome": orgao.nome, "ativo": 1}
         )
         
         conn.commit()
@@ -65,8 +65,8 @@ def remover_orgao(
         if soft:
             # AÇÃO DE SOFT DELETE (Define ativo=0)
             cursor.execute(
-                "UPDATE Orgao SET ativo = 0 WHERE id_orgao = ? AND ativo = 1", 
-                (id_orgao,)
+                "UPDATE Orgao SET ativo = 0 WHERE id_orgao = %(id_orgao)s AND ativo = 1", 
+                {"id_orgao": id_orgao}
             )
             
             if cursor.rowcount == 0:
@@ -79,7 +79,7 @@ def remover_orgao(
         
         else:
             # HARD DELETE (Exclusão permanente)
-            cursor.execute("DELETE FROM Orgao WHERE id_orgao = ?", (id_orgao,))
+            cursor.execute("DELETE FROM Orgao WHERE id_orgao = %(id_orgao)s", {"id_orgao": id_orgao})
             
             if cursor.rowcount == 0:
                 conn.close()
@@ -95,3 +95,28 @@ def remover_orgao(
     except Exception as e:
         # Captura erros como violação de chave estrangeira
         raise HTTPException(status_code=500, detail=f"Erro ao remover Órgão: {str(e)}. Verifique se há cargos vinculados.")
+    
+@router.put("/reativar/{id_orgao}")
+def reativar_orgao(id_orgao: int = Path(..., description="ID do Órgão a ser reativado")):
+        """Reativa um órgão inativo pelo seu ID."""
+        try:
+            conn = get_connection()
+            cursor = conn.cursor()
+            
+            cursor.execute(
+                "UPDATE Orgao SET ativo = 1 WHERE id_orgao = %(id_orgao)s AND ativo = 0",
+                {"id_orgao": id_orgao}
+            )
+            
+            if cursor.rowcount == 0:
+                conn.close()
+                raise HTTPException(status_code=404, detail=f"Órgão com ID {id_orgao} não encontrado ou já ativo.")
+            
+            conn.commit()
+            conn.close()
+            
+            return {"status": "success", "message": f"Órgão com ID {id_orgao} reativado com sucesso."}
+        except HTTPException:
+            raise
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro ao reativar Órgão: {str(e)}")
