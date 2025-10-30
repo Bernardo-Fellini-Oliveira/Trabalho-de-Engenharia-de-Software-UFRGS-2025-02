@@ -1,0 +1,98 @@
+*
+{
+    margin: 0px;
+    padding: 0px;
+    font-family: "Open Sans", Arial, Helvetica, sans-serif;
+    color: white
+}
+
+body 
+{
+    display: grid;
+    place-items: center;
+    min-height: 100vh;
+}
+
+.conteiner
+{
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+
+    border: 2px solid #9F0000;
+    background-color: #9F0000;
+
+    border-radius: 20px;
+    padding: 2%;
+}
+
+form
+{
+    display: flex;
+    flex-direction: column;
+}
+
+.input-user
+{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    margin: 5%;
+
+    
+}
+
+input
+{
+    width: 150%;
+    color: #1E1E1E;
+    border-radius: 10px;
+    border: 2px solid white;
+    font-size: large;
+}
+
+button
+{
+    margin: 5%;
+    margin-top: 10%;
+    background-color: #1E1E1E;
+    border-radius: 10px;
+
+    padding: 5% 2%;
+    font-size: large;
+    border: 2px solid #1E1E1E;
+}
+
+button:hover
+{
+    background-color: transparent;
+    border: 2px solid #1E1E1E;
+    color: #1E1E1E;
+}
+
+.extras ul 
+{
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+
+    margin: 5%;
+    margin-top: 10%;
+    color: #1E1E1E;
+
+    list-style: none;
+}
+
+.extras ul a
+{
+    color: #1E1E1E;
+}
+
+h2
+{
+    font-size: 48px;
+    margin-bottom: 5%;
+}
