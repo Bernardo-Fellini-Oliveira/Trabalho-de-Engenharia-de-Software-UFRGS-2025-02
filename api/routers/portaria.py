@@ -1,147 +1,87 @@
-from fastapi import APIRouter, HTTPException, Path, Query
-from pydantic import BaseModel
-from database import get_connection
+from datetime import date
+from fastapi import APIRouter, HTTPException, Path, Query, Depends
+from sqlmodel import Field, SQLModel, Session, select
+from database import get_session  # função que deve retornar Session()
+from typing import Optional, List
+from models import Portaria
 
-router = APIRouter(    prefix="/api/portaria", # Define o prefixo aqui
-                       tags=["Portaria"])
-
-
-class PortariaIn(BaseModel):
-    """Modelo para adicionar uma nova Portaria."""
-    numero: int
-    data_portaria: str  # Sugestão: usar formato 'YYYY-MM-DD'
-    observacoes: str | None # Campo opcional
-    ativo: int | None = 1
+router = APIRouter(
+    prefix="/api/portaria",
+    tags=["Portaria"]
+)
 
 
-@router.get("/")
-def carregar_portaria():
+
+@router.get("/", response_model=List[Portaria])
+def carregar_portarias(session: Session = Depends(get_session)):
     """Carrega todas as portarias do banco de dados."""
     try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT id_portaria, numero, data_portaria, observacoes, ativo FROM Portaria")
-        results = cursor.fetchall()
-        
-        conn.close()
-        
-        # Mapeia os resultados para uma lista de dicionários
-
-        return [
-            {
-                "id_portaria": r[0], 
-                "numero": r[1], 
-                "data_portaria": r[2], 
-                "observacoes": r[3],
-                "ativo": r[4]
-            } 
-            for r in results
-        ]
+        portarias = session.exec(select(Portaria)).all()
+        return portarias
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao carregar Portarias: {str(e)}")
-    
 
-@router.post("/")
-def adicionar_portaria(portaria: PortariaIn):
-    """Adiciona uma nova portaria ao banco de dados e retorna o ID gerado."""
+
+@router.post("/", response_model=Portaria)
+def adicionar_portaria(portaria: Portaria, session: Session = Depends(get_session)):
+    """Adiciona uma nova portaria ao banco de dados."""
     try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        
-        # O id_portaria é AUTOINCREMENTADO, não precisa ser incluído no INSERT.
-        print(portaria)
-        
-        cursor.execute(
-            "INSERT INTO Portaria (numero, data_portaria, observacoes, ativo) VALUES (%(numero)s, %(data_portaria)s, %(observacoes)s, %(ativo)s)",
-            {
-                "numero": portaria.numero,
-                "data_portaria": portaria.data_portaria,
-                "observacoes": portaria.observacoes,
-                "ativo": 1
-            }
-        )
-
-        conn.commit()
-        id_gerado = cursor.lastrowid
-        conn.close()
-        
-        return {
-            "status": "success", 
-            "message": "Portaria adicionada com sucesso", 
-            "id_portaria": id_gerado
-        }
+        session.add(portaria)
+        session.commit()
+        session.refresh(portaria)
+        return portaria
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao adicionar Portaria: {str(e)}")
 
 
 @router.delete("/delete/{id_portaria}")
-def remover_portaria(id_portaria: int = Path(..., description="ID da Portaria a ser removida"),
-                    soft: bool = Query(False, description="Se 'true', realiza soft delete (define ativo=0). Se 'false', realiza hard delete.")):
-    
-    """Remove uma portaria (ou inativa) pelo seu ID."""
+def remover_portaria(
+    id_portaria: int = Path(..., description="ID da Portaria a ser removida"),
+    soft: bool = Query(False, description="Se 'true', realiza soft delete (define ativo=False). Se 'false', realiza hard delete."),
+    session: Session = Depends(get_session)
+):
+    """Remove (ou inativa) uma portaria pelo seu ID."""
     try:
-        conn = get_connection()
-        cursor = conn.cursor()
+        portaria = session.get(Portaria, id_portaria)
+        if not portaria:
+            raise HTTPException(status_code=404, detail=f"Portaria com ID {id_portaria} não encontrada.")
 
         if soft:
-            # AÇÃO DE SOFT DELETE (Define ativo=0)
-            cursor.execute(
-                "UPDATE Portaria SET ativo = 0 WHERE id_portaria = %(id_portaria)s AND ativo = 1",
-                {"id_portaria": id_portaria}
-            )
-
-            if cursor.rowcount == 0:
-                conn.close()
-                raise HTTPException(status_code=404, detail=f"Portaria com ID {id_portaria} não encontrada ou já inativa.")
-
-            conn.commit()
-            conn.close()
-            return {"status": "success", "message": f"Portaria com ID {id_portaria} inativada (soft delete) com sucesso."}
-
+            if not portaria.ativo:
+                raise HTTPException(status_code=404, detail=f"Portaria com ID {id_portaria} já está inativa.")
+            portaria.ativo = False
+            session.add(portaria)
         else:
-            # HARD DELETE (Exclusão permanente)
-            cursor.execute("DELETE FROM Portaria WHERE id_portaria = %(id_portaria)s", {"id_portaria": id_portaria})
+            session.delete(portaria)
 
-            if cursor.rowcount == 0:
-                conn.close()
-                raise HTTPException(status_code=404, detail=f"Portaria com ID {id_portaria} não encontrada.")
+        session.commit()
+        return {"status": "success", "message": f"Portaria com ID {id_portaria} {'inativada' if soft else 'removida'} com sucesso."}
 
-            conn.commit()
-            conn.close()
-        
-            return {"status": "success", "message": f"Portaria com ID {id_portaria} removida com sucesso."}
-        
     except HTTPException:
         raise
     except Exception as e:
-        # Captura erros como violação de chave estrangeira (se houver Ocupações ligadas a esta Portaria)
-        raise HTTPException(status_code=500, detail=f"Erro ao remover Portaria: {str(e)}. Verifique se há ocupações vinculadas.")
-    
+        raise HTTPException(status_code=500, detail=f"Erro ao remover Portaria: {str(e)}")
+
 
 @router.put("/reativar/{id_portaria}")
-def reativar_portaria(id_portaria: int = Path(..., description="ID da Portaria a ser reativada")):
-        """Reativa uma portaria inativa pelo seu ID."""
-        try:
-            conn = get_connection()
-            cursor = conn.cursor()
-            
-            cursor.execute(
-                "UPDATE Portaria SET ativo = 1 WHERE id_portaria = %(id_portaria)s AND ativo = 0",
-                {"id_portaria": id_portaria}
-            )
-            
-            if cursor.rowcount == 0:
-                conn.close()
-                raise HTTPException(status_code=404, detail=f"Portaria com ID {id_portaria} não encontrada ou já ativa.")
-            
-            conn.commit()
-            conn.close()
-            
-            return {"status": "success", "message": f"Portaria com ID {id_portaria} reativada com sucesso."}
-        except HTTPException:
-            raise
-        except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Erro ao reativar Portaria: {str(e)}")
+def reativar_portaria(
+    id_portaria: int = Path(..., description="ID da Portaria a ser reativada"),
+    session: Session = Depends(get_session)
+):
+    """Reativa uma portaria inativa pelo seu ID."""
+    try:
+        portaria = session.get(Portaria, id_portaria)
+        if not portaria:
+            raise HTTPException(status_code=404, detail=f"Portaria com ID {id_portaria} não encontrada.")
+        if portaria.ativo:
+            raise HTTPException(status_code=400, detail=f"Portaria com ID {id_portaria} já está ativa.")
 
+        portaria.ativo = True
+        session.add(portaria)
+        session.commit()
+        return {"status": "success", "message": f"Portaria com ID {id_portaria} reativada com sucesso."}
 
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao reativar Portaria: {str(e)}")

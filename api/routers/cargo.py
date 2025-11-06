@@ -1,122 +1,75 @@
-from fastapi import APIRouter, HTTPException, Path, Query
-from pydantic import BaseModel
-from database import get_connection
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from sqlmodel import Session, select
+from typing import List
+from models import Cargo
+from database import get_session
 
-router = APIRouter(    prefix="/api/cargo", # Define o prefixo aqui
-                       tags=["Cargo"])
+router = APIRouter(prefix="/api/cargo", tags=["Cargo"])
 
-class CargoIn(BaseModel):
-    nome: str
-    ativo: int
-    id_orgao: int
-    exclusivo: int | None = 1  # Novo campo, padrão 1 (exclusivo)
-
-@router.post("/")
-def adicionar_cargo(cargo: CargoIn):
+# Criar cargo
+@router.post("/", response_model=Cargo)
+def adicionar_cargo(cargo: Cargo, session: Session = Depends(get_session)):
     try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO Cargo (nome, ativo, id_orgao, exclusivo) VALUES (%(nome)s, %(ativo)s, %(id_orgao)s, %(exclusivo)s)",
-            {"nome": cargo.nome, "ativo": 1, "id_orgao": cargo.id_orgao, "exclusivo": cargo.exclusivo}
-        )
-        conn.commit()
-        
-        # Recupera o ID gerado
-        id_gerado = cursor.lastrowid 
-        
-        conn.close()
-        
-        # Retorna o ID gerado
-        return {"status": "success", "message": "Cargo adicionado com sucesso", "id_cargo": id_gerado}
+        session.add(cargo)
+        session.commit()
+        session.refresh(cargo)
+        return cargo
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Cargo: {e}")
 
-@router.get("/")
-def carregar_cargo():
+# Listar cargos
+@router.get("/", response_model=List[Cargo])
+def carregar_cargo(session: Session = Depends(get_session)):
     try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT * FROM Cargo")
-        results = cursor.fetchall()
-        conn.close()
-
-        # Mapeia os resultados para uma lista de dicionários
-        # 4 e 5 são created_at e updated_at, que não precisamos retornar
-        return [{"id_cargo": r[0], "nome": r[1], "ativo": r[2], "id_orgao": r[3], "exclusivo": r[6]} for r in results]
-    
+        return session.exec(select(Cargo)).all()
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-    
+        raise HTTPException(status_code=500, detail=f"Erro ao carregar Cargos: {e}")
 
-
+# Soft ou Hard delete
 @router.delete("/delete/{id_cargo}")
 def remover_cargo(
     id_cargo: int = Path(..., description="ID do Cargo a ser removido"),
-    soft: bool = Query(False, description="Se 'true', realiza soft delete (define ativo=0). Se 'false', realiza hard delete.")
+    soft: bool = Query(False, description="Se 'true', realiza soft delete (ativo=0)."),
+    session: Session = Depends(get_session)
 ):
-    """Remove (ou inativa) um cargo pelo seu ID."""
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        
-        if soft:
-            # AÇÃO DE SOFT DELETE (Define ativo=0)
-            cursor.execute(
-                "UPDATE Cargo SET ativo = 0 WHERE id_cargo = %(id_cargo)s AND ativo = 1", 
-                {"id_cargo": id_cargo}
+    cargo = session.get(Cargo, id_cargo)
+    if not cargo:
+        raise HTTPException(status_code=404, detail="Cargo não encontrado.")
+
+    if soft:
+        if not cargo.ativo:
+            raise HTTPException(status_code=400, detail="Cargo já está inativo.")
+        cargo.ativo = False
+    else:
+        try:
+            session.delete(cargo)
+        except Exception as e:
+            session.rollback()
+            raise HTTPException(
+                status_code=500,
+                detail=f"Erro ao remover Cargo: {e}. Verifique se há ocupações vinculadas."
             )
-            
-            if cursor.rowcount == 0:
-                conn.close()
-                raise HTTPException(status_code=404, detail=f"Cargo com ID {id_cargo} não encontrado ou já inativo.")
-            
-            conn.commit()
-            conn.close()
-            return {"status": "success", "message": f"Cargo com ID {id_cargo} inativado (soft delete) com sucesso."}
-        
-        else:
-            # HARD DELETE (Exclusão permanente)
-            cursor.execute("DELETE FROM Cargo WHERE id_cargo = %(id_cargo)s", {"id_cargo": id_cargo})
-            
-            if cursor.rowcount == 0:
-                conn.close()
-                raise HTTPException(status_code=404, detail=f"Cargo com ID {id_cargo} não encontrado")
 
-            conn.commit()
-            conn.close()
-            
-            return {"status": "success", "message": f"Cargo com ID {id_cargo} removido permanentemente (hard delete) com sucesso."}
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        # Captura erros como violação de chave estrangeira
-        raise HTTPException(status_code=500, detail=f"Erro ao remover Cargo: {str(e)}. Verifique se há ocupações vinculadas.")
-    
+    session.commit()
+    return {
+        "status": "success",
+        "message": "Cargo inativado (soft delete)." if soft else "Cargo removido permanentemente."
+    }
 
+# Reativar
 @router.put("/reativar/{id_cargo}")
-def reativar_cargo(id_cargo: int = Path(..., description="ID do Cargo a ser reativado")):
-    """Reativa um cargo inativo pelo seu ID."""
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute(
-            "UPDATE Cargo SET ativo = 1 WHERE id_cargo = %(id_cargo)s AND ativo = 0",
-            {"id_cargo": id_cargo}
-        )
-        
-        if cursor.rowcount == 0:
-            conn.close()
-            raise HTTPException(status_code=404, detail=f"Cargo com ID {id_cargo} não encontrado ou já ativo.")
-        
-        conn.commit()
-        conn.close()
-        
-        return {"status": "success", "message": f"Cargo com ID {id_cargo} reativado com sucesso."}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+def reativar_cargo(
+    id_cargo: int = Path(..., description="ID do Cargo a ser reativado"),
+    session: Session = Depends(get_session)
+):
+    cargo = session.get(Cargo, id_cargo)
+    if not cargo:
+        raise HTTPException(status_code=404, detail="Cargo não encontrado.")
+    if cargo.ativo:
+        raise HTTPException(status_code=400, detail="Cargo já está ativo.")
+
+    cargo.ativo = True
+    session.commit()
+    session.refresh(cargo)
+    return {"status": "success", "message": "Cargo reativado com sucesso."}

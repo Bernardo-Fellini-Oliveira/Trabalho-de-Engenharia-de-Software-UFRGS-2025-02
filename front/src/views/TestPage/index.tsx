@@ -11,20 +11,20 @@ function TestPage() {
     interface Pessoa {
         id_pessoa: number;
         nome: string;
-        ativo: number;
+        ativo: boolean;
     }
 
     interface Orgao {
         id_orgao: number;
         nome: string;
-        ativo: number; // No DB é INTEGER (0 ou 1)
+        ativo: boolean;
     }
 
     interface Cargo {
         id_cargo: number;
         nome: string;
-        ativo: number; // No DB é INTEGER (0 ou 1)
-        exclusivo: number; // No DB é INTEGER (0 ou 1)
+        ativo: boolean;
+        exclusivo: boolean;
         id_orgao: number;
     }
 
@@ -33,7 +33,7 @@ function TestPage() {
         numero: number; // Corrigido para number, já que no DB é INTEGER
         data_portaria: string;
         observacoes: string | null;
-        ativo: number;
+        ativo: boolean;
     }
 
     interface Ocupacao {
@@ -479,7 +479,7 @@ function TestPage() {
                         >
                             <option value="">Selecione um órgão</option>
                             {orgaos.map((orgao) => (
-                              orgao.ativo === 1 && (
+                              orgao.ativo && (
                                 <option key={orgao.id_orgao} value={orgao.id_orgao}>
                                     {orgao.nome} ({orgao.id_orgao})
                                 </option>)
@@ -541,7 +541,7 @@ function TestPage() {
                         >
                             <option value="">Selecione uma pessoa</option>
                             {pessoas.map((p) => (
-                              p.ativo === 1 && (
+                              p.ativo && (
                                 <option key={p.id_pessoa} value={p.id_pessoa}>
                                     {p.nome} (ID: {p.id_pessoa})
                                 </option>
@@ -556,7 +556,7 @@ function TestPage() {
                         >
                             <option value="">Selecione um cargo</option>
                             {cargos.map((c) => (
-                              c.ativo === 1 && ( 
+                              c.ativo && ( 
                                 <option key={c.id_cargo} value={c.id_cargo}>
                                     {c.nome} ({getOrgaoName(c.id_orgao)})
                                 </option>
@@ -572,7 +572,7 @@ function TestPage() {
                             <option value="">Selecione uma portaria</option>
                             {portarias.map((p) => (
                             
-                              p.ativo === 1 && ( 
+                              p.ativo && ( 
                                 <option key={p.id_portaria} value={p.id_portaria}>
                                     N° {p.numero} - {p.data_portaria}
                                 </option>
@@ -618,9 +618,9 @@ function TestPage() {
                             {pessoas.map((p) => (
                                 <li key={p.id_pessoa}>
                                   <span>
-                                    [ID {p.id_pessoa}] {p.nome} ({p.ativo === 1 ? 'Ativo' : 'Inativo'})
+                                    [ID {p.id_pessoa}] {p.nome} ({p.ativo ? 'Ativo' : 'Inativo'})
                                   </span>
-                                    {renderDeleteButtons('pessoa', p.id_pessoa, true, p.ativo === 1)}
+                                    {renderDeleteButtons('pessoa', p.id_pessoa, true, p.ativo)}
                                 </li>
                             ))}
                         </ul>
@@ -633,9 +633,9 @@ function TestPage() {
                             {orgaos.map((o) => (
                                 <li key={o.id_orgao}>
                                   <span>
-                                    [ID {o.id_orgao}] {o.nome} ({o.ativo === 1 ? 'Ativo' : 'Inativo'})
+                                    [ID {o.id_orgao}] {o.nome} ({o.ativo ? 'Ativo' : 'Inativo'})
                                   </span>
-                                    {renderDeleteButtons('orgao', o.id_orgao, true, o.ativo === 1)}
+                                    {renderDeleteButtons('orgao', o.id_orgao, true, o.ativo)}
 
                                 </li>
                             ))}
@@ -649,9 +649,9 @@ function TestPage() {
                             {cargos.map((c) => (
                                 <li key={c.id_cargo}>
                                   <span>
-                                    [ID {c.id_cargo}] {c.nome} ({getOrgaoName(c.id_orgao)}) ({c.ativo === 1 ? "Ativo" : "Inativo"}) (Exclusivo: {c.exclusivo === 1 ? 'Sim' : 'Não'})
+                                    [ID {c.id_cargo}] {c.nome} ({getOrgaoName(c.id_orgao)}) ({c.ativo ? "Ativo" : "Inativo"}) (Exclusivo: {c.exclusivo ? 'Sim' : 'Não'})
                                   </span>
-                                    {renderDeleteButtons('cargo', c.id_cargo, true, c.ativo === 1)}
+                                    {renderDeleteButtons('cargo', c.id_cargo, true, c.ativo)}
                                  
                                 </li>
                             ))}
@@ -665,9 +665,9 @@ function TestPage() {
                             {portarias.map((p) => (
                                 <li key={p.id_portaria}>
                                   <span>
-                                    [ID {p.id_portaria}] N° {p.numero} - {p.data_portaria} {p.ativo === 1 ? '(Ativo)' : '(Inativo)'}
+                                    [ID {p.id_portaria}] N° {p.numero} - {p.data_portaria} {p.ativo ? '(Ativo)' : '(Inativo)'}
                                   </span>
-                                    {renderDeleteButtons('portaria', p.id_portaria, true, p.ativo === 1)}
+                                    {renderDeleteButtons('portaria', p.id_portaria, true, p.ativo)}
                                 </li>
                             ))}
                         </ul>

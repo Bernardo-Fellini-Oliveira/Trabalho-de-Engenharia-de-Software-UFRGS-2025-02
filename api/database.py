@@ -1,53 +1,66 @@
-import psycopg2
-from psycopg2 import sql
+import os
 from pathlib import Path
 from dotenv import load_dotenv
-import os
+from sqlmodel import SQLModel, create_engine, Session
+from sqlalchemy import text
 
-load_dotenv()  # Carrega variáveis de ambiente do arquivo .env
+# Carrega as variáveis do .env
+load_dotenv()
 
-# Caminho para o arquivo SQL com o schema
-SCHEMA_PATH = Path("schema.sql")
+# Monta a URL de conexão com o PostgreSQL
+DATABASE_URL = (
+    f"postgresql+psycopg2://{os.getenv('PG_USER')}:{os.getenv('PG_PASSWORD')}"
+    f"@{os.getenv('PG_HOST')}:{os.getenv('PG_PORT')}/{os.getenv('PG_DBNAME')}"
+)
 
-DB_CONFIG = {
-    "dbname": os.getenv("PG_DBNAME"),
-    "user": os.getenv("PG_USER"),
-    "password": os.getenv("PG_PASSWORD"),
-    "host": os.getenv("PG_HOST"),
-    "port": os.getenv("PG_PORT"),
-}
+SCHEMA_PATH = Path(__file__).parent / "schema.sql"
+UPGRADE_PATH = Path(__file__).parent / "upgrade.sql"
 
+print(DATABASE_URL)
 
-def get_connection():
-    """Retorna uma conexão com o banco PostgreSQL."""
-    return psycopg2.connect(**DB_CONFIG)
+# Cria o engine global (sem abrir conexão ainda)
+engine = create_engine(DATABASE_URL, echo=False)
+
+def get_session():
+    """Retorna uma sessão SQLModel (para ser usada no Depends do FastAPI)."""
+    with Session(engine) as session:
+        yield session
 
 
 def init_db():
-    """Cria as tabelas se ainda não existirem."""
-    print("Inicializando o banco PostgreSQL...")
-    with get_connection() as conn:
-        with conn.cursor() as cur:
-            # Verifica se já existe alguma tabela no schema público
-            cur.execute("""
-                SELECT COUNT(*) 
-                FROM information_schema.tables 
-                WHERE table_schema = 'public';
-            """)
-            tables_count = cur.fetchone()[0]
+    print("Apagando todas as tabelas...")
 
-            if tables_count == 0:
-                with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
-                    cur.execute(f.read())
-                conn.commit()
-                print("Banco inicializado com sucesso!")
-            else:
-                print("Banco já inicializado. Nenhuma ação necessária.")
 
-            with open("upgrade.sql", "r", encoding="utf-8") as f:
-                if  f.read().strip() == "":
-                    return
-                f.seek(0)  # Volta ao início do arquivo
-                cur.execute(f.read())
+    with engine.begin() as conn:
+        # Verifica se já existe alguma tabela no schema público
+
+        tables_count = conn.scalar(text("""
+            SELECT COUNT(*) 
+            FROM information_schema.tables 
+            WHERE table_schema = 'public';
+        """))
+
+        print(tables_count)
+
+        if tables_count == 0:
+            with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
+                conn.execute(text(f.read()))
             conn.commit()
-            print("Banco atualizado com sucesso!")
+            print("Banco inicializado com sucesso!")
+        else:
+            print("Banco já inicializado. Nenhuma ação necessária.")
+
+        with open(UPGRADE_PATH, "r", encoding="utf-8") as f:
+            if  f.read().strip() == "":
+                return
+            f.seek(0)  # Volta ao início do arquivo
+            conn.execute(text(f.read()))
+        conn.commit()
+        print("Banco atualizado com sucesso!")
+
+
+
+    """Cria todas as tabelas definidas via SQLModel."""
+    print("Inicializando banco via SQLModel...")
+    SQLModel.metadata.create_all(engine)
+    print("Banco inicializado com sucesso!")

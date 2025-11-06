@@ -1,127 +1,81 @@
-import time
-from fastapi import APIRouter, HTTPException, Path, Query
-from pydantic import BaseModel
-from database import get_connection # Presume-se que 'database' e 'get_connection' existem
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from sqlmodel import Session, select
+from models import Pessoa
+from database import get_session
 
-router = APIRouter(    prefix="/api/pessoa", # Define o prefixo aqui
-                       tags=["Pessoa"])
+router = APIRouter(prefix="/api/pessoa", tags=["Pessoa"])
 
+# Listar pessoas
 @router.get("/")
-def carregar_pessoa():
-    """Carrega todas as pessoas do banco de dados."""
+def carregar_pessoa(session: Session = Depends(get_session)):
     try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute("SELECT id_pessoa, nome, ativo FROM Pessoa")
-        results = cursor.fetchall()
-        
-        conn.close()
-        
-        # Mapeia os resultados para uma lista de dicionários
-        return [{"id_pessoa": r[0], "nome": r[1], "ativo": r[2]} for r in results]
+        pessoas = session.exec(select(Pessoa)).all()
+        return pessoas
     except Exception as e:
-        # Lidar com erros de conexão ou SQL
-        raise HTTPException(status_code=500, detail=f"Erro ao carregar Pessoas: {str(e)}")
-    
+        raise HTTPException(status_code=500, detail=f"Erro ao carregar Pessoas: {e}")
 
-class PessoaIn(BaseModel):
-    nome: str
-
+# Criar pessoa
 @router.post("/")
-def adicionar_pessoa(pessoa: PessoaIn):
-    t0 = time.time()
+def adicionar_pessoa(pessoa: Pessoa, session: Session = Depends(get_session)):
     try:
-        conn = get_connection()
-        cursor = conn.cursor()
+        if not pessoa.nome.strip():
+            raise HTTPException(status_code=400, detail="O nome da pessoa não pode ser vazio.")
         
-        # O id_pessoa é autoincrementado, não incluímos ele na inserção
-        cursor.execute(
-            "INSERT INTO Pessoa (nome, ativo) VALUES (%(nome)s, %(ativo)s)",
-            {"nome": pessoa.nome, "ativo": 1}
-        )
-        
-        conn.commit()
-        
-        # >>> AQUI: Recupera o ID gerado pelo AUTOINCREMENT <<<
-        id_gerado = cursor.lastrowid
-        
-        conn.close()
-
-        print(f"Tempo para adicionar pessoa: {time.time() - t0:.4f}")
-
-        # Retorna o ID gerado
-        return {"status": "success", "message": "Pessoa adicionada com sucesso", "id_pessoa": id_gerado}
+        pessoa.ativo = True  # força ativo=1 na criação
+        session.add(pessoa)
+        session.commit()
+        session.refresh(pessoa)
+        return {
+            "status": "success",
+            "message": "Pessoa adicionada com sucesso",
+            "id_pessoa": pessoa.id_pessoa
+        }
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Pessoa: {str(e)}")
-    
+        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Pessoa: {e}")
 
+# Soft ou Hard delete
 @router.delete("/delete/{id_pessoa}")
 def remover_pessoa(
     id_pessoa: int = Path(..., description="ID da Pessoa a ser removida"),
-    soft: bool = Query(False, description="Se 'true', realiza soft delete (define ativo=0). Se 'false', realiza hard delete.")
+    soft: bool = Query(False, description="Se 'true', faz soft delete (ativo=0).")
+    , session: Session = Depends(get_session)
 ):
-    """Remove (ou inativa) uma pessoa pelo seu ID."""
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        
-        if soft:
-            # AÇÃO DE SOFT DELETE (Define ativo=0)
-            cursor.execute(
-                "UPDATE Pessoa SET ativo = 0 WHERE id_pessoa = %(id_pessoa)s AND ativo = 1",
-                {"id_pessoa": id_pessoa}
+    pessoa = session.get(Pessoa, id_pessoa)
+    if not pessoa:
+        raise HTTPException(status_code=404, detail="Pessoa não encontrada.")
+
+    if soft:
+        if not pessoa.ativo:
+            raise HTTPException(status_code=400, detail="Pessoa já está inativa.")
+        pessoa.ativo = False
+    else:
+        try:
+            session.delete(pessoa)
+        except Exception as e:
+            # caso haja vínculos (FK em Ocupação, por exemplo)
+            raise HTTPException(
+                status_code=400,
+                detail=f"Não é possível remover esta pessoa pois há vínculos (Ocupações) ativos. {e}"
             )
-            
-            if cursor.rowcount == 0:
-                conn.close()
-                raise HTTPException(status_code=404, detail=f"Pessoa com ID {id_pessoa} não encontrada ou já inativa.")
-            
-            conn.commit()
-            conn.close()
-            return {"status": "success", "message": f"Pessoa com ID {id_pessoa} inativada (soft delete) com sucesso."}
-        
-        else:
-            # HARD DELETE (Exclusão permanente)
-            cursor.execute("DELETE FROM Pessoa WHERE id_pessoa = %(id_pessoa)s", {"id_pessoa": id_pessoa})
-            
-            if cursor.rowcount == 0:
-                conn.close()
-                raise HTTPException(status_code=404, detail=f"Pessoa com ID {id_pessoa} não encontrada.")
 
-            conn.commit()
-            conn.close()
-            
-            return {"status": "success", "message": f"Pessoa com ID {id_pessoa} removida permanentemente (hard delete) com sucesso."}
-            
-    except HTTPException:
-        raise
-    except Exception as e:
-        # Captura erros como violação de chave estrangeira
-        raise HTTPException(status_code=500, detail=f"Erro ao remover Pessoa: {str(e)}. Verifique se há vínculos (Ocupações) ativos.")
+    session.commit()
+    return {
+        "status": "success",
+        "message": "Pessoa inativada (soft delete)." if soft else "Pessoa removida permanentemente."
+    }
 
-
+# Reativar pessoa
 @router.put("/reativar/{id_pessoa}")
-def reativar_pessoa(id_pessoa: int = Path(..., description="ID da Pessoa a ser reativada")):
-    """Reativa uma pessoa inativa pelo seu ID."""
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        
-        cursor.execute(
-            "UPDATE Pessoa SET ativo = 1 WHERE id_pessoa = %(id_pessoa)s AND ativo = 0",
-            {"id_pessoa": id_pessoa}
-        )
-        
-        if cursor.rowcount == 0:
-            conn.close()
-            raise HTTPException(status_code=404, detail=f"Pessoa com ID {id_pessoa} não encontrada ou já ativa.")
-        
-        conn.commit()
-        conn.close()
-        
-        return {"status": "success", "message": f"Pessoa com ID {id_pessoa} reativada com sucesso."}
-    except HTTPException:
-        raise
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao reativar Pessoa: {str(e)}")
+def reativar_pessoa(id_pessoa: int, session: Session = Depends(get_session)):
+    pessoa = session.get(Pessoa, id_pessoa)
+    if not pessoa:
+        raise HTTPException(status_code=404, detail="Pessoa não encontrada.")
+    if pessoa.ativo:
+        raise HTTPException(status_code=400, detail="Pessoa já está ativa.")
+
+    pessoa.ativo = True
+    session.commit()
+    session.refresh(pessoa)
+    return {"status": "success", "message": "Pessoa reativada com sucesso."}
