@@ -26,6 +26,7 @@ function TestPage() {
         ativo: boolean;
         exclusivo: boolean;
         id_orgao: number;
+        orgao: string;
     }
 
     interface Portaria {
@@ -95,6 +96,10 @@ function TestPage() {
                 api.get<Portaria[]>("/portaria/"),
                 api.get<Ocupacao[]>("/ocupacao/"),
             ]);
+
+            const ocupacoes_agrupadas_pessoa = await api.get("/busca/agrupada/pessoa");
+            console.log("Ocupações agrupadas por pessoa:", ocupacoes_agrupadas_pessoa.data);
+
             
             setPessoas(pessoasRes.data);
             setOrgaos(orgaosRes.data);

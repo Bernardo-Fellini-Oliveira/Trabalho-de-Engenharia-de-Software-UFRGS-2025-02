@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlmodel import Session, select
 from typing import List
-from models import Cargo
+from models import Cargo, Orgao
 from database import get_session
 
 router = APIRouter(prefix="/api/cargo", tags=["Cargo"])
@@ -18,11 +18,23 @@ def adicionar_cargo(cargo: Cargo, session: Session = Depends(get_session)):
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Erro ao adicionar Cargo: {e}")
 
-# Listar cargos
-@router.get("/", response_model=List[Cargo])
+@router.get("/", response_model=List[dict])
 def carregar_cargo(session: Session = Depends(get_session)):
     try:
-        return session.exec(select(Cargo)).all()
+        dados = session.exec(select(Cargo, Orgao.nome).join(Orgao, Cargo.id_orgao == Orgao.id_orgao)).all()
+
+        # Monta o retorno com o nome do órgão
+        return [
+            {
+                "id_cargo": cargo.id_cargo,
+                "nome": cargo.nome,
+                "orgao": nome_orgao,
+                "ativo": cargo.ativo,
+                "exclusivo": cargo.exclusivo,
+                "id_orgao": cargo.id_orgao
+            }
+            for (cargo, nome_orgao) in dados
+        ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao carregar Cargos: {e}")
 

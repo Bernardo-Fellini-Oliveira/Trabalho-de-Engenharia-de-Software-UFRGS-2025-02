@@ -28,8 +28,6 @@ def get_session():
 
 
 def init_db():
-    print("Apagando todas as tabelas...")
-
 
     with engine.begin() as conn:
         # Verifica se já existe alguma tabela no schema público

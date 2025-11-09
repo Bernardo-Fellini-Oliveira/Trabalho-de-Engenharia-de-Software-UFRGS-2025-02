@@ -18,6 +18,26 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
                     status_code=400,
                     detail="A data de início não pode ser posterior à data de fim."
                 )
+            
+
+            """
+
+            SELECT id_ocupacao, id_pessoa 
+            FROM Ocupacao JOIN Cargo ON Ocupacao.id_cargo = Cargo.id_cargo
+            WHERE Cargo.exclusivo = 1 AND Ocupacao.id_cargo = %s AND 
+            (
+                -- Conflito: Ocupação existente (data_inicio) precede o NOVO FIM
+                Ocupacao.data_inicio <= %s OR Ocupacao.data_inicio IS NULL 
+                AND 
+                -- E Ocupação existente (data_fim) sucede o NOVO INÍCIO
+                (Ocupacao.data_fim IS NULL OR Ocupacao.data_fim >= %s)
+            )
+            ,
+            # Parâmetros:
+            (ocupacao.id_cargo, data_fim_novo, ocupacao.data_inicio) 
+
+"""
+
 
         # === Regra 1: impedir ocupação de cargo exclusivo com sobreposição ===
         cargo = session.get(Cargo, ocupacao.id_cargo)
@@ -30,7 +50,7 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
                 .where(
                     and_(
                         Ocupacao.id_cargo == ocupacao.id_cargo,
-                        (Ocupacao.data_inicio <= data_fim_nova),
+                        ((Ocupacao.data_inicio <= data_fim_nova) | (Ocupacao.data_inicio == None)),
                         ((Ocupacao.data_fim == None) | (Ocupacao.data_fim >= data_inicio_nova))
                     )
                 )
@@ -50,24 +70,35 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
             select(Ocupacao.id_pessoa)
             .where(Ocupacao.id_cargo == ocupacao.id_cargo)
             .order_by(Ocupacao.data_fim.desc().nulls_last())
-            .limit(2)
         ).all()
 
-        if len(ultimas) == 2 and all(pid == ocupacao.id_pessoa for pid in ultimas):
+        if len(ultimas) >= 2 and all(pid == ocupacao.id_pessoa for pid in ultimas):
             raise HTTPException(
                 status_code=400,
                 detail="As últimas duas ocupações deste cargo já foram dessa mesma pessoa."
             )
+        
+        num_mandatos_seguidos = len(ultimas) + 1
+
+        print(num_mandatos_seguidos)
+        nova_ocupacao = Ocupacao(
+            id_pessoa=ocupacao.id_pessoa,
+            id_cargo=ocupacao.id_cargo,
+            id_portaria=ocupacao.id_portaria,
+            data_inicio=ocupacao.data_inicio,
+            data_fim=ocupacao.data_fim,
+            mandato=num_mandatos_seguidos
+        )
 
         # === Inserção da nova ocupação ===
-        session.add(ocupacao)
+        session.add(nova_ocupacao)
         session.commit()
-        session.refresh(ocupacao)
+        session.refresh(nova_ocupacao)
 
         return {
             "status": "success",
             "message": "Ocupação adicionada com sucesso",
-            "id_ocupacao": ocupacao.id_ocupacao,
+            "id_ocupacao": nova_ocupacao.id_ocupacao,
         }
 
     except HTTPException:
