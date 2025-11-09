@@ -5,3 +5,7 @@ python-dotenv
 pydantic
 sqlmodel
 sqlalchemy
+python-multipart[standard]
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt==4.0.1
