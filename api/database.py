@@ -18,6 +18,7 @@ UPGRADE_PATH = Path(__file__).parent / "upgrade.sql"
 
 print(DATABASE_URL)
 
+
 # Cria o engine global (sem abrir conexão ainda)
 engine = create_engine(DATABASE_URL, echo=False)
 
@@ -28,11 +29,9 @@ def get_session():
 
 
 def init_db():
-    print("Apagando todas as tabelas...")
-
-
-    with engine.begin() as conn:
+    
         # Verifica se já existe alguma tabela no schema público
+    with engine.begin() as conn:
 
         tables_count = conn.scalar(text("""
             SELECT COUNT(*) 
