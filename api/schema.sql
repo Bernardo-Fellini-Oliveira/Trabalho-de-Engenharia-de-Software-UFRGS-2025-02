@@ -48,6 +48,12 @@ CREATE TABLE IF NOT EXISTS Ocupacao (
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+CREATE TABLE IF NOT EXISTS Historico (
+    id SERIAL PRIMARY KEY,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    operation TEXT NOT NULL
+);
+
 
 CREATE OR REPLACE FUNCTION atualizar_timestamp()
 RETURNS TRIGGER AS $$
@@ -89,6 +95,13 @@ EXECUTE FUNCTION atualizar_timestamp();
 
 CREATE TRIGGER update_ocupacao_timestamp
 BEFORE UPDATE ON Ocupacao
+FOR EACH ROW
+EXECUTE FUNCTION atualizar_timestamp();
+
+-----------------------
+
+CREATE TRIGGER update_historico_timestamp
+BEFORE UPDATE ON Historico
 FOR EACH ROW
 EXECUTE FUNCTION atualizar_timestamp();
 

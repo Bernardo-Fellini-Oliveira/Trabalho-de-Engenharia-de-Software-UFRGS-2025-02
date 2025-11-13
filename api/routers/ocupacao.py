@@ -2,7 +2,8 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlmodel import Session, select, and_
 from typing import List, Optional
-from models import Ocupacao, Cargo
+from utils.history_log import add_to_log
+from models import Ocupacao, Cargo, Orgao, Pessoa
 from database import get_session
 
 router = APIRouter(prefix="/api/ocupacao", tags=["Ocupação"])
@@ -64,6 +65,13 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
         session.commit()
         session.refresh(ocupacao)
 
+        pessoa = session.get(Pessoa, ocupacao.id_pessoa)
+        orgao = session.get(Orgao, cargo.id_orgao)
+        add_to_log(
+            db=session,
+            operation=f"[ADD] Adicionada ocupação ID {ocupacao.id_ocupacao} para {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
+        )
+        
         return {
             "status": "success",
             "message": "Ocupação adicionada com sucesso",
@@ -98,6 +106,15 @@ def remover_ocupacao(id_ocupacao: int = Path(..., description="ID da Ocupação 
     session.delete(ocupacao)
     session.commit()
 
+    pessoa = session.get(Pessoa, ocupacao.id_pessoa)
+    cargo = session.get(Cargo, ocupacao.id_cargo)
+    orgao = session.get(Orgao, cargo.id_orgao)
+
+    add_to_log(
+        db=session,
+        operation=f"[DELETE] Removida a ocupação de ID {ocupacao.id_ocupacao} para {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
+    )
+
     return {"status": "success", "message": "Ocupação removida com sucesso."}
 
 # Finalizar ocupação
@@ -114,5 +131,14 @@ def finalizar_ocupacao(id_ocupacao: int = Path(..., description="ID da Ocupaçã
     ocupacao.data_fim = date.today()
     session.commit()
     session.refresh(ocupacao)
+
+    pessoa = session.get(Pessoa, ocupacao.id_pessoa)
+    cargo = session.get(Cargo, ocupacao.id_cargo)
+    orgao = session.get(Orgao, cargo.id_orgao)
+
+    add_to_log(
+        db=session,
+        operation=f"[END] Finalizada a ocupação de ID {ocupacao.id_ocupacao} para {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
+    )
 
     return {"status": "success", "message": "Ocupação finalizada com sucesso."}

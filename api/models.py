@@ -1,4 +1,4 @@
-from sqlmodel import SQLModel, Field
+from sqlmodel import JSON, SQLModel, Field
 from typing import Optional
 from datetime import date, datetime
 
@@ -48,3 +48,7 @@ class Portaria(SQLModel, table=True):
     observacoes: Optional[str] = None
     ativo: bool = Field(default=True)
 
+class Historico(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    created_at: datetime = Field(default_factory=datetime.now)
+    operation: str

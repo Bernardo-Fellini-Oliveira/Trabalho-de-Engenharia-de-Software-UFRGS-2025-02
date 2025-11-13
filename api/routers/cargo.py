@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlmodel import Session, select
 from typing import List
-from models import Cargo
+from utils.history_log import add_to_log
+from models import Cargo, Orgao
 from database import get_session
 
 router = APIRouter(prefix="/api/cargo", tags=["Cargo"])
@@ -13,6 +14,13 @@ def adicionar_cargo(cargo: Cargo, session: Session = Depends(get_session)):
         session.add(cargo)
         session.commit()
         session.refresh(cargo)
+
+        orgao = session.get(Orgao, cargo.id_orgao)
+
+        add_to_log(
+            db=session,
+            operation=f"[ADD] O cargo {cargo.nome}, do órgão {orgao.nome}, foi adicionado(a)",
+        )   
         return cargo
     except Exception as e:
         session.rollback()
@@ -25,6 +33,7 @@ def carregar_cargo(session: Session = Depends(get_session)):
         return session.exec(select(Cargo)).all()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao carregar Cargos: {e}")
+    
 
 # Soft ou Hard delete
 @router.delete("/delete/{id_cargo}")
@@ -34,6 +43,7 @@ def remover_cargo(
     session: Session = Depends(get_session)
 ):
     cargo = session.get(Cargo, id_cargo)
+    orgao = session.get(Orgao, cargo.id_orgao)
     if not cargo:
         raise HTTPException(status_code=404, detail="Cargo não encontrado.")
 
@@ -41,9 +51,17 @@ def remover_cargo(
         if not cargo.ativo:
             raise HTTPException(status_code=400, detail="Cargo já está inativo.")
         cargo.ativo = False
+        add_to_log(
+            db=session,
+            operation=f"[DELETE] O cargo {cargo.nome}, do órgão {orgao.nome}, foi reativado(a)",
+        )   
     else:
         try:
             session.delete(cargo)
+            add_to_log(
+                db=session,
+                operation=f"[DELETE] O cargo {cargo.nome}, do órgão {orgao.nome}, foi deletado(a)",
+            )      
         except Exception as e:
             session.rollback()
             raise HTTPException(
@@ -64,6 +82,7 @@ def reativar_cargo(
     session: Session = Depends(get_session)
 ):
     cargo = session.get(Cargo, id_cargo)
+    orgao = session.get(Orgao, cargo.id_orgao) 
     if not cargo:
         raise HTTPException(status_code=404, detail="Cargo não encontrado.")
     if cargo.ativo:
@@ -72,4 +91,8 @@ def reativar_cargo(
     cargo.ativo = True
     session.commit()
     session.refresh(cargo)
+    add_to_log(
+        db=session,
+        operation=f"[REACTIVATE] O cargo {cargo.nome}, do órgão {orgao.nome} foi reativado(a)",
+    )   
     return {"status": "success", "message": "Cargo reativado com sucesso."}

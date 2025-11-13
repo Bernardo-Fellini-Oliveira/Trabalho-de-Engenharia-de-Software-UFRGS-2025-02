@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlmodel import Session, select
 from models import Pessoa
 from database import get_session
+from utils.history_log import add_to_log
 
 router = APIRouter(prefix="/api/pessoa", tags=["Pessoa"])
 
@@ -25,6 +26,13 @@ def adicionar_pessoa(pessoa: Pessoa, session: Session = Depends(get_session)):
         session.add(pessoa)
         session.commit()
         session.refresh(pessoa)
+
+        # Adiciona entrada no log de histórico
+        add_to_log(
+            db=session,
+            operation=f"[ADD] A pessoa {pessoa.nome} foi adicionado(a)"
+        )   
+
         return {
             "status": "success",
             "message": "Pessoa adicionada com sucesso",
@@ -50,6 +58,10 @@ def remover_pessoa(
         if not pessoa.ativo:
             raise HTTPException(status_code=400, detail="Pessoa já está inativa.")
         pessoa.ativo = False
+        add_to_log(
+            db=session,
+            operation=f"[DELETE] A pessoa {pessoa.nome} foi inativado(a)"
+        )   
     else:
         try:
             session.delete(pessoa)
@@ -59,6 +71,10 @@ def remover_pessoa(
                 status_code=400,
                 detail=f"Não é possível remover esta pessoa pois há vínculos (Ocupações) ativos. {e}"
             )
+        add_to_log(
+            db=session,
+            operation=f"[DELETE] A pessoa {pessoa.nome} foi deletado(a)",
+        )   
 
     session.commit()
     return {
@@ -78,4 +94,8 @@ def reativar_pessoa(id_pessoa: int, session: Session = Depends(get_session)):
     pessoa.ativo = True
     session.commit()
     session.refresh(pessoa)
+    add_to_log(
+        db=session,
+        operation=f"[REACTIVATE] A pessoa {pessoa.nome} foi reativado(a)",
+    )
     return {"status": "success", "message": "Pessoa reativada com sucesso."}

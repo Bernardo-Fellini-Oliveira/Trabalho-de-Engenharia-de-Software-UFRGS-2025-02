@@ -1,6 +1,7 @@
 from datetime import date
 from fastapi import APIRouter, HTTPException, Path, Query, Depends
 from sqlmodel import Field, SQLModel, Session, select
+from utils.history_log import add_to_log
 from database import get_session  # função que deve retornar Session()
 from typing import Optional, List
 from models import Portaria
@@ -29,6 +30,12 @@ def adicionar_portaria(portaria: Portaria, session: Session = Depends(get_sessio
         session.add(portaria)
         session.commit()
         session.refresh(portaria)
+
+        add_to_log(
+            db=session,
+            operation=f"[ADD] Adicionada portaria de número {portaria.numero}"
+        )
+        
         return portaria
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao adicionar Portaria: {str(e)}")
@@ -51,8 +58,16 @@ def remover_portaria(
                 raise HTTPException(status_code=404, detail=f"Portaria com ID {id_portaria} já está inativa.")
             portaria.ativo = False
             session.add(portaria)
+            add_to_log(
+                db=session,
+                operation=f"[DELETE] Portaria de número {portaria.numero} foi inativada"
+            )
         else:
             session.delete(portaria)
+            add_to_log(
+                db=session,
+                operation=f"[DELETE] Portaria de número {portaria.numero} foi deletada"
+            )
 
         session.commit()
         return {"status": "success", "message": f"Portaria com ID {id_portaria} {'inativada' if soft else 'removida'} com sucesso."}
@@ -79,6 +94,10 @@ def reativar_portaria(
         portaria.ativo = True
         session.add(portaria)
         session.commit()
+        add_to_log(
+            db=session,
+            operation=f"[REACTIVATE] Portaria de número {portaria.numero} foi reativada"
+        )
         return {"status": "success", "message": f"Portaria com ID {id_portaria} reativada com sucesso."}
 
     except HTTPException:

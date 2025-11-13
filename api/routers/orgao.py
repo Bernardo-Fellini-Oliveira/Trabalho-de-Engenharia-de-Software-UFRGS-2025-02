@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlmodel import Session, select
+from utils.history_log import add_to_log
 from models import Orgao
 from database import get_session
 
@@ -12,6 +13,10 @@ def adicionar_orgao(orgao: Orgao, session: Session = Depends(get_session)):
         session.add(orgao)
         session.commit()
         session.refresh(orgao)
+        add_to_log(
+            db=session,
+            operation=f"[ADD] O Órgão {orgao.nome} foi adicionado(a)",
+        )   
         return {
             "status": "success",
             "message": "Órgão adicionado com sucesso",
@@ -44,8 +49,16 @@ def remover_orgao(
         if not orgao.ativo:
             raise HTTPException(status_code=400, detail="Órgão já está inativo.")
         orgao.ativo = False
+        add_to_log(
+            db=session,
+            operation=f"[DELETE] O Órgão {orgao.nome} foi inativado(a)",
+        )  
     else:
         session.delete(orgao)
+        add_to_log(
+            db=session,
+            operation=f"[DELETE] O Órgão {orgao.nome} foi deletado(a)",
+        )  
 
     session.commit()
     return {
@@ -65,4 +78,8 @@ def reativar_orgao(id_orgao: int, session: Session = Depends(get_session)):
     orgao.ativo = True
     session.commit()
     session.refresh(orgao)
+    add_to_log(
+        db=session,
+        operation=f"[REACTIVATE] O Órgão {orgao.nome} foi reativado(a)",
+    )  
     return {"status": "success", "message": "Órgão reativado com sucesso."}
