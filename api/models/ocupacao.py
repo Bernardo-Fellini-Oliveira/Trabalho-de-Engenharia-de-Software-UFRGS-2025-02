@@ -1,4 +1,4 @@
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, UniqueConstraint
 from typing import Optional
 from datetime import date, datetime
 
@@ -13,3 +13,7 @@ class Ocupacao(SQLModel, table=True):
     observacoes: Optional[str] = None
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("id_pessoa", "id_cargo", "id_portaria", "data_inicio", "data_fim", name="uix_ocupacao"),
+    )

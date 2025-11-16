@@ -1,22 +1,126 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from sqlmodel import Session, select
+from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import SQLModel, Session, delete, select
 from typing import List
-from models import Cargo, Orgao
+from models.ocupacao import Ocupacao
+from models.orgao import Orgao
+from models.cargo import Cargo 
+from models.pessoa import Pessoa
 from database import get_session
+
+from typing import Optional
+from datetime import datetime
+
 
 router = APIRouter(prefix="/api/cargo", tags=["Cargo"])
 
-# Criar cargo
-@router.post("/", response_model=Cargo)
-def adicionar_cargo(cargo: Cargo, session: Session = Depends(get_session)):
+
+class CargoRead(SQLModel):
+    id_cargo: int
+    nome: str
+    ativo: bool
+    id_orgao: int
+    exclusivo: bool
+    substituto_para: Optional[int]
+    substituto: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+
+class CargoCreate(SQLModel):
+    nome: str
+    ativo: bool = True
+    id_orgao: int
+    exclusivo: bool = True
+    substituto_para: Optional[int] = None
+
+@router.post("/", response_model=CargoRead)
+def adicionar_cargo(cargo: CargoCreate, session: Session = Depends(get_session)):
+
     try:
-        session.add(cargo)
+        # Criar objeto ORM novo cargo
+        novo = Cargo(**cargo.model_dump())
+
+        # ------------------------------------------
+        # 1. Se não tem substituto_para, só cria direto
+        # ------------------------------------------
+        if novo.substituto_para is None:
+            session.add(novo)
+            session.commit()
+            session.refresh(novo)
+            session.expunge(novo)  # evita flush/lazy load no retorno
+            return novo
+
+        # ------------------------------------------
+        # 2. Buscar o cargo que será substituído
+        # ------------------------------------------
+        acima = session.get(Cargo, novo.substituto_para)
+
+        if acima is None:
+            raise HTTPException(404, "Cargo 'substituto_para' não existe.")
+
+        # Deve ser do mesmo órgão
+        if acima.id_orgao != novo.id_orgao:
+            raise HTTPException(
+                400, "O substituto deve estar no mesmo órgão do cargo principal."
+            )
+
+        # ------------------------------------------
+        # 3. O cargo acima já possui substituto?
+        # ------------------------------------------
+        if acima.substituto is not None:
+            raise HTTPException(
+                400,
+                f"O cargo {acima.id_cargo} já possui um substituto definido."
+            )
+
+        # ------------------------------------------
+        # 4. Verificação de ciclo
+        # ------------------------------------------
+        atual = acima
+        while atual is not None:
+            if atual.id_cargo == novo.id_cargo:
+                raise HTTPException(
+                    400,
+                    "Ciclo detectado na cadeia de substituição."
+                )
+            atual = (
+                session.get(Cargo, atual.substituto_para)
+                if atual.substituto_para else None
+            )
+
+        # ------------------------------------------
+        # 5. Criar o novo cargo como substituto
+        # ------------------------------------------
+        session.add(novo)
+        session.flush()
+        acima.substituto = novo.id_cargo
+
+        update_stmt = (
+                    update(Cargo) 
+                    .where(Cargo.id_cargo == acima.id_cargo)
+                    .values(substituto=novo.id_cargo)
+                )
+        session.exec(update_stmt)
+
         session.commit()
-        session.refresh(cargo)
-        return cargo
+
+        return CargoRead.model_validate(novo)
+
+    except IntegrityError as e:
+        session.rollback()
+        error_code = getattr(e.orig, "pgcode", None)
+        if error_code == "23505":
+            raise HTTPException(
+                409,
+                "Já existe Cargo com esse nome para o órgão."
+            )
+        raise HTTPException(400, f"Erro de integridade: {e}")
+
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Cargo: {e}")
+        raise HTTPException(500, f"Erro ao adicionar Cargo: {e}")
+
 
 @router.get("/", response_model=List[dict])
 def carregar_cargo(session: Session = Depends(get_session)):
@@ -31,43 +135,136 @@ def carregar_cargo(session: Session = Depends(get_session)):
                 "orgao": nome_orgao,
                 "ativo": cargo.ativo,
                 "exclusivo": cargo.exclusivo,
-                "id_orgao": cargo.id_orgao
+                "id_orgao": cargo.id_orgao,
+                "substituto_para": cargo.substituto_para,
+                'substituto': cargo.substituto
             }
             for (cargo, nome_orgao) in dados
         ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao carregar Cargos: {e}")
 
-# Soft ou Hard delete
+
+
+def coletar_cadeia_abaixo(session: Session, cargo: Cargo, hard_delete: bool) -> List[Cargo]:
+    """
+    Retorna lista de cargos na cadeia *abaixo* do cargo (substitutos diretos e recursivos),
+    na ordem imediata: [sub1, sub2, ...].
+    """
+    cadeia = []
+    visitado = set()
+    atual = cargo
+
+    while atual and atual.substituto:
+        proximo_id = atual.substituto
+        if proximo_id in visitado:
+            # proteção contra ciclo (não deveria ocorrer, mas por segurança)
+            break
+        visitado.add(proximo_id)
+        proximo = session.get(Cargo, proximo_id)
+
+        # Se a operação for um hard delete, vai preparando para deleção removendo a referência do substituto para não violar FK
+        if hard_delete:
+            atual.substituto = None
+
+        if not proximo:
+            break
+        cadeia.append(proximo)
+        atual = proximo
+
+    return cadeia
+
+
+
+
 @router.delete("/delete/{id_cargo}")
 def remover_cargo(
     id_cargo: int = Path(..., description="ID do Cargo a ser removido"),
     soft: bool = Query(False, description="Se 'true', realiza soft delete (ativo=0)."),
+    force: bool = Query(False, description="Se 'true', ao fazer hard delete, também remove ocupações vinculadas."),
     session: Session = Depends(get_session)
 ):
     cargo = session.get(Cargo, id_cargo)
     if not cargo:
         raise HTTPException(status_code=404, detail="Cargo não encontrado.")
 
-    if soft:
-        if not cargo.ativo:
-            raise HTTPException(status_code=400, detail="Cargo já está inativo.")
-        cargo.ativo = False
-    else:
-        try:
-            session.delete(cargo)
-        except Exception as e:
-            session.rollback()
-            raise HTTPException(
-                status_code=500,
-                detail=f"Erro ao remover Cargo: {e}. Verifique se há ocupações vinculadas."
-            )
+    if not cargo.ativo and soft:
+        raise HTTPException(status_code=400, detail="Cargo já está inativo.")
+    
 
-    session.commit()
-    return {
-        "status": "success",
-        "message": "Cargo inativado (soft delete)." if soft else "Cargo removido permanentemente."
-    }
+    # busca o cargo acima (se houver) que aponta para este cargo
+    acima = session.exec(select(Cargo).where(Cargo.substituto == cargo.id_cargo)).first()
+
+    # coleta a cadeia abaixo (substitutos diretos/recursivos)
+    cadeia_abaixo = coletar_cadeia_abaixo(session, cargo, hard_delete=not soft)
+    session.flush()
+
+
+    # cargos afetados: o próprio + toda a cadeia abaixo
+    afetados = [cargo] + cadeia_abaixo
+
+    ids_afetados = [c.id_cargo for c in afetados]
+
+    try:
+        if soft:
+            # marca todos como inativos
+            for c in afetados:
+                if c.ativo:
+                    c.ativo = False
+
+            # ajustar ponteiro do 'acima' para não apontar para cargo removido
+            if acima:
+                acima.substituto = None
+
+            session.commit()
+            # commit automático ao sair do with
+            return {"status": "success", "message": "Soft delete aplicado na cadeia.", "ids": ids_afetados}
+
+        else:
+            # HARD DELETE:
+            # Verifica existências de ocupações (qualquer ocupação, histórica ou atual)
+            stmt = select(Ocupacao).where(Ocupacao.id_cargo.in_(ids_afetados))
+            ocup = session.exec(stmt).first()
+
+            if ocup and not force:
+                # há ocupações vinculadas e não permitimos apagar por padrão
+                raise HTTPException(
+                    status_code=400,
+                    detail=(
+                        "Existem ocupações vinculadas aos cargos afetados. "
+                        "Use ?force=true para remover ocupações e cargos (operação destrutiva)."
+                    )
+                )
+
+            # se for force, remover ocupações vinculadas primeiro
+            if ocup and force:
+                # deletar todas ocupações que referenciam qualquer cargo da cadeia
+                del_stmt = delete(Ocupacao).where(Ocupacao.id_cargo.in_(ids_afetados))
+                session.exec(del_stmt)
+
+            # atualizar ponteiro acima (se existir) para None
+            if acima:
+                acima.substituto = None
+                session.add(acima)
+                session.flush()
+
+
+            # agora remover os cargos (do final para o início por segurança)
+            # remover em ordem reversa evita FK problems (mas aqui substituto/substituto_para referenciam na mesma tabela)
+            for c in reversed(afetados):
+                session.delete(c)
+                session.flush()
+
+            session.commit()
+
+            return {"status": "success", "message": "Hard delete realizado na cadeia.", "ids": ids_afetados}
+
+    except HTTPException:
+        # repropaga erros de validação
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao remover/inativar cadeia: {e}")
 
 # Reativar
 @router.put("/reativar/{id_cargo}")
@@ -76,12 +273,27 @@ def reativar_cargo(
     session: Session = Depends(get_session)
 ):
     cargo = session.get(Cargo, id_cargo)
+
     if not cargo:
         raise HTTPException(status_code=404, detail="Cargo não encontrado.")
     if cargo.ativo:
         raise HTTPException(status_code=400, detail="Cargo já está ativo.")
+    
+    afetados = [cargo.id_cargo]
+
+    id_acima = cargo.substituto_para
+
+    while id_acima:
+        cargo_acima = session.get(Cargo, id_acima)
+        if cargo_acima.ativo == False:
+            cargo_acima.ativo = True
+            afetados.append(cargo_acima.id_cargo)
+            id_acima = cargo_acima.substituto_para
+        else: 
+            break
+
 
     cargo.ativo = True
     session.commit()
     session.refresh(cargo)
-    return {"status": "success", "message": "Cargo reativado com sucesso."}
+    return {"status": "success", "message": "Cargo reativado com sucesso.", "ids": afetados}

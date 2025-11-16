@@ -1,4 +1,4 @@
-from sqlmodel import SQLModel, Field
+from sqlmodel import SQLModel, Field, UniqueConstraint
 from typing import Optional
 from datetime import date, datetime
 
@@ -8,3 +8,7 @@ class Pessoa(SQLModel, table=True):
     ativo: bool = Field(default=True)
     created_at: datetime = Field(default_factory=datetime.utcnow)
     updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+    __table_args__ = (
+        UniqueConstraint("nome", name="uix_pessoa"),
+    )

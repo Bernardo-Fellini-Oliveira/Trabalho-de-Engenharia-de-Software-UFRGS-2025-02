@@ -3,7 +3,8 @@ CREATE TABLE IF NOT EXISTS Pessoa (
     nome TEXT NOT NULL,
     ativo BOOLEAN NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (nome)
 );
 
 CREATE TABLE IF NOT EXISTS Orgao (
@@ -11,7 +12,8 @@ CREATE TABLE IF NOT EXISTS Orgao (
     nome TEXT NOT NULL,
     ativo BOOLEAN NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (nome)
 );
 
 CREATE TABLE IF NOT EXISTS Cargo (
@@ -21,7 +23,10 @@ CREATE TABLE IF NOT EXISTS Cargo (
     id_orgao INTEGER REFERENCES Orgao (id_orgao),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    exclusivo BOOLEAN DEFAULT TRUE
+    exclusivo BOOLEAN DEFAULT TRUE,
+    substituto_para INTEGER REFERENCES Cargo (id_cargo),
+    substituto INTEGER REFERENCES Cargo (id_cargo),
+    UNIQUE (nome, id_orgao)
 
 );
 
@@ -32,7 +37,8 @@ CREATE TABLE IF NOT EXISTS Portaria (
     observacoes TEXT,
     ativo BOOLEAN NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (numero, data_portaria)
 );
 
 CREATE TABLE IF NOT EXISTS Ocupacao (
@@ -45,7 +51,8 @@ CREATE TABLE IF NOT EXISTS Ocupacao (
     mandato INTEGER NOT NULL,
     observacoes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (id_pessoa, id_cargo, data_inicio, mandato)
 );
 
 

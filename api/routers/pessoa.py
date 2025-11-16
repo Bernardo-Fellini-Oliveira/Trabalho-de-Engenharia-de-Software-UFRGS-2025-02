@@ -1,6 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
-from models import Pessoa
+from models.pessoa import Pessoa
 from database import get_session
 
 router = APIRouter(prefix="/api/pessoa", tags=["Pessoa"])
@@ -30,8 +31,20 @@ def adicionar_pessoa(pessoa: Pessoa, session: Session = Depends(get_session)):
             "message": "Pessoa adicionada com sucesso",
             "id_pessoa": pessoa.id_pessoa
         }
-    except HTTPException:
-        raise
+    
+    except IntegrityError as e:
+        session.rollback()
+        # checa se foi violação de unicidade
+        error_code = getattr(e.orig, "pgcode", None)
+        print(error_code)
+        if error_code == '23505':  # código de erro para violação de unicidade no PostgreSQL
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe Pessoa com esse nome."
+            )
+        # outros erros de integridade
+        raise HTTPException(400, f"Erro de integridade: {e}")
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao adicionar Pessoa: {e}")
 

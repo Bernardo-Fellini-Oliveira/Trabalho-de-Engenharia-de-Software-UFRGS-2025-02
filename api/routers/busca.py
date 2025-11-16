@@ -1,6 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlmodel import Session, func, select
-from models import Orgao, Cargo, Pessoa, Portaria, Ocupacao
+from models.orgao import Orgao
+from models.cargo import Cargo 
+from models.pessoa import Pessoa
+from models.ocupacao import Ocupacao
 from database import get_session
 from collections import defaultdict
 from search_grammar.parsers import parse_filtro, traduzir_parsing_result
@@ -24,7 +27,7 @@ def busca_agrupada_por_pessoa(
 
         where_clause = traduzir_parsing_result(filtro) if filtro else None
         
-        query = (select(Pessoa.nome, Cargo.nome, Orgao.nome, Ocupacao.data_inicio, Ocupacao.data_fim, Ocupacao.mandato)
+        query = (select(Pessoa.nome, Cargo.nome, Orgao.nome, Ocupacao.data_inicio, Ocupacao.data_fim, Ocupacao.mandato, Ocupacao.id_ocupacao)
                  .join(Ocupacao, Ocupacao.id_pessoa == Pessoa.id_pessoa)
                  .join(Cargo, Cargo.id_cargo == Ocupacao.id_cargo)
                  .join(Orgao, Orgao.id_orgao == Cargo.id_orgao))
@@ -50,8 +53,8 @@ def busca_agrupada_por_pessoa(
 
         agrupado = defaultdict(list)
 
-        for nome, id_cargo, id_orgao, data_inicio, data_fim, mandato in results:
-            agrupado[nome].append({"cargo": id_cargo, "orgao": id_orgao, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato})
+        for nome, id_cargo, id_orgao, data_inicio, data_fim, mandato, id_ocupacao in results:
+            agrupado[nome].append({"cargo": id_cargo, "orgao": id_orgao, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao})
 
         return [{"nome": nome, "cargos": cargos or []} for nome, cargos in agrupado.items()]
     except Exception as e:
@@ -70,7 +73,7 @@ def busca_agrupada_por_orgao(
         filtro = parse_filtro(busca, "Orgao") if busca else None
         where_clause = traduzir_parsing_result(filtro) if filtro else None
     
-        query = (select(Orgao.nome, Cargo.nome, Pessoa.nome, Ocupacao.data_inicio, Ocupacao.data_fim, Ocupacao.mandato)
+        query = (select(Orgao.nome, Cargo.nome, Pessoa.nome, Ocupacao.data_inicio, Ocupacao.data_fim, Ocupacao.mandato, Ocupacao.id_ocupacao)
                  .join(Ocupacao, Ocupacao.id_cargo == Cargo.id_cargo)
                  .join(Pessoa, Ocupacao.id_pessoa == Pessoa.id_pessoa)
                  .join(Orgao, Orgao.id_orgao == Cargo.id_orgao))
@@ -96,8 +99,8 @@ def busca_agrupada_por_orgao(
 
         agrupado = defaultdict(list)
 
-        for nome, id_cargo, id_pessoa, data_inicio, data_fim, mandato in results:
-            agrupado[nome].append({"cargo": id_cargo, "pessoa": id_pessoa, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato})
+        for nome, id_cargo, id_pessoa, data_inicio, data_fim, mandato, id_ocupacao in results:
+            agrupado[nome].append({"cargo": id_cargo, "pessoa": id_pessoa, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao})
 
         return [{"orgao": nome, "cargos": cargos or []} for nome, cargos in agrupado.items()]
     except Exception as e:
@@ -116,7 +119,7 @@ def busca_agrupada_por_cargo(
         filtro = parse_filtro(busca, "Cargo") if busca else None
         where_clause = traduzir_parsing_result(filtro) if filtro else None
 
-        query = (select(Cargo.nome, Orgao.nome, Pessoa.nome, Ocupacao.data_inicio, Ocupacao.data_fim, Ocupacao.mandato)
+        query = (select(Cargo.nome, Orgao.nome, Pessoa.nome, Ocupacao.data_inicio, Ocupacao.data_fim, Ocupacao.mandato, Ocupacao.id_ocupacao)
                  .join(Ocupacao, Ocupacao.id_cargo == Cargo.id_cargo)
                  .join(Pessoa, Ocupacao.id_pessoa == Pessoa.id_pessoa)
                  .join(Orgao, Orgao.id_orgao == Cargo.id_orgao))
@@ -142,13 +145,14 @@ def busca_agrupada_por_cargo(
 
         agrupado = defaultdict(list)
 
-        for cargo_nome, orgao_nome, pessoa_nome, data_inicio, data_fim, mandato in results:
+        for cargo_nome, orgao_nome, pessoa_nome, data_inicio, data_fim, mandato, id_ocupacao in results:
             chave = (cargo_nome, orgao_nome)
             agrupado[chave].append({
                 "pessoa": pessoa_nome,
                 "data_inicio": data_inicio,
                 "data_fim": data_fim,
-                "mandato": mandato
+                "mandato": mandato,
+                "id_ocupacao": id_ocupacao
             })
 
         return [{"cargo": cargo_nome, "orgao": orgao_nome, "ocupacoes": ocupacoes or []} for (cargo_nome, orgao_nome), ocupacoes in agrupado.items()]

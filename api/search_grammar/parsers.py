@@ -2,7 +2,9 @@ from lark import Lark
 from sqlmodel import select
 from sqlalchemy import and_, case, or_, not_
 
-from models import Cargo, Ocupacao, Orgao, Pessoa
+from models.pessoa import Pessoa
+from models.cargo import Cargo
+from models.orgao import Orgao
 from search_grammar.grammar import grammar
 from search_grammar.transformer import FiltroTransformer
 

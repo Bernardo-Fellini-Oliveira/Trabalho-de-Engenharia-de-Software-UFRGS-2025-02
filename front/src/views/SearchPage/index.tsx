@@ -15,7 +15,7 @@ function SearchPage() {
         data_inicio: string;
         data_fim?: string | null;
         mandato: number;
-            
+        id_ocupacao: number;
     }
 
     interface Cargo {
@@ -25,6 +25,8 @@ function SearchPage() {
         exclusivo: boolean;
         id_orgao: number;
         orgao: string;
+        substituto_para?: number;
+        substituto?: number;
     }
 
 
