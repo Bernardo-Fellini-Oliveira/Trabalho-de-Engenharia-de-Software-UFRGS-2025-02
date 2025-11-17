@@ -174,21 +174,22 @@ def coletar_cadeia_abaixo(session: Session, cargo: Cargo, hard_delete: bool) -> 
 
     return cadeia
 
-
-
-
-@router.delete("/delete/{id_cargo}")
 def remover_cargo(
     id_cargo: int = Path(..., description="ID do Cargo a ser removido"),
     soft: bool = Query(False, description="Se 'true', realiza soft delete (ativo=0)."),
     force: bool = Query(False, description="Se 'true', ao fazer hard delete, também remove ocupações vinculadas."),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    em_lote: bool = True
 ):
     cargo = session.get(Cargo, id_cargo)
     if not cargo:
+        if em_lote:
+            return {"status": "not_found", "message": f"Cargo não encontrado.", "ids": [id_cargo]}
         raise HTTPException(status_code=404, detail="Cargo não encontrado.")
 
     if not cargo.ativo and soft:
+        if em_lote:
+            return {"status": "already_inactive", "message": "Cargo já está inativo.", "ids": [id_cargo]}
         raise HTTPException(status_code=400, detail="Cargo já está inativo.")
     
 
@@ -205,59 +206,72 @@ def remover_cargo(
 
     ids_afetados = [c.id_cargo for c in afetados]
 
-    try:
-        if soft:
-            # marca todos como inativos
-            for c in afetados:
-                if c.ativo:
-                    c.ativo = False
 
-            # ajustar ponteiro do 'acima' para não apontar para cargo removido
-            if acima:
-                acima.substituto = None
+    if soft:
+        # marca todos como inativos
+        for c in afetados:
+            if c.ativo:
+                c.ativo = False
 
-            session.commit()
-            # commit automático ao sair do with
-            return {"status": "success", "message": "Soft delete aplicado na cadeia.", "ids": ids_afetados}
+        # ajustar ponteiro do 'acima' para não apontar para cargo removido
+        if acima:
+            acima.substituto = None
 
-        else:
-            # HARD DELETE:
-            # Verifica existências de ocupações (qualquer ocupação, histórica ou atual)
-            stmt = select(Ocupacao).where(Ocupacao.id_cargo.in_(ids_afetados))
-            ocup = session.exec(stmt).first()
+        # commit automático ao sair do with
+        return {"status": "success", "message": "Soft delete aplicado na cadeia.", "ids": ids_afetados}
 
-            if ocup and not force:
-                # há ocupações vinculadas e não permitimos apagar por padrão
-                raise HTTPException(
-                    status_code=400,
-                    detail=(
-                        "Existem ocupações vinculadas aos cargos afetados. "
-                        "Use ?force=true para remover ocupações e cargos (operação destrutiva)."
-                    )
+    else:
+        # HARD DELETE:
+        # Verifica existências de ocupações (qualquer ocupação, histórica ou atual)
+        stmt = select(Ocupacao).where(Ocupacao.id_cargo.in_(ids_afetados))
+        ocup = session.exec(stmt).first()
+
+        if ocup and not force:
+            # há ocupações vinculadas e não permitimos apagar por padrão
+            raise HTTPException(
+                status_code=400,
+                detail=(
+                    "Existem ocupações vinculadas aos cargos afetados. "
+                    "Use ?force=true para remover ocupações e cargos (operação destrutiva)."
                 )
+            )
 
-            # se for force, remover ocupações vinculadas primeiro
-            if ocup and force:
-                # deletar todas ocupações que referenciam qualquer cargo da cadeia
-                del_stmt = delete(Ocupacao).where(Ocupacao.id_cargo.in_(ids_afetados))
-                session.exec(del_stmt)
+        # se for force, remover ocupações vinculadas primeiro
+        if ocup and force:
+            # deletar todas ocupações que referenciam qualquer cargo da cadeia
+            del_stmt = delete(Ocupacao).where(Ocupacao.id_cargo.in_(ids_afetados))
+            session.exec(del_stmt)
 
-            # atualizar ponteiro acima (se existir) para None
-            if acima:
-                acima.substituto = None
-                session.add(acima)
-                session.flush()
+        # atualizar ponteiro acima (se existir) para None
+        if acima:
+            acima.substituto = None
+            session.add(acima)
+            session.flush()
 
 
-            # agora remover os cargos (do final para o início por segurança)
-            # remover em ordem reversa evita FK problems (mas aqui substituto/substituto_para referenciam na mesma tabela)
-            for c in reversed(afetados):
-                session.delete(c)
-                session.flush()
+        # agora remover os cargos (do final para o início por segurança)
+        # remover em ordem reversa evita FK problems (mas aqui substituto/substituto_para referenciam na mesma tabela)
+        for c in reversed(afetados):
+            session.delete(c)
+            session.flush()
 
-            session.commit()
+        return {"status": "success", "message": "Hard delete realizado na cadeia.", "ids": ids_afetados}
 
-            return {"status": "success", "message": "Hard delete realizado na cadeia.", "ids": ids_afetados}
+
+
+@router.delete("/delete/{id_cargo}")
+def remover_cargo_and_commit(
+    id_cargo: int = Path(..., description="ID do Cargo a ser removido"),
+    soft: bool = Query(False, description="Se 'true', realiza soft delete (ativo=0)."),
+    force: bool = Query(False, description="Se 'true', ao fazer hard delete, também remove ocupações vinculadas."),
+    session: Session = Depends(get_session)
+):
+
+    try:
+        resultado = remover_cargo(id_cargo=id_cargo, soft=soft, force=force, session=session, em_lote=False)
+        session.commit()
+
+        return resultado
 
     except HTTPException:
         # repropaga erros de validação
@@ -266,17 +280,42 @@ def remover_cargo(
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Erro ao remover/inativar cadeia: {e}")
 
-# Reativar
-@router.put("/reativar/{id_cargo}")
+@router.delete("/delete/lista/")
+def remover_cargos_em_lote(
+    ids_cargo: List[int] = Query(..., description="Lista de IDs de Cargos a serem removidos"),
+    soft: bool = Query(False, description="Se 'true', realiza soft delete (ativo=0)."),
+    force: bool = Query(False, description="Se 'true', ao fazer hard delete, também remove ocupações vinculadas."),
+    session: Session = Depends(get_session)
+):
+    resultados = []
+    try:
+        for id_cargo in ids_cargo:
+            resultado = remover_cargo(id_cargo=id_cargo, soft=soft, force=force, session=session, em_lote=True)
+            resultados.append(resultado)
+
+        session.commit()
+        return resultados
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao processar remoção/inativação em lote: {e}")
+    
+
+
 def reativar_cargo(
     id_cargo: int = Path(..., description="ID do Cargo a ser reativado"),
-    session: Session = Depends(get_session)
+    session: Session = Depends(get_session),
+    em_lote: bool = True
 ):
     cargo = session.get(Cargo, id_cargo)
 
     if not cargo:
+        if em_lote:
+            return {"status": "not_found", "message": f"Cargo não encontrado.", "ids": [id_cargo]}
         raise HTTPException(status_code=404, detail="Cargo não encontrado.")
     if cargo.ativo:
+        if em_lote:
+            return {"status": "already_active", "message": "Cargo já está ativo.", "ids": [id_cargo]}
         raise HTTPException(status_code=400, detail="Cargo já está ativo.")
     
     afetados = [cargo.id_cargo]
@@ -294,6 +333,35 @@ def reativar_cargo(
 
 
     cargo.ativo = True
-    session.commit()
-    session.refresh(cargo)
     return {"status": "success", "message": "Cargo reativado com sucesso.", "ids": afetados}
+ 
+
+
+# Reativar
+@router.put("/reativar/{id_cargo}")
+def reativar_cargo_and_commit(
+    id_cargo: int = Path(..., description="ID do Cargo a ser reativado"),
+    session: Session = Depends(get_session)
+):
+
+    resultado = reativar_cargo(id_cargo=id_cargo, session=session, em_lote=False)
+    session.commit()
+    return resultado
+
+@router.put("/reativar/lista/")
+def reativar_cargos_em_lote(
+    ids_cargo: List[int] = Query(..., description="Lista de IDs de Cargos a serem reativados"),
+    session: Session = Depends(get_session)
+):
+    resultados = []
+    try:
+        for id_cargo in ids_cargo:
+            resultado = reativar_cargo(id_cargo=id_cargo, session=session, em_lote=True)
+            resultados.append(resultado)
+
+        session.commit()
+        return resultados
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao processar reativação em lote: {e}")

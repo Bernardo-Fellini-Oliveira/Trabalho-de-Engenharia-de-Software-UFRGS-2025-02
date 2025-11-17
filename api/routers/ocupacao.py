@@ -21,26 +21,6 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
                     detail="A data de início não pode ser posterior à data de fim."
                 )
             
-
-            """
-
-            SELECT id_ocupacao, id_pessoa 
-            FROM Ocupacao JOIN Cargo ON Ocupacao.id_cargo = Cargo.id_cargo
-            WHERE Cargo.exclusivo = 1 AND Ocupacao.id_cargo = %s AND 
-            (
-                -- Conflito: Ocupação existente (data_inicio) precede o NOVO FIM
-                Ocupacao.data_inicio <= %s OR Ocupacao.data_inicio IS NULL 
-                AND 
-                -- E Ocupação existente (data_fim) sucede o NOVO INÍCIO
-                (Ocupacao.data_fim IS NULL OR Ocupacao.data_fim >= %s)
-            )
-            ,
-            # Parâmetros:
-            (ocupacao.id_cargo, data_fim_novo, ocupacao.data_inicio) 
-
-"""
-
-
         # === Regra 1: impedir ocupação de cargo exclusivo com sobreposição ===
         cargo = session.get(Cargo, ocupacao.id_cargo)
         if cargo and cargo.exclusivo:
@@ -91,6 +71,53 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
             data_fim=ocupacao.data_fim,
             mandato=num_mandatos_seguidos
         )
+
+        # Regra 3: Se o cargo é substituto de outro, deve existir uma ocupação com o cargo principal com período de início anterior ou igual ao 
+        # início da nova ocupação (ou nulo) e período de fim posterior ou igual ao início da nova ocupação (ou nulo)
+        if cargo and cargo.substituto_para is not None:
+            
+            if nova_ocupacao.data_inicio is None:
+                raise HTTPException(
+                    400,
+                    "Para cargos substitutos, é obrigatório informar a data de início."
+                )
+
+            data_ref = nova_ocupacao.data_inicio
+
+            # Cargo principal
+            cargo_principal = session.get(Cargo, cargo.substituto_para)
+            if not cargo_principal:
+                raise HTTPException(
+                    500,
+                    f"Cargo principal {cargo.substituto_para} não existe."
+                )
+
+            ocupacao_principal = session.exec(
+                select(Ocupacao)
+                .where(Ocupacao.id_cargo == cargo_principal.id_cargo)
+                .where(
+                    or_(
+                        Ocupacao.data_inicio <= data_ref,
+                        Ocupacao.data_inicio == None
+                    )
+                )
+                .where(
+                    or_(
+                        Ocupacao.data_fim == None,
+                        Ocupacao.data_fim >= data_ref
+                    )
+                )
+            ).first()
+
+            if not ocupacao_principal:
+                raise HTTPException(
+                    400,
+                    (
+                        f"Não é possível criar ocupação para o cargo substituto {cargo.id_cargo}: "
+                        f"não existe ocupação vigente para o cargo principal {cargo_principal.id_cargo} "
+                        f"na data {data_ref}."
+                    )
+                )
 
         # === Inserção da nova ocupação ===
         session.add(nova_ocupacao)
@@ -293,10 +320,6 @@ def finalizar_ocupacao(
     novos_ids = []
 
     for i in range(1, len(ocupacoes)):
-        print("===========================")
-        print(len(ocupacoes))
-        print(i)
-        print("===========================")
 
         acima = ocupacoes[i - 1]
         atual = ocupacoes[i]
