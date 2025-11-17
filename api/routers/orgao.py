@@ -6,6 +6,7 @@ from database import get_session
 
 router = APIRouter(prefix="/api/orgao", tags=["Órgão"])
 
+
 # Criar órgão
 @router.post("/")
 def adicionar_orgao(orgao: Orgao, session: Session = Depends(get_session)):
@@ -35,6 +36,7 @@ def adicionar_orgao(orgao: Orgao, session: Session = Depends(get_session)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao adicionar Órgão: {e}")
 
+    
 # Listar órgãos
 @router.get("/")
 def carregar_orgao(session: Session = Depends(get_session)):
@@ -44,12 +46,11 @@ def carregar_orgao(session: Session = Depends(get_session)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao carregar Órgãos: {e}")
 
-# Soft ou Hard delete
-@router.delete("/delete/{id_orgao}")
+
 def remover_orgao(
-    id_orgao: int = Path(..., description="ID do Órgão a ser removido"),
-    soft: bool = Query(False, description="Se 'true', faz soft delete (ativo=0).")
-    , session: Session = Depends(get_session)
+    id_orgao: int,
+    soft: bool,
+    session: Session
 ):
     orgao = session.get(Orgao, id_orgao)
     if not orgao:
@@ -62,15 +63,57 @@ def remover_orgao(
     else:
         session.delete(orgao)
 
-    session.commit()
     return {
         "status": "success",
         "message": "Órgão inativado (soft delete)." if soft else "Órgão removido permanentemente."
     }
 
-# Reativar
-@router.put("/reativar/{id_orgao}")
-def reativar_orgao(id_orgao: int, session: Session = Depends(get_session)):
+
+# Soft ou Hard delete
+@router.delete("/delete/{id_orgao}")
+def remover_orgao_endpoint(
+    id_orgao: int = Path(..., description="ID do Órgão a ser removido"),
+    soft: bool = Query(False, description="Se 'true', faz soft delete (ativo=0).")
+    , session: Session = Depends(get_session)
+):
+    try:
+        resultado = remover_orgao(id_orgao=id_orgao, soft=soft, session=session)
+        session.commit()
+        return resultado
+    
+    except HTTPException as he:
+        raise he
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao remover Órgão: {e}")
+
+
+@router.delete("/delete/lote/")
+def remover_orgao_lote_endpoint(
+    ids_orgaos: list[int] = Query(..., description="IDs dos Órgãos a serem removidos"),
+    soft: bool = Query(False, description="Se 'true', faz soft delete (ativo=0)."),
+    session: Session = Depends(get_session)
+):
+    resultados = []
+    try:
+        for id_orgao in ids_orgaos:
+            try:
+                resultado = remover_orgao(id_orgao=id_orgao, soft=soft, session=session)
+                resultados.append({"id_orgao": id_orgao, "result": resultado})
+            except HTTPException as he:
+                resultados.append({"id_orgao": id_orgao, "error": he.detail})
+        
+        session.commit()
+        return {"results": resultados}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao remover Órgãos em lote: {e}")
+    
+
+
+def reativar_orgao(
+    id_orgao: int,
+    session: Session
+):
     orgao = session.get(Orgao, id_orgao)
     if not orgao:
         raise HTTPException(status_code=404, detail="Órgão não encontrado.")
@@ -78,6 +121,42 @@ def reativar_orgao(id_orgao: int, session: Session = Depends(get_session)):
         raise HTTPException(status_code=400, detail="Órgão já está ativo.")
 
     orgao.ativo = True
-    session.commit()
-    session.refresh(orgao)
-    return {"status": "success", "message": "Órgão reativado com sucesso."}
+    session.add(orgao)
+    return {
+        "status": "success",
+        "message": "Órgão reativado com sucesso."
+    }
+
+
+
+# Reativar
+@router.put("/reativar/{id_orgao}")
+def reativar_orgao(id_orgao: int, session: Session = Depends(get_session)):
+
+    try:
+        retorno = reativar_orgao(id_orgao, session)
+        session.commit()
+        return retorno
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao reativar Órgão: {e}")
+    
+@router.put("/reativar/lote/")
+def reativar_orgaos_em_lote(
+    ids_orgaos: list[int] = Query(..., description="IDs dos Órgãos a serem reativados"),
+    session: Session = Depends(get_session)
+):
+    resultados = []
+    try:
+        for id_orgao in ids_orgaos:
+            try:
+                resultado = reativar_orgao(id_orgao, session)
+                resultados.append({"id_orgao": id_orgao, "result": resultado})
+            except HTTPException as he:
+                resultados.append({"id_orgao": id_orgao, "error": he.detail})
+        
+        session.commit()
+        return {"results": resultados}
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao reativar Órgãos em lote: {e}")
+
