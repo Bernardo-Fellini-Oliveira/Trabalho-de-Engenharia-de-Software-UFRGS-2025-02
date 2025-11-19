@@ -20,7 +20,8 @@ print(DATABASE_URL)
 
 
 # Cria o engine global (sem abrir conexão ainda)
-engine = create_engine(DATABASE_URL, echo=False)
+engine = create_engine(DATABASE_URL, echo=True)
+
 
 def get_session():
     """Retorna uma sessão SQLModel (para ser usada no Depends do FastAPI)."""
@@ -45,7 +46,8 @@ def init_db():
             with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
                 conn.execute(text(f.read()))
             conn.commit()
-            print("Banco inicializado com sucesso!")
+            print("Banco inicializado com sucesso!")        
+
         else:
             print("Banco já inicializado. Nenhuma ação necessária.")
 

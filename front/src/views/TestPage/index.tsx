@@ -26,6 +26,7 @@ function TestPage() {
         ativo: boolean;
         exclusivo: boolean;
         id_orgao: number;
+        orgao: string;
     }
 
     interface Portaria {
@@ -95,6 +96,8 @@ function TestPage() {
                 api.get<Portaria[]>("/portaria/"),
                 api.get<Ocupacao[]>("/ocupacao/"),
             ]);
+
+
             
             setPessoas(pessoasRes.data);
             setOrgaos(orgaosRes.data);
@@ -185,7 +188,8 @@ function TestPage() {
                 nome: nomeCargo, 
                 ativo: 1, 
                 id_orgao: orgaoSelecionadoId,
-                exclusivo: exclusivoCargo? 1 : 0
+                exclusivo: exclusivoCargo? 1 : 0,
+                substituto_para: null,
             };
             const response = await api.post("/cargo/", payload);
             setFeedback(`Cargo adicionado com ID: ${response.data.id_cargo}`);

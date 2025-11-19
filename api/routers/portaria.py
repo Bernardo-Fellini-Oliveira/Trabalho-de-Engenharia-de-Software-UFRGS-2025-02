@@ -1,9 +1,10 @@
 from datetime import date
 from fastapi import APIRouter, HTTPException, Path, Query, Depends
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Field, SQLModel, Session, select
 from database import get_session  # função que deve retornar Session()
 from typing import Optional, List
-from models import Portaria
+from models.portaria import Portaria
 
 router = APIRouter(
     prefix="/api/portaria",
@@ -30,6 +31,19 @@ def adicionar_portaria(portaria: Portaria, session: Session = Depends(get_sessio
         session.commit()
         session.refresh(portaria)
         return portaria
+    
+    except IntegrityError as e:
+        session.rollback()
+        # checa se foi violação de unicidade
+        error_code = getattr(e.orig, "pgcode", None)
+
+        if error_code == '23505':  # código de erro para violação de unicidade no PostgreSQL
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe Portaria com esses dados."
+            )
+        # outros erros de integridade
+        raise HTTPException(400, f"Erro de integridade: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao adicionar Portaria: {str(e)}")
 
