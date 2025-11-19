@@ -34,7 +34,6 @@ CREATE TABLE IF NOT EXISTS Cargo (
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     exclusivo BOOLEAN DEFAULT TRUE,
-    exclusivo BOOLEAN DEFAULT TRUE,
     substituto_para INTEGER REFERENCES Cargo (id_cargo),
     substituto INTEGER REFERENCES Cargo (id_cargo),
     UNIQUE (nome, id_orgao)

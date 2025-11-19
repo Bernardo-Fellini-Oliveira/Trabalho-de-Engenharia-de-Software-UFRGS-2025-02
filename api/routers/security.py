@@ -6,7 +6,7 @@ from datetime import datetime, timedelta, timezone
 from fastapi import Depends, HTTPException, status, APIRouter
 import os
 from sqlmodel import Session, select
-from models import UserTable, UserCreate as User # (Seu modelo de tabela, ex: UserTable)
+from models.user import UserTable, UserCreate as User # (Seu modelo de tabela, ex: UserTable)
 from database import get_session
 
 
