@@ -54,13 +54,13 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
             .order_by(Ocupacao.data_fim.desc().nulls_last())
         ).all()
 
-        if len(ultimas) >= 2 and all(pid == ocupacao.id_pessoa for pid in ultimas):
+        if len(ultimas) >= 2 and all(pid == ocupacao.id_pessoa for pid in ultimas) and cargo and cargo.exclusivo:
             raise HTTPException(
                 status_code=400,
                 detail="As últimas duas ocupações deste cargo já foram dessa mesma pessoa."
             )
         
-        num_mandatos_seguidos = len(ultimas) + 1
+        num_mandatos_seguidos =  (len(ultimas) + 1) if (cargo and cargo.exclusivo) else 1
 
         print(num_mandatos_seguidos)
         nova_ocupacao = Ocupacao(

@@ -14,150 +14,151 @@ router = APIRouter(
 )
 
 
+QUERY_BASE = {
+    "pessoa": lambda: (
+        select(
+            Pessoa.nome, Cargo.nome, Orgao.nome,
+            Ocupacao.data_inicio, Ocupacao.data_fim,
+            Ocupacao.mandato, Ocupacao.id_ocupacao
+        )
+        .select_from(Pessoa)
+        .join(Ocupacao, Ocupacao.id_pessoa == Pessoa.id_pessoa, isouter=True)
+        .join(Cargo, Cargo.id_cargo == Ocupacao.id_cargo, isouter=True)
+        .join(Orgao, Orgao.id_orgao == Cargo.id_orgao, isouter=True)
+    ),
+
+    "orgao": lambda: (
+        select(
+            Pessoa.nome, Cargo.nome, Orgao.nome,
+            Ocupacao.data_inicio, Ocupacao.data_fim,
+            Ocupacao.mandato, Ocupacao.id_ocupacao
+        )
+        .select_from(Orgao)
+        .join(Cargo, Cargo.id_orgao == Orgao.id_orgao, isouter=True)
+        .join(Ocupacao, Ocupacao.id_cargo == Cargo.id_cargo, isouter=True)
+        .join(Pessoa, Pessoa.id_pessoa == Ocupacao.id_pessoa, isouter=True)
+    ),
+
+    "cargo": lambda: (
+        select(
+            Pessoa.nome, Cargo.nome, Orgao.nome,
+            Ocupacao.data_inicio, Ocupacao.data_fim,
+            Ocupacao.mandato, Ocupacao.id_ocupacao
+        )
+        .select_from(Cargo)
+        .join(Orgao, Orgao.id_orgao == Cargo.id_orgao, isouter=True)
+        .join(Ocupacao, Ocupacao.id_cargo == Cargo.id_cargo, isouter=True)
+        .join(Pessoa, Pessoa.id_pessoa == Ocupacao.id_pessoa, isouter=True)
+    ),
+
+    "flat": lambda: (
+        select(
+            Pessoa.nome, Cargo.id_cargo, Orgao.id_orgao,
+            Ocupacao.data_inicio, Ocupacao.data_fim,
+            Ocupacao.mandato, Ocupacao.id_ocupacao
+        )
+        .join(Ocupacao, Ocupacao.id_pessoa == Pessoa.id_pessoa)
+        .join(Cargo, Cargo.id_cargo == Ocupacao.id_cargo)
+        .join(Orgao, Orgao.id_orgao == Cargo.id_orgao)
+    )
+}
+
+ORDENAVEIS = {
+    "nome": Pessoa.nome,
+    "cargo": Cargo.nome,
+    "orgao": Orgao.nome,
+    "data_inicio": Ocupacao.data_inicio,
+    "data_fim": Ocupacao.data_fim,
+}
+
+
+def aplicar_filtros(query, busca, ativo, mandato):
+    filtro = parse_filtro(busca, "Pessoa") if busca else None
+    where_clause = traduzir_parsing_result(filtro) if filtro else None
+
+    if where_clause:
+        query = query.where(where_clause)
+
+    if ativo == "ativos":
+        query = query.where(Pessoa.ativo == True)
+    elif ativo == "inativos":
+        query = query.where(Pessoa.ativo == False)
+
+    if mandato == "vigente":
+        query = query.where(Ocupacao.data_fim == None)
+    elif mandato == "encerrado":
+        query = query.where(Ocupacao.data_fim <= func.current_date())
+
+    return query
+
+
+def aplicar_ordenacao(query, campo, ordem):
+    if campo in ORDENAVEIS:
+        coluna = ORDENAVEIS[campo]
+        query = query.order_by(coluna.asc() if ordem == "asc" else coluna.desc())
+    return query
+
+
+
+def montar_query(tipo, busca, ativo, mandato, sort_by=None, order=None):
+    if tipo not in QUERY_BASE:
+        raise ValueError("Tipo inválido")
+
+    query = QUERY_BASE[tipo]()
+
+    query = aplicar_filtros(query, busca, ativo, mandato)
+
+    if sort_by:
+        query = aplicar_ordenacao(query, sort_by, order)
+
+    return query
+
+
+
 # Busca agrupada por pessoa
-@router.get("/busca/agrupada/pessoa")
-def busca_agrupada_por_pessoa(
+@router.get("/busca/")
+def busca_generica(
     busca: str = Query("", description="Prefixo para busca"),
     ativo: str = Query("todos", description="Filtra por ativo/inativo (todos|ativos|inativos)"),
     mandato: str = Query("todos", description="Filtra por mandato (todos|vigente|encerrado)"),
-    session: Session = Depends(get_session)):
+    session: Session = Depends(get_session),
+    search_type: str = Query("pessoa", description="Tipo de busca (pessoa|orgao|cargo|flat)"),
+    sort_by: str = Query(None, description="Campo para ordenar"),
+    order: str = Query("asc", description="Ordem de ordenação (asc|desc)")):
 
     try:
-        filtro = parse_filtro(busca, "Pessoa") if busca else None
-
-        where_clause = traduzir_parsing_result(filtro) if filtro else None
-        
-        query = (select(Pessoa.nome, Cargo.nome, Orgao.nome, Ocupacao.data_inicio, Ocupacao.data_fim, Ocupacao.mandato, Ocupacao.id_ocupacao)
-                 .join(Ocupacao, Ocupacao.id_pessoa == Pessoa.id_pessoa)
-                 .join(Cargo, Cargo.id_cargo == Ocupacao.id_cargo)
-                 .join(Orgao, Orgao.id_orgao == Cargo.id_orgao))
-        
-        if where_clause is not None:
-            query = query.where(where_clause)
-        
-        if busca:
-            print(busca)
-
-        if ativo == "inativos":
-            query = query.where(Pessoa.ativo == False)
-        elif ativo == "ativos":
-            query = query.where(Pessoa.ativo == True)
-        
-        if mandato == "vigente":
-            query = query.where(Ocupacao.data_fim == None)
-        elif mandato == "encerrado":
-            query = query.where(Ocupacao.data_fim <= func.current_date())
-
+        query = montar_query(search_type, busca, ativo, mandato, sort_by=sort_by, order=order)
 
         results = session.exec(query).all()
 
         agrupado = defaultdict(list)
 
-        for nome, id_cargo, id_orgao, data_inicio, data_fim, mandato, id_ocupacao in results:
-            agrupado[nome].append({"cargo": id_cargo, "orgao": id_orgao, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao})
-
-        return [{"nome": nome, "cargos": cargos or []} for nome, cargos in agrupado.items()]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# Busca agrupada por órgão
-@router.get("/busca/agrupada/orgao")
-def busca_agrupada_por_orgao(
-    busca: str = Query("", description="Prefixo para busca"),
-    ativo: str = Query("todos", description="Filtra por ativo/inativo (todos|ativos|inativos)"),
-    mandato: str = Query("todos", description="Filtra por mandato (todos|vigente|encerrado)"),
-    session: Session = Depends(get_session)):
-
-    try:
-        filtro = parse_filtro(busca, "Orgao") if busca else None
-        where_clause = traduzir_parsing_result(filtro) if filtro else None
-    
-        query = (select(Orgao.nome, Cargo.nome, Pessoa.nome, Ocupacao.data_inicio, Ocupacao.data_fim, Ocupacao.mandato, Ocupacao.id_ocupacao)
-                 .join(Ocupacao, Ocupacao.id_cargo == Cargo.id_cargo)
-                 .join(Pessoa, Ocupacao.id_pessoa == Pessoa.id_pessoa)
-                 .join(Orgao, Orgao.id_orgao == Cargo.id_orgao))
+        if search_type == "pessoa":
+            for nome, cargo, orgao, data_inicio, data_fim, mandato, id_ocupacao in results:
+                agrupado[nome].append({"cargo": cargo, "orgao": orgao, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao})
+            return [{"pessoa": nome, "cargos": cargos or []} for nome, cargos in agrupado.items()]
+            
+        if search_type == "orgao":
+            for nome, cargo, orgao, data_inicio, data_fim, mandato, id_ocupacao in results:
+                agrupado[orgao].append({"cargo": cargo, "pessoa": nome, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao})
+            return [{"orgao": nome, "cargos": cargos or []} for nome, cargos in agrupado.items()]
         
-        if where_clause is not None:
-            query = query.where(where_clause)
-
-        if busca:
-            query = query.where(Orgao.nome.ilike(f"{busca}%"))
-
-        if ativo == "inativos":
-            query = query.where(Orgao.ativo == False)
-        elif ativo == "ativos":
-            query = query.where(Orgao.ativo == True)
-
-        if mandato == "vigente":
-            query = query.where(Ocupacao.data_fim == None)
-        elif mandato == "encerrado":
-            query = query.where(Ocupacao.data_fim <= func.current_date())
-
-
-        results = session.exec(query).all()
-
-        agrupado = defaultdict(list)
-
-        for nome, id_cargo, id_pessoa, data_inicio, data_fim, mandato, id_ocupacao in results:
-            agrupado[nome].append({"cargo": id_cargo, "pessoa": id_pessoa, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao})
-
-        return [{"orgao": nome, "cargos": cargos or []} for nome, cargos in agrupado.items()]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
-
-# Busca agrupada por cargo
-@router.get("/busca/agrupada/cargo")
-def busca_agrupada_por_cargo(
-    busca: str = Query("", description="Prefixo para busca"),
-    ativo: str = Query("todos", description="Filtra por ativo/inativo (todos|ativos|inativos)"),
-    mandato: str = Query("todos", description="Filtra por mandato (todos|vigente|encerrado)"),
-    session: Session = Depends(get_session)):
-    try:
-
-        filtro = parse_filtro(busca, "Cargo") if busca else None
-        where_clause = traduzir_parsing_result(filtro) if filtro else None
-
-        query = (select(Cargo.nome, Orgao.nome, Pessoa.nome, Ocupacao.data_inicio, Ocupacao.data_fim, Ocupacao.mandato, Ocupacao.id_ocupacao)
-                 .join(Ocupacao, Ocupacao.id_cargo == Cargo.id_cargo)
-                 .join(Pessoa, Ocupacao.id_pessoa == Pessoa.id_pessoa)
-                 .join(Orgao, Orgao.id_orgao == Cargo.id_orgao))
+        if search_type == "cargo":
+            for nome, cargo, orgao, data_inicio, data_fim, mandato, id_ocupacao in results:
+                chave = (cargo, orgao)
+                agrupado[chave].append({"orgao": orgao, "pessoa": nome, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao})
+            return [{"cargo": cargo, "orgao": orgao, "ocupacoes": cargos or []} for (cargo, orgao), cargos in agrupado.items()]
         
-        if where_clause is not None:
-            query = query.where(where_clause)
-
-        if busca:
-            query = query.where(Cargo.nome.ilike(f"{busca}%"))
-
-        if ativo == "inativos":
-            query = query.where(Cargo.ativo == False)
-        elif ativo == "ativos":
-            query = query.where(Cargo.ativo == True)
-
-        if mandato == "vigente":
-            query = query.where(Ocupacao.data_fim == None)
-        elif mandato == "encerrado":
-            query = query.where(Ocupacao.data_fim <= func.current_date())
-
-
-        results = session.exec(query).all()
-
-        agrupado = defaultdict(list)
-
-        for cargo_nome, orgao_nome, pessoa_nome, data_inicio, data_fim, mandato, id_ocupacao in results:
-            chave = (cargo_nome, orgao_nome)
-            agrupado[chave].append({
-                "pessoa": pessoa_nome,
+        if search_type == "flat":
+            return [{
+                "pessoa": nome,
+                "cargo": id_cargo,
+                "orgao": id_orgao,
                 "data_inicio": data_inicio,
                 "data_fim": data_fim,
                 "mandato": mandato,
                 "id_ocupacao": id_ocupacao
-            })
-
-        return [{"cargo": cargo_nome, "orgao": orgao_nome, "ocupacoes": ocupacoes or []} for (cargo_nome, orgao_nome), ocupacoes in agrupado.items()]
+            } for nome, id_cargo, id_orgao, data_inicio, data_fim, mandato, id_ocupacao in results]
+        
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
-
-

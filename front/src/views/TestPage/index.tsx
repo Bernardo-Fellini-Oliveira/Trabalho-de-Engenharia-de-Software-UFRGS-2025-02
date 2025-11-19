@@ -97,8 +97,6 @@ function TestPage() {
                 api.get<Ocupacao[]>("/ocupacao/"),
             ]);
 
-            const ocupacoes_agrupadas_pessoa = await api.get("/busca/agrupada/pessoa");
-            console.log("Ocupações agrupadas por pessoa:", ocupacoes_agrupadas_pessoa.data);
 
             
             setPessoas(pessoasRes.data);
