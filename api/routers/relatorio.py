@@ -58,7 +58,7 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
         ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
         ("ALIGN", (0, 0), (-1, 0), "CENTER"),
     ]
-
+    
     next_row_idx = 1  # primeira linha após header
     spans_to_add = []  # acumula spans (start_row, end_row, col_start, col_end)
 

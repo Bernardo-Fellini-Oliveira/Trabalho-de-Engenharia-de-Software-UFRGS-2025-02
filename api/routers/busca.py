@@ -19,7 +19,10 @@ QUERY_BASE = {
         select(
             Pessoa.nome, Cargo.nome, Orgao.nome,
             Ocupacao.data_inicio, Ocupacao.data_fim,
-            Ocupacao.mandato, Ocupacao.id_ocupacao
+            Ocupacao.mandato, 
+            Ocupacao.observacoes,
+            Cargo.substituto_para,
+            Ocupacao.id_ocupacao
         )
         .select_from(Pessoa)
         .join(Ocupacao, Ocupacao.id_pessoa == Pessoa.id_pessoa, isouter=True)
@@ -31,7 +34,10 @@ QUERY_BASE = {
         select(
             Pessoa.nome, Cargo.nome, Orgao.nome,
             Ocupacao.data_inicio, Ocupacao.data_fim,
-            Ocupacao.mandato, Ocupacao.id_ocupacao
+            Ocupacao.mandato, 
+            Ocupacao.observacoes,
+            Cargo.substituto_para,
+            Ocupacao.id_ocupacao
         )
         .select_from(Orgao)
         .join(Cargo, Cargo.id_orgao == Orgao.id_orgao, isouter=True)
@@ -43,7 +49,10 @@ QUERY_BASE = {
         select(
             Pessoa.nome, Cargo.nome, Orgao.nome,
             Ocupacao.data_inicio, Ocupacao.data_fim,
-            Ocupacao.mandato, Ocupacao.id_ocupacao
+            Ocupacao.mandato,
+            Ocupacao.observacoes,
+            Cargo.substituto_para,
+            Ocupacao.id_ocupacao
         )
         .select_from(Cargo)
         .join(Orgao, Orgao.id_orgao == Cargo.id_orgao, isouter=True)
@@ -55,7 +64,10 @@ QUERY_BASE = {
         select(
             Pessoa.nome, Cargo.id_cargo, Orgao.id_orgao,
             Ocupacao.data_inicio, Ocupacao.data_fim,
-            Ocupacao.mandato, Ocupacao.id_ocupacao
+            Ocupacao.mandato,
+            Ocupacao.observacoes,
+            Cargo.substituto_para,
+            Ocupacao.id_ocupacao
         )
         .join(Ocupacao, Ocupacao.id_pessoa == Pessoa.id_pessoa)
         .join(Cargo, Cargo.id_cargo == Ocupacao.id_cargo)
@@ -134,19 +146,19 @@ def busca_generica(
         agrupado = defaultdict(list)
 
         if search_type == "pessoa":
-            for nome, cargo, orgao, data_inicio, data_fim, mandato, id_ocupacao in results:
-                agrupado[nome].append({"cargo": cargo, "orgao": orgao, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao})
+            for nome, cargo, orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao in results:
+                agrupado[nome].append({"cargo": cargo, "orgao": orgao, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao, "observacoes": observacoes, "substituto_para": substituto_para})
             return [{"pessoa": nome, "cargos": cargos or []} for nome, cargos in agrupado.items()]
             
         if search_type == "orgao":
-            for nome, cargo, orgao, data_inicio, data_fim, mandato, id_ocupacao in results:
-                agrupado[orgao].append({"cargo": cargo, "pessoa": nome, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao})
+            for nome, cargo, orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao in results:
+                agrupado[orgao].append({"cargo": cargo, "pessoa": nome, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao, "observacoes": observacoes, "substituto_para": substituto_para})
             return [{"orgao": nome, "cargos": cargos or []} for nome, cargos in agrupado.items()]
         
         if search_type == "cargo":
-            for nome, cargo, orgao, data_inicio, data_fim, mandato, id_ocupacao in results:
+            for nome, cargo, orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao in results:
                 chave = (cargo, orgao)
-                agrupado[chave].append({"orgao": orgao, "pessoa": nome, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao})
+                agrupado[chave].append({"orgao": orgao, "pessoa": nome, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao, "observacoes": observacoes, "substituto_para": substituto_para})
             return [{"cargo": cargo, "orgao": orgao, "ocupacoes": cargos or []} for (cargo, orgao), cargos in agrupado.items()]
         
         if search_type == "flat":
@@ -157,8 +169,10 @@ def busca_generica(
                 "data_inicio": data_inicio,
                 "data_fim": data_fim,
                 "mandato": mandato,
-                "id_ocupacao": id_ocupacao
-            } for nome, id_cargo, id_orgao, data_inicio, data_fim, mandato, id_ocupacao in results]
+                "id_ocupacao": id_ocupacao,
+                "observacoes": observacoes,
+                "substituto_para": substituto_para,
+            } for nome, id_cargo, id_orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao in results]
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
