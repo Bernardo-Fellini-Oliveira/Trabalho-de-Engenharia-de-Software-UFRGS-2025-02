@@ -50,6 +50,13 @@ def adicionar_cargo(cargo: CargoCreate, session: Session = Depends(get_session))
             session.refresh(novo)
             session.expunge(novo)  # evita flush/lazy load no retorno
             return novo
+        
+        else:
+            if novo.exclusivo is False:
+                raise HTTPException(
+                    400,
+                    "Cargos exclusivos não podem ser substitutos."
+                )
 
         # ------------------------------------------
         # 2. Buscar o cargo que será substituído
