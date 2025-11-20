@@ -365,3 +365,87 @@ def reativar_cargos_em_lote(
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Erro ao processar reativação em lote: {e}")
+    
+
+
+class CargoUpdateData(SQLModel):
+    nome: Optional[str] = None
+    id_orgao: Optional[int] = None
+
+
+def core_alterar_cargo(
+    id_cargo: int,
+    payload: CargoUpdateData,
+    session: Session
+):
+    cargo = session.get(Cargo, id_cargo)
+    if not cargo:
+        raise HTTPException(status_code=404, detail="Cargo não encontrado.")
+    
+    novo_nome = payload.nome if payload.nome != cargo.nome else None
+    novo_id_orgao = payload.id_orgao if payload.id_orgao != cargo.id_orgao else None
+
+    # Verificar unicidade se houver mudança relevante - orgao nao deve conter cargo com mesmo nome
+    if novo_nome is not None or novo_id_orgao is not None:
+
+        nome_final = novo_nome if novo_nome is not None else cargo.nome
+        orgao_final = novo_id_orgao if novo_id_orgao is not None else cargo.id_orgao
+
+        # Consulta para achar outro cargo (diferente do atual) com a nova combinação
+        stmt = (
+            select(Cargo)
+            .where(Cargo.nome == nome_final)
+            .where(Cargo.id_orgao == orgao_final)
+            .where(Cargo.id_cargo != cargo.id_cargo)
+        )
+        
+        cargo_existente = session.exec(stmt).first()
+        
+        if cargo_existente:
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe um Cargo com esse nome nesse órgão."
+            )
+
+    # Aplica as mudanças
+    if novo_nome is not None:
+        cargo.nome = novo_nome
+    if novo_id_orgao is not None:
+        cargo.id_orgao = novo_id_orgao
+    
+    return cargo
+
+
+
+@router.put("/{id_cargo}", response_model=CargoRead)
+def alterar_cargo(
+    id_cargo: int,
+    payload: CargoUpdateData,
+    session: Session = Depends(get_session)
+):
+    try:
+        # A função core faz a validação de unicidade e aplica as alterações no objeto.
+        cargo_atualizado = core_alterar_cargo(id_cargo, payload, session)
+        
+        # A transação finaliza aqui, persistindo o UPDATE no objeto 'cargo_atualizado'.
+        session.commit()
+        session.refresh(cargo_atualizado)
+        
+        return cargo_atualizado
+    
+    except IntegrityError as e:
+        session.rollback()
+        # Tratamento para outras violações de integridade (ex: Foreign Key em id_orgao)
+        error_code = getattr(e.orig, "pgcode", None)
+        if error_code == '23503': # Código para Foreign Key Violation
+            raise HTTPException(400, "O id_orgao especificado não existe.")
+        
+        raise HTTPException(400, f"Erro de integridade no banco de dados: {e}")
+        
+    except HTTPException:
+        # Garante o rollback para erros de unicidade (código 409) ou not found (404) vindos do core
+        session.rollback()
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(500, f"Erro interno ao atualizar cargo: {e}")

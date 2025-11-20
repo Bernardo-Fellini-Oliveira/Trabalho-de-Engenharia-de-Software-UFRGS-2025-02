@@ -1,4 +1,5 @@
-from fastapi import APIRouter, Depends, HTTPException, Path, Query
+from typing import List
+from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query
 from sqlmodel import Session, func, select
 from models.orgao import Orgao
 from models.cargo import Cargo 
@@ -22,7 +23,8 @@ QUERY_BASE = {
             Ocupacao.mandato, 
             Ocupacao.observacoes,
             Cargo.substituto_para,
-            Ocupacao.id_ocupacao
+            Ocupacao.id_ocupacao,
+            Cargo.exclusivo
         )
         .select_from(Pessoa)
         .join(Ocupacao, Ocupacao.id_pessoa == Pessoa.id_pessoa, isouter=True)
@@ -37,7 +39,8 @@ QUERY_BASE = {
             Ocupacao.mandato, 
             Ocupacao.observacoes,
             Cargo.substituto_para,
-            Ocupacao.id_ocupacao
+            Ocupacao.id_ocupacao,
+            Cargo.exclusivo
         )
         .select_from(Orgao)
         .join(Cargo, Cargo.id_orgao == Orgao.id_orgao, isouter=True)
@@ -52,7 +55,8 @@ QUERY_BASE = {
             Ocupacao.mandato,
             Ocupacao.observacoes,
             Cargo.substituto_para,
-            Ocupacao.id_ocupacao
+            Ocupacao.id_ocupacao,
+            Cargo.exclusivo
         )
         .select_from(Cargo)
         .join(Orgao, Orgao.id_orgao == Cargo.id_orgao, isouter=True)
@@ -62,12 +66,13 @@ QUERY_BASE = {
 
     "flat": lambda: (
         select(
-            Pessoa.nome, Cargo.id_cargo, Orgao.id_orgao,
+            Pessoa.nome, Cargo.nome, Orgao.nome,
             Ocupacao.data_inicio, Ocupacao.data_fim,
             Ocupacao.mandato,
             Ocupacao.observacoes,
             Cargo.substituto_para,
-            Ocupacao.id_ocupacao
+            Ocupacao.id_ocupacao,
+            Cargo.exclusivo
         )
         .join(Ocupacao, Ocupacao.id_pessoa == Pessoa.id_pessoa)
         .join(Cargo, Cargo.id_cargo == Ocupacao.id_cargo)
@@ -81,6 +86,7 @@ ORDENAVEIS = {
     "orgao": Orgao.nome,
     "data_inicio": Ocupacao.data_inicio,
     "data_fim": Ocupacao.data_fim,
+    "exclusivo": Cargo.exclusivo,
 }
 
 
@@ -104,15 +110,35 @@ def aplicar_filtros(query, busca, ativo, mandato):
     return query
 
 
-def aplicar_ordenacao(query, campo, ordem):
-    if campo in ORDENAVEIS:
-        coluna = ORDENAVEIS[campo]
-        query = query.order_by(coluna.asc() if ordem == "asc" else coluna.desc())
+def aplicar_ordenacao(query, sort_list: List[str]):
+    
+    argumentos_ordenacao = []
+    
+    for item_str in sort_list:
+        try:
+            # Divide a string "campo,ordem" em campo e ordem
+            campo, ordem = item_str.split(',')
+            ordem = ordem.strip().lower() # Limpa espaços e minúsculas
+        except ValueError:
+            # Ignora ou trata strings malformadas
+            continue 
+        
+        if campo in ORDENAVEIS:
+            coluna = ORDENAVEIS[campo]
+            
+            # Aplica a direção correta à coluna
+            if ordem == "desc":
+                argumentos_ordenacao.append(coluna.desc())
+            else:
+                argumentos_ordenacao.append(coluna.asc())
+    
+    # Aplica todas as regras de ordenação de uma vez
+    if argumentos_ordenacao:
+        query = query.order_by(*argumentos_ordenacao)
+        
     return query
 
-
-
-def montar_query(tipo, busca, ativo, mandato, sort_by=None, order=None):
+def montar_query(tipo, busca, ativo, mandato, sort_list: List[str] = None):
     if tipo not in QUERY_BASE:
         raise ValueError("Tipo inválido")
 
@@ -120,45 +146,44 @@ def montar_query(tipo, busca, ativo, mandato, sort_by=None, order=None):
 
     query = aplicar_filtros(query, busca, ativo, mandato)
 
-    if sort_by:
-        query = aplicar_ordenacao(query, sort_by, order)
+    if sort_list:
+        query = aplicar_ordenacao(query, sort_list)
 
     return query
 
 
 
 # Busca agrupada por pessoa
-@router.get("/busca/")
+@router.post("/busca/")
 def busca_generica(
     busca: str = Query("", description="Prefixo para busca"),
     ativo: str = Query("todos", description="Filtra por ativo/inativo (todos|ativos|inativos)"),
     mandato: str = Query("todos", description="Filtra por mandato (todos|vigente|encerrado)"),
     session: Session = Depends(get_session),
     search_type: str = Query("pessoa", description="Tipo de busca (pessoa|orgao|cargo|flat)"),
-    sort_by: str = Query(None, description="Campo para ordenar"),
-    order: str = Query("asc", description="Ordem de ordenação (asc|desc)")):
-
+    sort_list: List[str] = Query(None, description="Lista de ordenação no formato 'campo,ordem' (ex: sort_list=orgao,asc&sort_list=nome,desc)")):
+    
     try:
-        query = montar_query(search_type, busca, ativo, mandato, sort_by=sort_by, order=order)
+        query = montar_query(search_type, busca, ativo, mandato, sort_list=sort_list)
 
         results = session.exec(query).all()
 
         agrupado = defaultdict(list)
 
         if search_type == "pessoa":
-            for nome, cargo, orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao in results:
-                agrupado[nome].append({"cargo": cargo, "orgao": orgao, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao, "observacoes": observacoes, "substituto_para": substituto_para})
+            for nome, cargo, orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao, exclusivo in results:
+                agrupado[nome].append({"cargo": cargo, "orgao": orgao, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao, "observacoes": observacoes, "substituto_para": substituto_para, "exclusivo": exclusivo})
             return [{"pessoa": nome, "cargos": cargos or []} for nome, cargos in agrupado.items()]
             
         if search_type == "orgao":
-            for nome, cargo, orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao in results:
-                agrupado[orgao].append({"cargo": cargo, "pessoa": nome, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao, "observacoes": observacoes, "substituto_para": substituto_para})
+            for nome, cargo, orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao, exclusivo in results:
+                agrupado[orgao].append({"cargo": cargo, "pessoa": nome, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao, "observacoes": observacoes, "substituto_para": substituto_para, "exclusivo": exclusivo})
             return [{"orgao": nome, "cargos": cargos or []} for nome, cargos in agrupado.items()]
         
         if search_type == "cargo":
-            for nome, cargo, orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao in results:
+            for nome, cargo, orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao, exclusivo in results:
                 chave = (cargo, orgao)
-                agrupado[chave].append({"orgao": orgao, "pessoa": nome, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao, "observacoes": observacoes, "substituto_para": substituto_para})
+                agrupado[chave].append({"orgao": orgao, "pessoa": nome, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao, "observacoes": observacoes, "substituto_para": substituto_para, "exclusivo": exclusivo})
             return [{"cargo": cargo, "orgao": orgao, "ocupacoes": cargos or []} for (cargo, orgao), cargos in agrupado.items()]
         
         if search_type == "flat":
@@ -172,7 +197,8 @@ def busca_generica(
                 "id_ocupacao": id_ocupacao,
                 "observacoes": observacoes,
                 "substituto_para": substituto_para,
-            } for nome, id_cargo, id_orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao in results]
+                "exclusivo": exclusivo
+            } for nome, id_cargo, id_orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao, exclusivo in results]
         
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))

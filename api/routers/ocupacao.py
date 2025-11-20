@@ -9,10 +9,43 @@ from database import get_session
 
 router = APIRouter(prefix="/api/ocupacao", tags=["Ocupação"])
 
-# Criar ocupação
-@router.post("/")
-def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_session)):
-    try:
+
+def _get_prev_occupacao(session: Session, id_cargo: int, data_inicio, id_ocupacao: Optional[int] = None):
+    """
+    Ocupação imediatamente anterior ao ponto data_inicio.
+    Se houver empates em data_inicio, usamos id_ocupacao como tie-breaker (maior id = mais recente).
+    """
+    stmt = (
+        select(Ocupacao)
+        .where(Ocupacao.id_cargo == id_cargo)
+        .where(Ocupacao.data_inicio <= data_inicio)
+        .where(Ocupacao.id_ocupacao != id_ocupacao if id_ocupacao is not None else True)
+        .order_by(Ocupacao.data_inicio.desc(), Ocupacao.id_ocupacao.desc())
+        .limit(1)
+    )
+    return session.exec(stmt).first()
+
+
+def _get_next_occupacao(session: Session, id_cargo: int, data_inicio, id_ocupacao: Optional[int] = None):
+    """
+    Ocupação imediatamente posterior ao ponto data_inicio.
+    """
+    stmt = (
+        select(Ocupacao)
+        .where(Ocupacao.id_cargo == id_cargo)
+        .where(Ocupacao.data_inicio >= data_inicio)
+        .where(Ocupacao.id_ocupacao != id_ocupacao if id_ocupacao is not None else True)
+        .order_by(Ocupacao.data_inicio.asc(), Ocupacao.id_ocupacao.asc())
+        .limit(1)
+    )
+    return session.exec(stmt).first()
+
+
+
+def core_adicionar_ocupacao(
+    ocupacao: Ocupacao,
+    session: Session
+):
         # === Regra 0: data_inicio não pode ser posterior a data_fim ===
         if ocupacao.data_inicio and ocupacao.data_fim:
             if ocupacao.data_inicio > ocupacao.data_fim:
@@ -32,8 +65,8 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
                 .where(
                     and_(
                         Ocupacao.id_cargo == ocupacao.id_cargo,
-                        ((Ocupacao.data_inicio <= data_fim_nova) | (Ocupacao.data_inicio == None)),
-                        ((Ocupacao.data_fim == None) | (Ocupacao.data_fim >= data_inicio_nova))
+                        ((Ocupacao.data_inicio < data_fim_nova) | (Ocupacao.data_inicio == None)),
+                        ((Ocupacao.data_fim == None) | (Ocupacao.data_fim > data_inicio_nova))
                     )
                 )
             ).first()
@@ -48,21 +81,37 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
                 )
 
         # === Regra 2: impedir 3ª ocupação consecutiva da mesma pessoa ===
-        ultimas = session.exec(
-            select(Ocupacao.id_pessoa)
-            .where(Ocupacao.id_cargo == ocupacao.id_cargo)
-            .order_by(Ocupacao.data_fim.desc().nulls_last())
-        ).all()
 
-        if len(ultimas) >= 2 and all(pid == ocupacao.id_pessoa for pid in ultimas) and cargo and cargo.exclusivo:
+        previous_ocupation = _get_prev_occupacao(session, ocupacao.id_cargo, ocupacao.data_inicio or date.min)
+        next_ocupation = _get_next_occupacao(session, ocupacao.id_cargo, ocupacao.data_inicio or date.min)
+
+        num_mandatos_seguidos = 1
+        if previous_ocupation and previous_ocupation.id_pessoa == ocupacao.id_pessoa:
+            num_mandatos_seguidos = (previous_ocupation.mandato or 0) + 1
+        
+        contador = num_mandatos_seguidos
+        atual = next_ocupation
+        while atual and atual.id_pessoa == ocupacao.id_pessoa:
+            atual.mandato = contador + 1
+            contador += 1
+            session.flush()
+            atual = _get_next_occupacao(session, atual.id_cargo, atual.data_inicio or date.min, atual.id_ocupacao)
+            print("ATUAL:", atual)
+
+
+        if contador > 2:
+            session.rollback()
             raise HTTPException(
-                status_code=400,
-                detail="As últimas duas ocupações deste cargo já foram dessa mesma pessoa."
+                400,
+                "Não é possível criar a ocupação: a pessoa já possui 2 mandatos seguidos neste cargo."
             )
         
-        num_mandatos_seguidos =  (len(ultimas) + 1) if (cargo and cargo.exclusivo) else 1
+        # Checa pela quebra de uma sequência de mandatos
+        if previous_ocupation and next_ocupation and previous_ocupation.id_pessoa == next_ocupation.id_pessoa != ocupacao.id_pessoa:
+            next_ocupation.mandato = next_ocupation.mandato - 1
+            session.flush()
 
-        print(num_mandatos_seguidos)
+            
         nova_ocupacao = Ocupacao(
             id_pessoa=ocupacao.id_pessoa,
             id_cargo=ocupacao.id_cargo,
@@ -121,13 +170,23 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
 
         # === Inserção da nova ocupação ===
         session.add(nova_ocupacao)
+
+        return nova_ocupacao
+
+
+# Criar ocupação
+@router.post("/")
+def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_session)):
+    try:
+        nova_ocupacao = core_adicionar_ocupacao(ocupacao, session)
         session.commit()
         session.refresh(nova_ocupacao)
 
+        
         return {
             "status": "success",
             "message": "Ocupação adicionada com sucesso",
-            "id_ocupacao": nova_ocupacao.id_ocupacao,
+            "id_ocupacao": nova_ocupacao.id_ocupacao
         }
     
     except IntegrityError as e:
@@ -160,18 +219,75 @@ def carregar_ocupacao(session: Session = Depends(get_session)):
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao carregar Ocupações: {e}")
 
+
+def core_remover_ocupacao(
+    id_ocupacao: int,
+    session: Session
+):
+    ocupacao_removida = session.get(Ocupacao, id_ocupacao)
+    if not ocupacao_removida:
+        raise HTTPException(status_code=404, detail="Ocupação não encontrada.")
+
+    previous_ocupation = _get_prev_occupacao(session, ocupacao_removida.id_cargo, ocupacao_removida.data_inicio or date.min, ocupacao_removida.id_ocupacao)
+    next_ocupation = _get_next_occupacao(session, ocupacao_removida.id_cargo, ocupacao_removida.data_inicio or date.min, ocupacao_removida.id_ocupacao)
+
+    contador = 1
+    # Checa se a pessoa da ocupação removida é a mesma da próxima -> quebrou a sequência
+    if next_ocupation and ocupacao_removida.id_pessoa == next_ocupation.id_pessoa:
+        
+        # Inicia a iteração para reajustar a numeração
+        atual = next_ocupation
+        contador = ocupacao_removida.mandato 
+        id_pessoa_mandato_afetado = atual.id_pessoa
+
+        while atual and atual.id_pessoa == ocupacao_removida.id_pessoa:
+            atual.mandato = contador
+            contador += 1
+            session.flush()
+            atual = _get_next_occupacao(session, atual.id_cargo, atual.data_inicio or date.min, atual.id_ocupacao)
+
+
+    # Checa se gerou uma sequência nova entre a anterior e a próxima
+    elif previous_ocupation and next_ocupation and previous_ocupation.id_pessoa == next_ocupation.id_pessoa:
+        id_pessoa_mandato_afetado = previous_ocupation.id_pessoa
+
+        # Deve ir atualizando a numeração de mandatos a partir da próxima ocupaçã até quebrar a sequência
+        atual = next_ocupation
+        contador = previous_ocupation.mandato + 1
+        while atual and atual.id_pessoa == previous_ocupation.id_pessoa:
+            atual.mandato = contador
+            session.flush()
+            contador += 1
+            atual = _get_next_occupacao(session, atual.id_cargo, atual.data_inicio or date.min, atual.id_ocupacao)
+
+    if contador > 2:
+        raise HTTPException(
+            400,
+            f"Não é possível remover a ocupação: a pessoa {id_pessoa_mandato_afetado} ficaria com mais de 2 mandatos seguidos neste cargo."
+        )
+
+    # Finalmente, remove a ocupação
+    session.delete(ocupacao_removida)
+
+    return {"status": "success", "message": "Ocupação removida com sucesso."}
+
+
+
 # Remover ocupação
 @router.delete("/delete/{id_ocupacao}")
 def remover_ocupacao(id_ocupacao: int = Path(..., description="ID da Ocupação a ser removida"),
                      session: Session = Depends(get_session)):
-    ocupacao = session.get(Ocupacao, id_ocupacao)
-    if not ocupacao:
-        raise HTTPException(status_code=404, detail="Ocupação não encontrada.")
-
-    session.delete(ocupacao)
-    session.commit()
-
-    return {"status": "success", "message": "Ocupação removida com sucesso."}
+    
+    try:
+        resultado = core_remover_ocupacao(id_ocupacao, session)
+        session.commit()
+        return resultado
+    except HTTPException:
+        session.rollback()
+        raise 
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao remover Ocupação: {e}")
 
 
 @router.delete("/delete_list/")
@@ -183,7 +299,7 @@ def remover_ocupacoes(id_ocupacoes: List[int],
             raise HTTPException(status_code=404, detail="Nenhuma Ocupação encontrada para os IDs fornecidos.")
 
         for ocupacao in ocupacoes:
-            session.delete(ocupacao)
+            core_remover_ocupacao(ocupacao.id_ocupacao, session)
         session.commit()
 
         return {"status": "success", "message": f"{len(ocupacoes)} Ocupações removidas com sucesso."}
@@ -192,6 +308,39 @@ def remover_ocupacoes(id_ocupacoes: List[int],
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Erro ao remover Ocupações: {e}")
+
+
+
+@router.put("/alterar/{id_ocupacao}")
+def alterar_ocupacao(
+    id_ocupacao: int,
+    ocupacao_atualizada: Ocupacao,
+    session: Session = Depends(get_session)
+):
+
+    try:
+        core_remover_ocupacao(id_ocupacao, session)
+        session.flush()
+        ocupacao_atualizada = core_adicionar_ocupacao(ocupacao_atualizada, session)
+        session.commit()
+
+        session.refresh(ocupacao_atualizada)
+
+        print("OCUPACAO: ", ocupacao_atualizada)
+
+        return {
+            "status": "success",
+            "message": "Ocupação atualizada com sucesso.",
+            "id_ocupacao": ocupacao_atualizada.id_ocupacao
+        }
+    
+    except HTTPException:
+        session.rollback()
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao alterar Ocupação: {e}")
+
 
 
 

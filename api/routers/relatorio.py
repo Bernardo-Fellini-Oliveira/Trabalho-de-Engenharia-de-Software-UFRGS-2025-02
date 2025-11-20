@@ -1,7 +1,6 @@
 import csv
-from typing import Any, Literal
+from typing import Any, List, Literal
 from fastapi import APIRouter, Depends
-from fastapi.params import Query
 from fastapi.responses import StreamingResponse
 from reportlab.platypus import SimpleDocTemplate, Table, TableStyle, Paragraph, Spacer
 from reportlab.lib.pagesizes import A4
@@ -9,15 +8,11 @@ from reportlab.lib import colors
 from reportlab.lib.styles import getSampleStyleSheet
 from io import BytesIO, StringIO
 from pydantic import BaseModel
-from sqlmodel import Session, select, func
+from sqlmodel import Session
 
 from routers.busca import montar_query
 from database import get_session
-from models.cargo import Cargo
-from models.ocupacao import Ocupacao
-from models.orgao import Orgao
-from models.pessoa import Pessoa
-from search_grammar.parsers import parse_filtro, traduzir_parsing_result
+
 
 router = APIRouter(
     prefix="/api/relatorio",
@@ -66,13 +61,16 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
     if group_by == "flat":
         # dados já são linhas planas
         for item in dados:
-            pessoa = item.get("pessoa", "-")
-            cargo = item.get("cargo", "-")
-            orgao = item.get("orgao", "-")
-            inicio = item.get("data_inicio", "-") or "-"
-            fim = item.get("data_fim", "-") or "-"
-            mandato = str(item.get("mandato", "-"))
-            observacoes = item.get("observacoes", "-")
+
+            pessoa = item[0] or "-"
+            cargo = item[1] or "-"
+            orgao = item[2] or "-"
+            inicio = item[3] or "-"
+            fim = item[4] or "-"
+            exclusivo = item[9]
+            mandato = str(item[5]) if exclusivo and item[5] else "-"
+            observacoes = item[6] or "-"
+            
             table_data.append([pessoa, cargo, orgao, inicio, fim, mandato, observacoes])
             next_row_idx += 1
 
@@ -82,11 +80,12 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
             # extrai a lista de ocupações dependendo do formato
             if group_by == "cargo":
                 ocupacoes = bloco.get("ocupacoes", [])
+                print("Ocupações:", ocupacoes)
                 label1 = bloco.get("cargo", "-")
                 label2 = bloco.get("orgao", "-")
                 # cada ocupação: pessoa, inicio, fim, mandato, id_ocupacao
                 rows = [
-                    [o.get("pessoa", "-"), o.get("data_inicio", "-") or "-", o.get("data_fim", "-") or "-", str(o.get("mandato", "-")), o.get("observacoes", "-")]
+                    [o.get("pessoa", "-"), o.get("data_inicio", "-") or "-", o.get("data_fim", "-") or "-", str(o.get("mandato", "-")) if o.get("mandato") is not None else "-", o.get("observacoes", ""), o.get("exclusivo", False)]
                     for o in ocupacoes
                 ]
                 # para este layout precisamos inserir Cargo, Orgão nas duas primeiras colunas
@@ -100,7 +99,8 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
 
                 start = next_row_idx
                 for i, r in enumerate(rows):
-                    pessoa, inicio, fim, mandato, observacoes = r
+                    pessoa, inicio, fim, mandato, observacoes, exclusivo = r
+                    mandato = mandato if exclusivo and mandato else "-"
                     if i == 0:
                         table_data.append([label1, label2, pessoa, inicio, fim, mandato, observacoes])
                     else:
@@ -116,7 +116,7 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
                 ocupacoes = bloco.get("cargos", [])
                 label = bloco.get("pessoa", "-")
                 if not ocupacoes:
-                    table_data.append([label, "—", "—", "-", "-", "-", "-"])
+                    table_data.append([label, "-", "-", "-", "-", "-", "-"])
                     style_cmds.append(("SPAN", (1, next_row_idx), (6, next_row_idx)))
                     style_cmds.append(("VALIGN", (0, next_row_idx), (0, next_row_idx), "MIDDLE"))
                     style_cmds.append(("ALIGN", (1, next_row_idx), (6, next_row_idx), "LEFT"))
@@ -129,7 +129,10 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
                     orgao = o.get("orgao", "-")
                     inicio = o.get("data_inicio", "-") or "-"
                     fim = o.get("data_fim", "-") or "-"
-                    mandato = "" if o.get("mandato") is None else str(o.get("mandato"))
+                    mandato = "-" if o.get("mandato") is None else str(o.get("mandato"))
+                    exclusivo = o.get("exclusivo", False)
+                    if not exclusivo:
+                        mandato = "-"
                     observacoes = o.get("observacoes", "-")
                     if i == 0:
                         table_data.append([label, cargo, orgao, inicio, fim, mandato, observacoes])
@@ -143,7 +146,7 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
                 ocupacoes = bloco.get("cargos", [])
                 label = bloco.get("orgao", "-")
                 if not ocupacoes:
-                    table_data.append([label, "—", "—", "-", "-", "-", "-"])
+                    table_data.append([label, "-", "-", "-", "-", "-", "-"])
                     style_cmds.append(("SPAN", (1, next_row_idx), (6, next_row_idx)))
                     style_cmds.append(("VALIGN", (0, next_row_idx), (0, next_row_idx), "MIDDLE"))
                     style_cmds.append(("ALIGN", (1, next_row_idx), (6, next_row_idx), "LEFT"))
@@ -156,7 +159,10 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
                     pessoa = o.get("pessoa", "-")
                     inicio = o.get("data_inicio", "-") or "-"
                     fim = o.get("data_fim", "-") or "-"
-                    mandato = "" if o.get("mandato") is None else str(o.get("mandato"))
+                    mandato = "-" if o.get("mandato") is None else str(o.get("mandato"))
+                    exclusivo = o.get("exclusivo", False)
+                    if not exclusivo:
+                        mandato = "-"
                     observacoes = o.get("observacoes", "-")
                     if i == 0:
                         table_data.append([label, cargo, pessoa, inicio, fim, mandato, observacoes])
@@ -182,15 +188,13 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
 
 
 
-# TO DO: recuperar busca com filtros para então gerar o relatório
-# Evita de passar todos os dados entre frontend e backend
+
 class ExportRequest(BaseModel):
     tipo: Literal["cargo", "pessoa", "orgao", "flat"]
     busca: str = ""
     ativo: Literal["todos", "ativos", "inativos"] = "todos"
     mandato: Literal["todos", "vigente", "encerrado"] = "todos"
-    sort_by: str = "nome"     # ou cargo, orgao, data_inicio, data_fim
-    order: Literal["asc", "desc"] = "asc"
+    sort_list: List[str] = None # ex: ["pessoa,asc", "cargo,desc"]
 
 
 
@@ -201,8 +205,7 @@ def montar_query_export(req: ExportRequest, session: Session):
         busca=req.busca,
         ativo=req.ativo,
         mandato=req.mandato,
-        sort_by=req.sort_by,
-        order=req.order
+        sort_list=req.sort_list
     )
 
 
@@ -229,6 +232,7 @@ def montar_query_export(req: ExportRequest, session: Session):
         k = chave(r)
         agrupado.setdefault(k, []).append(r)
 
+    print(agrupado.items())
     # Transformar no formato esperado pelo gerador PDF
     if req.tipo == "pessoa":
         return [
@@ -242,6 +246,7 @@ def montar_query_export(req: ExportRequest, session: Session):
                         "data_fim": r[4],
                         "mandato": r[5],
                         "observacoes": r[6],
+                        "exclusivo": r[9]
                     }
                     for r in lista
                 ],
@@ -261,6 +266,7 @@ def montar_query_export(req: ExportRequest, session: Session):
                         "data_fim": r[4],
                         "mandato": r[5],
                         "observacoes": r[6],
+                        "exclusivo": r[9]
                     }
                     for r in lista
                 ],
@@ -280,6 +286,7 @@ def montar_query_export(req: ExportRequest, session: Session):
                         "data_fim": r[4],
                         "mandato": r[5],
                         "observacoes": r[6],
+                        "exclusivo": r[9]
                     }
                     for r in lista
                 ],
@@ -321,65 +328,12 @@ def export_pdf(req: ExportRequest, session: Session = Depends(get_session)):
 def export_csv(req: ExportRequest, session: Session = Depends(get_session)):
 
     # ========= 1) Refaz a consulta ao banco ==========
-    filtro = parse_filtro(req.busca, "Pessoa") if req.busca else None
-    where_clause = traduzir_parsing_result(filtro) if filtro else None
-
-    query = (
-        select(
-            Pessoa.nome,
-            Cargo.nome,
-            Orgao.nome,
-            Ocupacao.data_inicio,
-            Ocupacao.data_fim,
-            Ocupacao.mandato,
-            Ocupacao.observacoes
-        )
-        .join(Ocupacao, Ocupacao.id_pessoa == Pessoa.id_pessoa)
-        .join(Cargo, Cargo.id_cargo == Ocupacao.id_cargo)
-        .join(Orgao, Orgao.id_orgao == Cargo.id_orgao)
-    )
-
-    if where_clause is not None:
-        query = query.where(where_clause)
-
-    if req.ativo == "inativos":
-        query = query.where(Pessoa.ativo == False)
-    elif req.ativo == "ativos":
-        query = query.where(Pessoa.ativo == True)
-
-    if req.mandato == "vigente":
-        query = query.where(Ocupacao.data_fim == None)
-    elif req.mandato == "encerrado":
-        query = query.where(Ocupacao.data_fim <= func.current_date())
-
-    rows = session.exec(query).all()
+    rows = montar_query_export(req, session)
 
     print("Rows: ", rows)
-    # ========= 2) Agrupa conforme req.tipo ==========
 
-    if req.tipo == "flat":
-        agrupado = rows  # já está flat
-    else:
-        agrupado = {}
-        for nome_pessoa, nome_cargo, nome_orgao, ini, fim, mandato, observacoes in rows:
-            if req.tipo == "cargo":
-                chave = (nome_cargo, nome_orgao)
-            elif req.tipo == "pessoa":
-                chave = nome_pessoa
-            elif req.tipo == "orgao":
-                chave = nome_orgao
 
-            agrupado.setdefault(chave, []).append({
-                "pessoa": nome_pessoa,
-                "cargo": nome_cargo,
-                "orgao": nome_orgao,
-                "data_inicio": ini,
-                "data_fim": fim,
-                "mandato": mandato,
-                "observacoes": observacoes
-            })
-
-    # ========= 3) Monta o CSV ==========
+    # ========= 2) Monta o CSV ==========
     buffer = StringIO()
     writer = csv.writer(buffer)
 
@@ -388,27 +342,58 @@ def export_csv(req: ExportRequest, session: Session = Depends(get_session)):
 
     if req.tipo == "flat":
         for r in rows:
-            pessoa, cargo, orgao, ini, fim, mandato, observacoes = r
+            print("Escrevendo linha:", r)
             writer.writerow([
-                pessoa, cargo, orgao,
-                ini or "", fim or "", mandato, observacoes or ""
+                r[0], r[1], r[2],
+                r[3] or "", r[4] or "", r[5] if r[9] else "", r[6] or ""
             ])
     else:
-        for chave, ocupacoes in agrupado.items():
-            # Escreve um bloco de título
-            if req.tipo == "cargo":
-                cargo, orgao = chave
+        if req.tipo == "cargo":
+            for cargo in rows:
+                chave = (cargo.get("cargo", ""), cargo.get("orgao", ""))
+                ocupacoes = cargo.get("ocupacoes", [])
                 for oc in ocupacoes:
-                    writer.writerow([oc["pessoa"], cargo, orgao, oc["data_inicio"] or "", oc["data_fim"] or "", oc["mandato"], oc["observacoes"] or ""])
+                    writer.writerow([
+                        oc.get("pessoa", ""),
+                        chave[0],
+                        chave[1],
+                        oc.get("data_inicio", "") or "",
+                        oc.get("data_fim", "") or "",
+                        str(oc.get("mandato", "")) if oc.get("exclusivo", False) else "",
+                        oc.get("observacoes", "") 
+                    ])
 
-            elif req.tipo == "pessoa":
+        elif req.tipo == "pessoa":
+            for pessoa in rows:
+                chave = pessoa.get("pessoa", "")
+                ocupacoes = pessoa.get("cargos", [])
                 for oc in ocupacoes:
-                    writer.writerow([chave, oc["cargo"], oc["orgao"], oc["data_inicio"] or "", oc["data_fim"] or "", oc["mandato"], oc["observacoes"] or ""])
-            elif req.tipo == "orgao":
-                for oc in ocupacoes:
-                    writer.writerow([oc["pessoa"], oc["cargo"], chave, oc["data_inicio"] or "", oc["data_fim"] or "", oc["mandato"], oc["observacoes"] or ""])
+                    writer.writerow([
+                        chave,
+                        oc.get("cargo", ""),
+                        oc.get("orgao", ""),
+                        oc.get("data_inicio", "") or "",
+                        oc.get("data_fim", "") or "",
+                        str(oc.get("mandato", "")) if oc.get("exclusivo", False) else "",
+                        oc.get("observacoes", "") 
+                    ])
 
-    # ========= 4) Retorno como arquivo ==========
+        elif req.tipo == "orgao":
+            for orgao in rows:
+                chave = orgao.get("orgao", "")
+                ocupacoes = orgao.get("cargos", [])
+                for oc in ocupacoes:
+                    writer.writerow([
+                        oc.get("pessoa", ""),
+                        oc.get("cargo", ""),
+                        chave,
+                        oc.get("data_inicio", "") or "",
+                        oc.get("data_fim", "") or "",
+                        str(oc.get("mandato", "")) if oc.get("exclusivo", False) else "",
+                        oc.get("observacoes", "") 
+                    ])
+
+    # ========= 3) Retorno como arquivo ==========
     buffer.seek(0)
 
     return StreamingResponse(
