@@ -2,7 +2,7 @@ from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import SQLModel, Session, nulls_first, or_, select, and_
-from typing import List, Optional
+from typing import List, Optional, Set
 from models.cargo import Cargo 
 from models.ocupacao import Ocupacao
 from database import get_session
@@ -219,56 +219,175 @@ def carregar_ocupacao(session: Session = Depends(get_session)):
         raise HTTPException(status_code=500, detail=f"Erro ao carregar Ocupações: {e}")
 
 
+
+
+def _get_chain_below_ocupacoes(session: Session, ocupacao_base: Ocupacao) -> Set[int]:
+    """
+    Retorna o conjunto (set) de IDs de Ocupações que estão na cadeia de substituição
+    abaixo da ocupação base. NÃO inclui a ocupação base.
+    """
+    ids_ocupacoes_substitutas = set()
+    print("sdkdsncvjskdcnjk")
+    # 1. Obter o cargo que a ocupação base está ocupando
+    cargo_pai = session.get(Cargo, ocupacao_base.id_cargo)
+
+    # 2. Iniciar a busca pelo próximo cargo na cadeia de substituição de CARGOS
+    cargo_atual_id = cargo_pai.substituto # Cargo que substitui o cargo pai
+    
+    # Define as datas de referência da ocupação superior
+    print(ocupacao_base)
+    data_inicio_base = ocupacao_base.data_inicio or date.min
+    data_fim_base = ocupacao_base.data_fim or date(9999, 12, 31)
+
+    # 3. Traversal Iterativo dos Cargos
+    while cargo_atual_id is not None:
+        
+        cargo_substituto = session.get(Cargo, cargo_atual_id)
+        if not cargo_substituto:
+            break # Fim da cadeia ou erro
+            
+        # 4. Busca Ocupações Vigentes no CARGO SUBSTITUTO
+        # A ocupação substituta deve ter seu período contido no período da ocupação base.
+        stmt = (
+            select(Ocupacao.id_ocupacao)
+            .where(Ocupacao.id_cargo == cargo_atual_id)
+            .where(
+                # A ocupação substituta DEVE ter data de início >= data de início da base
+                Ocupacao.data_inicio >= data_inicio_base
+            )
+            .where(
+                or_(
+                    # E data de fim <= data de fim da base
+                    Ocupacao.data_fim <= data_fim_base,
+                    # OU a base não tem data_fim (vigente) e o substituto não tem data_fim (vigente)
+                    and_(ocupacao_base.data_fim == None, Ocupacao.data_fim == None)
+                )
+            )
+            .order_by(Ocupacao.data_inicio.asc()) # Ordena para garantir lógica consistente
+        )
+        
+        # Coleta todas as ocupações que se encaixam no período e no cargo
+        ids_encontrados = session.exec(stmt).all()
+        ids_ocupacoes_substitutas.update(ids_encontrados)
+        
+        # 5. Avança na Cadeia de Cargos
+        cargo_atual_id = cargo_substituto.substituto # Próximo substituto na cadeia de CARGOS
+
+    return ids_ocupacoes_substitutas
+
+
+def reajustar_mandatos_com_remocao(session: Session, ocupacao_removida: Ocupacao):
+
+    cargo = session.get(Cargo, ocupacao_removida.id_cargo)
+    if not cargo.exclusivo:
+        # Se o cargo não é exclusivo, não há necessidade de reajustar mandatos
+        return
+    
+    # Busca vizinhos (após a remoção dos substitutos, se houver)
+    previous_ocupation = _get_prev_occupacao(session, ocupacao_removida.id_cargo, ocupacao_removida.data_inicio or date.min, ocupacao_removida.id_ocupacao)
+    next_ocupation = _get_next_occupacao(session, ocupacao_removida.id_cargo, ocupacao_removida.data_inicio or date.min, ocupacao_removida.id_ocupacao)
+
+    print("================================")
+    print("Previous:", previous_ocupation)
+    print("Next:", next_ocupation)
+    print("================================")
+
+    # Identifica o PONTO DE MUDANÇA: Se a ocupação anterior e a próxima são da mesma pessoa.
+    if previous_ocupation and next_ocupation and previous_ocupation.id_pessoa == next_ocupation.id_pessoa:
+        
+        # Sequência foi "fechada" após a remoção: Ajustar a numeração a partir de next_ocupation.
+        atual = next_ocupation
+        
+        # O novo mandato do next_ocupation deve ser o mandato do previous_ocupation + 1
+        contador = (previous_ocupation.mandato or 0) + 1 
+        id_pessoa_mandato_afetado = atual.id_pessoa
+
+        while atual and atual.id_pessoa == previous_ocupation.id_pessoa:
+            atual.mandato = contador
+            
+            # Validação de limite (contador > 2)
+            if contador > 2:
+                # Lançamos a exceção ANTES do delete final, mas precisamos do rollback.
+                raise HTTPException(
+                    400,
+                    f"Não é possível remover a ocupação: a pessoa {id_pessoa_mandato_afetado} ficaria com mais de 2 mandatos seguidos neste cargo."
+                )
+
+            session.add(atual) # Garante que a atualização está na sessão
+            session.flush() # Persiste a mudança de mandato
+            contador += 1
+            
+            # Próxima ocupação na sequência
+            atual = _get_next_occupacao(session, atual.id_cargo, atual.data_inicio or date.min, atual.id_ocupacao)
+
+
+
 def core_remover_ocupacao(
     id_ocupacao: int,
     session: Session
 ):
+    # -----------------------------------------------------------------
+    # 1. VALIDAÇÃO E CARREGAMENTO
+    # -----------------------------------------------------------------
     ocupacao_removida = session.get(Ocupacao, id_ocupacao)
     if not ocupacao_removida:
         raise HTTPException(status_code=404, detail="Ocupação não encontrada.")
+    
+    # Carrega o cargo associado para checar a cadeia de substituição
+    cargo_removido = session.get(Cargo, ocupacao_removida.id_cargo)
+    if not cargo_removido:
+         # Isso é um erro de integridade do BD, mas é bom checar
+        raise HTTPException(500, "Cargo associado não encontrado.") 
 
-    previous_ocupation = _get_prev_occupacao(session, ocupacao_removida.id_cargo, ocupacao_removida.data_inicio or date.min, ocupacao_removida.id_ocupacao)
-    next_ocupation = _get_next_occupacao(session, ocupacao_removida.id_cargo, ocupacao_removida.data_inicio or date.min, ocupacao_removida.id_ocupacao)
-
-    contador = 1
-    # Checa se a pessoa da ocupação removida é a mesma da próxima -> quebrou a sequência
-    if next_ocupation and ocupacao_removida.id_pessoa == next_ocupation.id_pessoa:
+    print("TESTEE DE REMOÇÃO DA OCUPAÇÃO:", ocupacao_removida)
+    # -----------------------------------------------------------------
+    # 2. REMOÇÃO EM CASCATA DA CADEIA DE SUBSTITUIÇÃO (NOVO!)
+    # -----------------------------------------------------------------
+    
+    ids_ocupacoes_cadeia_abaixo = set()
+    
+    # Verifica se esta ocupação tem substitutos (i.e., se o Cargo dela é um substituto_para de outra ocupação)
+    if cargo_removido.substituto is not None:
         
-        # Inicia a iteração para reajustar a numeração
-        atual = next_ocupation
-        contador = ocupacao_removida.mandato 
-        id_pessoa_mandato_afetado = atual.id_pessoa
+        # 2a. Coleta todas as ocupações na cadeia abaixo (substitutos diretos e subsequentes)
+        # Esta é a função CRÍTICA: deve retornar as IDs das Ocupações que dependem dela.
+        print("Coletando cadeia abaixo da ocupação:", ocupacao_removida)
+        ids_ocupacoes_cadeia_abaixo = _get_chain_below_ocupacoes(session, ocupacao_removida)
 
-        while atual and atual.id_pessoa == ocupacao_removida.id_pessoa:
-            atual.mandato = contador
-            contador += 1
-            session.flush()
-            atual = _get_next_occupacao(session, atual.id_cargo, atual.data_inicio or date.min, atual.id_ocupacao)
+        print("IDs de ocupações na cadeia abaixo para remoção:", ids_ocupacoes_cadeia_abaixo)
+        # 2b. Deleta as ocupações da cadeia abaixo (do final para o início, por segurança)
+        for oid in ids_ocupacoes_cadeia_abaixo:
+            ocupacao_a_deletar = session.get(Ocupacao, oid)
+            if ocupacao_a_deletar:
+                try:
+                    reajustar_mandatos_com_remocao(session, ocupacao_a_deletar)
+                except HTTPException:
+                    raise
+                except Exception as e:
+                    raise HTTPException(status_code=500, detail=f"Erro ao reajustar mandatos: {e}")
+                
+                session.delete(ocupacao_a_deletar)
 
+    
+        session.flush() # Persiste os DELETES dos substitutos
 
-    # Checa se gerou uma sequência nova entre a anterior e a próxima
-    elif previous_ocupation and next_ocupation and previous_ocupation.id_pessoa == next_ocupation.id_pessoa:
-        id_pessoa_mandato_afetado = previous_ocupation.id_pessoa
+    # -----------------------------------------------------------------
+    # 3. REAJUSTE DE MANDATOS
+    # -----------------------------------------------------------------
 
-        # Deve ir atualizando a numeração de mandatos a partir da próxima ocupaçã até quebrar a sequência
-        atual = next_ocupation
-        contador = previous_ocupation.mandato + 1
-        while atual and atual.id_pessoa == previous_ocupation.id_pessoa:
-            atual.mandato = contador
-            session.flush()
-            contador += 1
-            atual = _get_next_occupacao(session, atual.id_cargo, atual.data_inicio or date.min, atual.id_ocupacao)
+    try:
+        reajustar_mandatos_com_remocao(session, ocupacao_removida)
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao reajustar mandatos: {e}")
 
-    if contador > 2:
-        raise HTTPException(
-            400,
-            f"Não é possível remover a ocupação: a pessoa {id_pessoa_mandato_afetado} ficaria com mais de 2 mandatos seguidos neste cargo."
-        )
-
-    # Finalmente, remove a ocupação
+    # -----------------------------------------------------------------
+    # 4. REMOÇÃO FINAL DA OCUPAÇÃO-BASE
+    # -----------------------------------------------------------------
     session.delete(ocupacao_removida)
 
-    return {"status": "success", "message": "Ocupação removida com sucesso."}
+    return {"status": "success", "message": "Ocupação removida e cadeia ajustada com sucesso.", "ids_removidos": list(ids_ocupacoes_cadeia_abaixo) + [id_ocupacao]}
 
 
 
@@ -279,6 +398,9 @@ def remover_ocupacao(id_ocupacao: int = Path(..., description="ID da Ocupação 
     
     try:
         resultado = core_remover_ocupacao(id_ocupacao, session)
+
+        print("Resultado da remoção:", resultado)
+
         session.commit()
         return resultado
     except HTTPException:
@@ -313,26 +435,96 @@ def remover_ocupacoes(id_ocupacoes: List[int],
 @router.put("/alterar/{id_ocupacao}")
 def alterar_ocupacao(
     id_ocupacao: int,
-    ocupacao_atualizada: Ocupacao,
+    ocupacao_atualizada: Ocupacao, # Assume-se que esta é a nova representação completa do registro
     session: Session = Depends(get_session)
 ):
-
     try:
+        ocupacao_antiga = session.get(Ocupacao, id_ocupacao)
+        if not ocupacao_antiga:
+            raise HTTPException(status_code=404, detail="Ocupação não encontrada.")
+        
+        # -------------------------------------------------------------
+        # 1. VERIFICAÇÃO DE ALTO IMPACTO (datas E/OU cargo)
+        # -------------------------------------------------------------
+        
+        # Verifica se houve alteração no ID do cargo, data de início ou data de fim.
+        houve_alteracao_complexa = (
+            ocupacao_atualizada.id_cargo != ocupacao_antiga.id_cargo or 
+            ocupacao_atualizada.data_fim != ocupacao_antiga.data_fim or 
+            ocupacao_atualizada.data_inicio != ocupacao_antiga.data_inicio or
+            ocupacao_atualizada.id_pessoa != ocupacao_antiga.id_pessoa
+        )
+        
+        # 2. SE HOUVE ALTERAÇÃO COMPLEXA, CHECAMOS POR SUBTITUTOS
+        if houve_alteracao_complexa:
+            
+            # Coleta a cadeia de substitutos que dependem desta ocupação
+            # NOTA: Usamos a ocupação antiga (occupacao_antiga) como base para a checagem
+            ids_ocupacoes_cadeia_abaixo = _get_chain_below_ocupacoes(session, ocupacao_antiga)
+            print("IDs de ocupações na cadeia abaixo:", ids_ocupacoes_cadeia_abaixo)
+            if ids_ocupacoes_cadeia_abaixo:
+                # CONFLITO: Devolve a lista de IDs para o front-end resolver
+                raise HTTPException(
+                    status_code=409,
+                    detail=(
+                        f"Alteração de alto impacto inválida: {len(ids_ocupacoes_cadeia_abaixo)} substituto(s) na cadeia abaixo. "
+                        "Remova-os, ou envie a confirmação/dados de reajuste."
+                    ),
+                    # Você pode usar headers ou um modelo de erro customizado para retornar os IDs
+                    # Neste exemplo, eles estão na descrição do erro (detail).
+                )
+            
+        # -------------------------------------------------------------
+        # 3. SE NÃO HOUVE ALTERAÇÃO COMPLEXA, PROSSEGUIMOS SIMPLESMENTE ALTERANDO OS CAMPOS RESTANTES, 
+        # O QUE É BEM MAIS EFICIENTE QUE A OPÇÃO DE REMOVER + ADICIONAR
+        if not houve_alteracao_complexa:
+            ocupacao_antiga.id_portaria = ocupacao_atualizada.id_portaria
+            ocupacao_antiga.observacoes = ocupacao_atualizada.observacoes
+            
+            session.commit()
+            session.refresh(ocupacao_antiga)
+            
+            return {
+                "status": "success",
+                "message": "Ocupação alterada com sucesso.",
+                "id_ocupacao": ocupacao_antiga.id_ocupacao
+            }
+
+        # -------------------------------------------------------------
+        # 4. NESSE CASO, HOUVE ALTERAÇÃO COMPLEXA, MAS NÃO HÁ SUBSTITUTOS
+        # FAZEMOS ENTÃO UMA ALTERAÇÃO ATÔMICA (Remover Antiga + Adicionar Nova), 
+        # POIS A ADIÇÃO E A REMOÇÃO JÁ ESTÃO CORRETAMENTE TRATANDO AS REGRAS DE NEGÓCIO
+        
+        # 4a. REMOVER A OCUPAÇÃO ANTIGA (Com toda a lógica de reajuste de mandatos nos vizinhos)
         core_remover_ocupacao(id_ocupacao, session)
-        session.flush()
-        ocupacao_atualizada = core_adicionar_ocupacao(ocupacao_atualizada, session)
+        session.flush() # Persiste o DELETE e o UPDATE dos mandatos
+        
+        # 4b. ADICIONAR A NOVA OCUPAÇÃO
+        # (O core_adicionar_ocupacao aplica as regras de exclusividade, 3 mandatos, etc.)
+        ocupacao_persistida = core_adicionar_ocupacao(ocupacao_atualizada, session)
+        
+        # 4c. COMMIT ÚNICO (Atomicidade)
         session.commit()
-
-        session.refresh(ocupacao_atualizada)
-
+        session.refresh(ocupacao_persistida)
+        
         return {
             "status": "success",
             "message": "Ocupação atualizada com sucesso.",
-            "id_ocupacao": ocupacao_atualizada.id_ocupacao
+            "id_ocupacao": ocupacao_persistida.id_ocupacao
         }
     
-    except HTTPException:
+    except IntegrityError as e:
         session.rollback()
+        # Tratamento para violações de chave única/foreign key
+        error_code = getattr(e.orig, "pgcode", None)
+        if error_code == '23505':
+            raise HTTPException(409, "Nova ocupação viola restrição de unicidade.")
+        if error_code == '23503':
+            raise HTTPException(400, "ID de Cargo ou Pessoa inválido.")
+        raise HTTPException(400, f"Erro de integridade: {e}")
+    
+    except HTTPException:
+        session.rollback() # Garante rollback para 409, 400 ou 404
         raise
     except Exception as e:
         session.rollback()
