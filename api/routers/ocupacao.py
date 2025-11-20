@@ -96,7 +96,6 @@ def core_adicionar_ocupacao(
             contador += 1
             session.flush()
             atual = _get_next_occupacao(session, atual.id_cargo, atual.data_inicio or date.min, atual.id_ocupacao)
-            print("ATUAL:", atual)
 
 
         if contador > 2:
@@ -326,8 +325,6 @@ def alterar_ocupacao(
 
         session.refresh(ocupacao_atualizada)
 
-        print("OCUPACAO: ", ocupacao_atualizada)
-
         return {
             "status": "success",
             "message": "Ocupação atualizada com sucesso.",
@@ -387,9 +384,6 @@ def finalizar_ocupacao(
     atual = cargo_atual
 
     while atual is not None:
-        print("===========================")
-        print(f"Adicionando cargo {atual.id_cargo} à cadeia.")
-        print("===========================")
         cadeia.append(atual)
         atual = session.get(Cargo, atual.substituto) if atual.substituto else None
 
@@ -431,9 +425,6 @@ def finalizar_ocupacao(
         oc = session.exec(query).first()
 
         if oc:
-            print("===========================")
-            print(f"Ocupação vigente para cargo {cargo.id_cargo} encontrada: {oc.id_ocupacao}")
-            print("===========================")
             oc.data_fim = payload.data_fim
             ocupacoes.append(oc)
 

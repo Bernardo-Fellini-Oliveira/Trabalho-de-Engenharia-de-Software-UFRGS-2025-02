@@ -44,7 +44,6 @@ def adicionar_pessoa_endpoint(pessoa: Pessoa, session: Session = Depends(get_ses
         session.rollback()
         # checa se foi violação de unicidade
         error_code = getattr(e.orig, "pgcode", None)
-        print(error_code)
         if error_code == '23505':  # código de erro para violação de unicidade no PostgreSQL
             raise HTTPException(
                 status_code=409,
@@ -208,7 +207,6 @@ def atualizar_pessoa(
         session.rollback()
         # checa se foi violação de unicidade
         error_code = getattr(e.orig, "pgcode", None)
-        print(error_code)
         if error_code == '23505':  # código de erro para violação de unicidade no PostgreSQL
             raise HTTPException(
                 status_code=409,

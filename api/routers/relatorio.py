@@ -80,7 +80,6 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
             # extrai a lista de ocupações dependendo do formato
             if group_by == "cargo":
                 ocupacoes = bloco.get("ocupacoes", [])
-                print("Ocupações:", ocupacoes)
                 label1 = bloco.get("cargo", "-")
                 label2 = bloco.get("orgao", "-")
                 # cada ocupação: pessoa, inicio, fim, mandato, id_ocupacao
@@ -211,7 +210,6 @@ def montar_query_export(req: ExportRequest, session: Session):
 
     resultados = session.exec(base).all()
 
-    print("Resultados:", resultados)
     # ----------------------------
     # AGRUPAMENTO
     # ----------------------------
@@ -228,11 +226,9 @@ def montar_query_export(req: ExportRequest, session: Session):
         chave = lambda r: r[2] # orgao
 
     for r in resultados:
-        print("Processando:", r)
         k = chave(r)
         agrupado.setdefault(k, []).append(r)
 
-    print(agrupado.items())
     # Transformar no formato esperado pelo gerador PDF
     if req.tipo == "pessoa":
         return [
@@ -298,8 +294,6 @@ def montar_query_export(req: ExportRequest, session: Session):
 def export_pdf(req: ExportRequest, session: Session = Depends(get_session)):
     dados = montar_query_export(req, session)
 
-    print(dados)
-
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
@@ -330,9 +324,6 @@ def export_csv(req: ExportRequest, session: Session = Depends(get_session)):
     # ========= 1) Refaz a consulta ao banco ==========
     rows = montar_query_export(req, session)
 
-    print("Rows: ", rows)
-
-
     # ========= 2) Monta o CSV ==========
     buffer = StringIO()
     writer = csv.writer(buffer)
@@ -342,7 +333,6 @@ def export_csv(req: ExportRequest, session: Session = Depends(get_session)):
 
     if req.tipo == "flat":
         for r in rows:
-            print("Escrevendo linha:", r)
             writer.writerow([
                 r[0], r[1], r[2],
                 r[3] or "", r[4] or "", r[5] if r[9] else "", r[6] or ""
