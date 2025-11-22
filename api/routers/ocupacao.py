@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlmodel import Session, select, and_
 from typing import List, Optional
 from utils.history_log import add_to_log
-from models import Ocupacao, Cargo, Orgao, Pessoa
+from models import EntidadeAlvo, Ocupacao, Cargo, Orgao, Notificacoes, Pessoa, TipoOperacao
 from database import get_session
 
 router = APIRouter(prefix="/api/ocupacao", tags=["Ocupação"])
@@ -11,6 +11,11 @@ router = APIRouter(prefix="/api/ocupacao", tags=["Ocupação"])
 # Criar ocupação
 @router.post("/")
 def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_session)):
+
+    cargo = session.get(Cargo, ocupacao.id_cargo)
+    pessoa = session.get(Pessoa, ocupacao.id_pessoa)
+    orgao = session.get(Orgao, cargo.id_orgao)
+
     try:
         # === Regra 0: data_inicio não pode ser posterior a data_fim ===
         if ocupacao.data_inicio and ocupacao.data_fim:
@@ -21,7 +26,7 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
                 )
 
         # === Regra 1: impedir ocupação de cargo exclusivo com sobreposição ===
-        cargo = session.get(Cargo, ocupacao.id_cargo)
+        #cargo = session.get(Cargo, ocupacao.id_cargo)
         if cargo and cargo.exclusivo:
             data_inicio_nova = ocupacao.data_inicio or date.min
             data_fim_nova = ocupacao.data_fim or date(9999, 12, 31)
@@ -55,9 +60,21 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
         ).all()
 
         if len(ultimas) == 2 and all(pid == ocupacao.id_pessoa for pid in ultimas):
+            dadospayload = ocupacao.model_dump()
+            solicitacao = Notificacoes(
+                operation=f"As últimas duas ocupações do cargo {cargo.nome} já foram de {pessoa.nome}. Criada uma solicitação de aprovação para esta ocupação.",
+                tipo_operacao=TipoOperacao.ADICAO,
+                entidade_alvo=EntidadeAlvo.OCUPACAO,
+                dados_payload=dadospayload   
+            )
+
+            session.add(solicitacao)
+            session.commit()
+            session.refresh(solicitacao)
+
             raise HTTPException(
                 status_code=400,
-                detail="As últimas duas ocupações deste cargo já foram dessa mesma pessoa."
+                detail="As últimas duas ocupações do cargo já foram dessa mesma pessoa. Criada uma solicitação de aprovação para esta ocupação."
             )
 
         # === Inserção da nova ocupação ===
@@ -65,10 +82,10 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
         session.commit()
         session.refresh(ocupacao)
 
-        pessoa = session.get(Pessoa, ocupacao.id_pessoa)
-        orgao = session.get(Orgao, cargo.id_orgao)
         add_to_log(
             db=session,
+            tipo_operacao=TipoOperacao.ADICAO,
+            entidade_alvo=EntidadeAlvo.OCUPACAO,
             operation=f"[ADD] Adicionada ocupação ID {ocupacao.id_ocupacao} para {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
         )
         
@@ -112,6 +129,8 @@ def remover_ocupacao(id_ocupacao: int = Path(..., description="ID da Ocupação 
 
     add_to_log(
         db=session,
+        tipo_operacao=TipoOperacao.REMOCAO,
+        entidade_alvo=EntidadeAlvo.OCUPACAO,
         operation=f"[DELETE] Removida a ocupação de ID {ocupacao.id_ocupacao} para {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
     )
 
@@ -125,8 +144,8 @@ def finalizar_ocupacao(id_ocupacao: int = Path(..., description="ID da Ocupaçã
     if not ocupacao:
         raise HTTPException(status_code=404, detail="Ocupação não encontrada.")
 
-    if ocupacao.data_fim:
-        raise HTTPException(status_code=400, detail="Essa ocupação já está finalizada.")
+    #if ocupacao.data_fim:
+    #    raise HTTPException(status_code=400, detail="Essa ocupação já está finalizada.")
 
     ocupacao.data_fim = date.today()
     session.commit()
@@ -138,6 +157,8 @@ def finalizar_ocupacao(id_ocupacao: int = Path(..., description="ID da Ocupaçã
 
     add_to_log(
         db=session,
+        tipo_operacao=TipoOperacao.FINALIZACAO,
+        entidade_alvo=EntidadeAlvo.OCUPACAO,
         operation=f"[END] Finalizada a ocupação de ID {ocupacao.id_ocupacao} para {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
     )
 

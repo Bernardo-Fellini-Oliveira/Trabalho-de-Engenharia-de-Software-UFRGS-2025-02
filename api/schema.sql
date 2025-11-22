@@ -51,7 +51,21 @@ CREATE TABLE IF NOT EXISTS Ocupacao (
 CREATE TABLE IF NOT EXISTS Historico (
     id SERIAL PRIMARY KEY,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    tipo_operacao TEXT NOT NULL,
+    entidade_alvo TEXT NOT NULL,
     operation TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS Notificacoes (
+    id SERIAL PRIMARY KEY,
+    data_solicitacao TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    operation TEXT NOT NULL,
+    dados_payload JSON NOT NULL,
+    tipo_operacao TEXT NOT NULL,
+    entidade_alvo TEXT NOT NULL,
+    status_aprovacao TEXT NOT NULL DEFAULT 'Pendente',
+    data_aprovacao TIMESTAMP,
+    aprovador_id INTEGER
 );
 
 
@@ -106,3 +120,8 @@ FOR EACH ROW
 EXECUTE FUNCTION atualizar_timestamp();
 
 -----------------------
+
+CREATE TRIGGER update_notificacoes_timestamp
+BEFORE UPDATE ON Historico
+FOR EACH ROW
+EXECUTE FUNCTION atualizar_timestamp();

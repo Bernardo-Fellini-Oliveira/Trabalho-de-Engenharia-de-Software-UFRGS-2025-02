@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlmodel import Session, select
 from typing import List
 from utils.history_log import add_to_log
-from models import Cargo, Orgao
+from models import Cargo, EntidadeAlvo, Orgao, TipoOperacao
 from database import get_session
 
 router = APIRouter(prefix="/api/cargo", tags=["Cargo"])
@@ -19,6 +19,8 @@ def adicionar_cargo(cargo: Cargo, session: Session = Depends(get_session)):
 
         add_to_log(
             db=session,
+            tipo_operacao=TipoOperacao.ADICAO,
+            entidade_alvo=EntidadeAlvo.CARGO,
             operation=f"[ADD] O cargo {cargo.nome}, do órgão {orgao.nome}, foi adicionado(a)",
         )   
         return cargo
@@ -53,6 +55,8 @@ def remover_cargo(
         cargo.ativo = False
         add_to_log(
             db=session,
+            tipo_operacao=TipoOperacao.INATIVACAO,
+            entidade_alvo=EntidadeAlvo.CARGO,
             operation=f"[DELETE] O cargo {cargo.nome}, do órgão {orgao.nome}, foi reativado(a)",
         )   
     else:
@@ -60,6 +64,8 @@ def remover_cargo(
             session.delete(cargo)
             add_to_log(
                 db=session,
+                tipo_operacao=TipoOperacao.REMOCAO,
+                entidade_alvo=EntidadeAlvo.CARGO,
                 operation=f"[DELETE] O cargo {cargo.nome}, do órgão {orgao.nome}, foi deletado(a)",
             )      
         except Exception as e:
@@ -93,6 +99,8 @@ def reativar_cargo(
     session.refresh(cargo)
     add_to_log(
         db=session,
+        tipo_operacao=TipoOperacao.REATIVACAO,
+        entidade_alvo=EntidadeAlvo.CARGO,
         operation=f"[REACTIVATE] O cargo {cargo.nome}, do órgão {orgao.nome} foi reativado(a)",
     )   
     return {"status": "success", "message": "Cargo reativado com sucesso."}

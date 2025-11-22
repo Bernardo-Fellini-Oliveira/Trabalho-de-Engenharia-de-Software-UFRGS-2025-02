@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlmodel import Session, select
-from models import Pessoa
+from models import EntidadeAlvo, Pessoa, TipoOperacao
 from database import get_session
 from utils.history_log import add_to_log
 
@@ -30,6 +30,8 @@ def adicionar_pessoa(pessoa: Pessoa, session: Session = Depends(get_session)):
         # Adiciona entrada no log de histórico
         add_to_log(
             db=session,
+            tipo_operacao=TipoOperacao.ADICAO,
+            entidade_alvo=EntidadeAlvo.PESSOA,
             operation=f"[ADD] A pessoa {pessoa.nome} foi adicionado(a)"
         )   
 
@@ -60,6 +62,8 @@ def remover_pessoa(
         pessoa.ativo = False
         add_to_log(
             db=session,
+            tipo_operacao=TipoOperacao.INATIVACAO,
+            entidade_alvo=EntidadeAlvo.PESSOA,
             operation=f"[DELETE] A pessoa {pessoa.nome} foi inativado(a)"
         )   
     else:
@@ -73,6 +77,8 @@ def remover_pessoa(
             )
         add_to_log(
             db=session,
+            tipo_operacao=TipoOperacao.REMOCAO,
+            entidade_alvo=EntidadeAlvo.PESSOA,
             operation=f"[DELETE] A pessoa {pessoa.nome} foi deletado(a)",
         )   
 
@@ -96,6 +102,8 @@ def reativar_pessoa(id_pessoa: int, session: Session = Depends(get_session)):
     session.refresh(pessoa)
     add_to_log(
         db=session,
+        tipo_operacao=TipoOperacao.REATIVACAO,
+        entidade_alvo=EntidadeAlvo.PESSOA,
         operation=f"[REACTIVATE] A pessoa {pessoa.nome} foi reativado(a)",
     )
     return {"status": "success", "message": "Pessoa reativada com sucesso."}

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlmodel import Session, select
 from utils.history_log import add_to_log
-from models import Orgao
+from models import EntidadeAlvo, Orgao, TipoOperacao
 from database import get_session
 
 router = APIRouter(prefix="/api/orgao", tags=["Órgão"])
@@ -15,6 +15,8 @@ def adicionar_orgao(orgao: Orgao, session: Session = Depends(get_session)):
         session.refresh(orgao)
         add_to_log(
             db=session,
+            tipo_operacao=TipoOperacao.ADICAO,
+            entidade_alvo=EntidadeAlvo.ORGAO,
             operation=f"[ADD] O Órgão {orgao.nome} foi adicionado(a)",
         )   
         return {
@@ -51,12 +53,16 @@ def remover_orgao(
         orgao.ativo = False
         add_to_log(
             db=session,
+            tipo_operacao=TipoOperacao.INATIVACAO,
+            entidade_alvo=EntidadeAlvo.ORGAO,
             operation=f"[DELETE] O Órgão {orgao.nome} foi inativado(a)",
         )  
     else:
         session.delete(orgao)
         add_to_log(
             db=session,
+            tipo_operacao=TipoOperacao.REMOCAO,
+            entidade_alvo=EntidadeAlvo.ORGAO,
             operation=f"[DELETE] O Órgão {orgao.nome} foi deletado(a)",
         )  
 
@@ -80,6 +86,8 @@ def reativar_orgao(id_orgao: int, session: Session = Depends(get_session)):
     session.refresh(orgao)
     add_to_log(
         db=session,
+        tipo_operacao=TipoOperacao.REATIVACAO,
+        entidade_alvo=EntidadeAlvo.ORGAO,
         operation=f"[REACTIVATE] O Órgão {orgao.nome} foi reativado(a)",
     )  
     return {"status": "success", "message": "Órgão reativado com sucesso."}

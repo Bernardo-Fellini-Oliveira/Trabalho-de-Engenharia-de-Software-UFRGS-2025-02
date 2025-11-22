@@ -1,5 +1,7 @@
-from sqlmodel import JSON, SQLModel, Field
-from typing import Optional
+from enum import Enum as PyEnum
+from pydantic import BaseModel
+from sqlmodel import JSON, Column, SQLModel, Field
+from typing import Any, Dict, List, Optional
 from datetime import date, datetime
 
 class Orgao(SQLModel, table=True):
@@ -48,7 +50,62 @@ class Portaria(SQLModel, table=True):
     observacoes: Optional[str] = None
     ativo: bool = Field(default=True)
 
+
+#Enums de tipo de operação e entidades para o histórico
+class TipoOperacao(str, PyEnum):
+    ADICAO = "Adição"
+    REMOCAO = "Remoção"
+    INATIVACAO = "Inativação"
+    REATIVACAO = "Reativação"
+    ASSOCIACAO = "Associação"
+    FINALIZACAO = "Finalização" 
+
+class EntidadeAlvo(str, PyEnum):
+    PESSOA = "Pessoa"
+    ORGAO = "Órgão"
+    COMISSAO = "Comissão"
+    CARGO = "Cargo"
+    PORTARIA = "Portaria"
+    OCUPACAO = "Ocupação"
+
+
 class Historico(SQLModel, table=True):
     id: Optional[int] = Field(default=None, primary_key=True)
     created_at: datetime = Field(default_factory=datetime.now)
+
+    tipo_operacao: TipoOperacao
+    entidade_alvo: EntidadeAlvo
+
     operation: str
+
+#Tipo de retorno do histórico
+class HistoricoModel(BaseModel):
+    limite: int
+    deslocamento: int
+    total_itens: int
+    historico: List[Historico]
+
+class Status(str, PyEnum):
+    PENDENTE = "Pendente"
+    APROVADO = "Aprovado"
+    REPROVADO = "Reprovado"
+
+class Notificacoes(SQLModel, table=True):
+    id: Optional[int] = Field(default=None, primary_key=True)
+    
+    # Metadados
+    data_solicitacao: datetime = Field(default_factory=datetime.now)
+    operation: str
+    
+    # O que precisa ser feito (Reflete os Enums do Historico)
+    tipo_operacao: TipoOperacao 
+    entidade_alvo: EntidadeAlvo
+        
+    dados_payload: Dict[str, Any] = Field(sa_column=Column(JSON))
+
+    # Status
+    status_aprovacao: Status = Field(default=Status.PENDENTE)
+    
+    # Campos de Auditoria
+    aprovador_id: Optional[int] = None
+    data_aprovacao: Optional[datetime] = None
