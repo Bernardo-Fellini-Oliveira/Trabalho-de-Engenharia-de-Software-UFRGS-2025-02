@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Path, Query
 from pydantic import BaseModel
 from database import get_connection
+from typing import List
 
 router = APIRouter(    prefix="/api/orgao", # Define o prefixo aqui
                        tags=["Órgão"])
@@ -10,28 +11,33 @@ class OrgaoIn(BaseModel):
     ativo: int
 
 @router.post("/")
-def adicionar_orgao(orgao: OrgaoIn):
+def adicionar_orgao(orgaos: List[OrgaoIn]):
     try:
         conn = get_connection()
         cursor = conn.cursor()
         
-        # O id_orgao é autoincrementado, não incluímos ele na inserção
-        cursor.execute(
-            "INSERT INTO Orgao (nome, ativo) VALUES (%(nome)s, %(ativo)s)",
-            {"nome": orgao.nome, "ativo": 1}
-        )
+        id_gerados = []
+
+        for o in orgaos:
+            # O id_orgao é autoincrementado, não incluímos ele na inserção
+            cursor.execute(
+                "INSERT INTO Orgao (nome, ativo) VALUES (%(nome)s, %(ativo)s)",
+                {"nome": o.nome, "ativo": 1}
+            )
+            id_gerados.append(cursor.lastrowid)
         
         conn.commit()
-        
-        # >>> AQUI: Recupera o ID gerado pelo AUTOINCREMENT <<<
-        id_gerado = cursor.lastrowid
-        
-        conn.close()
+
         
         # Retorna o ID gerado
-        return {"status": "success", "message": "Órgão adicionado com sucesso", "id_orgao": id_gerado}
+        return {"status": "success", "message": "Órgãos adicionados com sucesso"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Órgão: {str(e)}")
+        if conn:
+            conn.rollback() # Desfaz se der erro no meio
+        raise HTTPException(status_code=500, detail=f"Erro ao adicionar a lista de Orgãos: {str(e)}")
+    finally:
+        if conn:
+            conn.close()
     
 @router.get("/")
 def carregar_orgao():

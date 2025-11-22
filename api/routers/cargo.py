@@ -1,6 +1,7 @@
 from fastapi import APIRouter, HTTPException, Path, Query
 from pydantic import BaseModel
 from database import get_connection
+from typing import List
 
 router = APIRouter(    prefix="/api/cargo", # Define o prefixo aqui
                        tags=["Cargo"])
@@ -12,25 +13,30 @@ class CargoIn(BaseModel):
     exclusivo: int | None = 1  # Novo campo, padrão 1 (exclusivo)
 
 @router.post("/")
-def adicionar_cargo(cargo: CargoIn):
+def adicionar_cargo(cargos: List[CargoIn]):
     try:
         conn = get_connection()
         cursor = conn.cursor()
-        cursor.execute(
-            "INSERT INTO Cargo (nome, ativo, id_orgao, exclusivo) VALUES (%(nome)s, %(ativo)s, %(id_orgao)s, %(exclusivo)s)",
-            {"nome": cargo.nome, "ativo": 1, "id_orgao": cargo.id_orgao, "exclusivo": cargo.exclusivo}
-        )
+
+        for c in cargos:
+            cursor.execute(
+                "INSERT INTO Cargo (nome, ativo, id_orgao, exclusivo) VALUES (%(nome)s, %(ativo)s, %(id_orgao)s, %(exclusivo)s)",
+                {"nome": c.nome, "ativo": 1, "id_orgao": c.id_orgao, "exclusivo": c.exclusivo}
+            )
         conn.commit()
         
-        # Recupera o ID gerado
-        id_gerado = cursor.lastrowid 
         
         conn.close()
         
         # Retorna o ID gerado
-        return {"status": "success", "message": "Cargo adicionado com sucesso", "id_cargo": id_gerado}
+        return {"status": "success", "message": "Cargos adicionados com sucesso"}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+        if conn:
+            conn.rollback() # Desfaz se der erro no meio
+        raise HTTPException(status_code=500, detail=f"Erro ao adicionar a lista de Cargos: {str(e)}")
+    finally:
+        if conn:
+            conn.close()
     
 
 @router.get("/")

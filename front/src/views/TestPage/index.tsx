@@ -1,712 +1,346 @@
 import React, { useEffect, useState } from 'react';
-// Importação direta do Axios para garantir que o código compila em ambientes isolados
-// Em um ambiente de projeto local real, você usaria 'import api from "../../services/api";'
-import api from '../../services/api';
+import api from '../../services/api'; 
 import axios from 'axios';
+import '../../../styles.css'; 
 
-// === Componente Principal ===================================================
+// === Interfaces de Tipagem ===
+interface PessoaDB { id_pessoa: number; nome: string; ativo: boolean; }
+interface OrgaoDB { id_orgao: number; nome: string; ativo: boolean; }
+interface CargoDB { id_cargo: number; nome: string; ativo: boolean; id_orgao: number; }
 
-function TestPage() {
-    // === Interfaces ===========================================================
-    interface Pessoa {
-        id_pessoa: number;
-        nome: string;
-        ativo: number;
-    }
+interface FormPessoa { id_temp: number; nome: string; }
+interface FormOrgao { id_temp: number; nome: string; }
+interface FormCargo { id_temp: number; nome: string; orgao_associado: string; exclusivo: boolean; }
+interface FormVinculo { id_temp: number; pessoa_v: string; cargo_v: string; inicio_v: string; fim_v: string; }
 
-    interface Orgao {
-        id_orgao: number;
-        nome: string;
-        ativo: number; // No DB é INTEGER (0 ou 1)
-    }
+function InputPage() {
+    // === Estados para DATALISTS ===
+    const [dbPessoas, setDbPessoas] = useState<PessoaDB[]>([]);
+    const [dbOrgaos, setDbOrgaos] = useState<OrgaoDB[]>([]);
+    const [dbCargos, setDbCargos] = useState<CargoDB[]>([]);
 
-    interface Cargo {
-        id_cargo: number;
-        nome: string;
-        ativo: number; // No DB é INTEGER (0 ou 1)
-        exclusivo: number; // No DB é INTEGER (0 ou 1)
-        id_orgao: number;
-    }
+    // === Estados dos Formulários Dinâmicos ===
+    const [listaPessoas, setListaPessoas] = useState<FormPessoa[]>([{ id_temp: Date.now(), nome: '' }]);
+    const [listaOrgaos, setListaOrgaos] = useState<FormOrgao[]>([{ id_temp: Date.now(), nome: '' }]);
+    const [listaCargos, setListaCargos] = useState<FormCargo[]>([{ id_temp: Date.now(), nome: '', orgao_associado: '', exclusivo: false }]);
+    const [listaVinculos, setListaVinculos] = useState<FormVinculo[]>([{ id_temp: Date.now(), pessoa_v: '', cargo_v: '', inicio_v: '', fim_v: '' }]);
 
-    interface Portaria {
-        id_portaria: number;
-        numero: number; // Corrigido para number, já que no DB é INTEGER
-        data_portaria: string;
-        observacoes: string | null;
-        ativo: number;
-    }
+    const [loading, setLoading] = useState(false);
 
-    interface Ocupacao {
-        id_ocupacao: number;
-        id_pessoa: number;
-        id_cargo: number;
-        id_portaria: number | null;
-        data_inicio: string | null;
-        data_fim: string | null;
-        mandato: number;
-        observacoes: string | null;
-    }
-
-    // === Estados ==============================================================
-    const [pessoas, setPessoas] = useState<Pessoa[]>([]);
-    const [orgaos, setOrgaos] = useState<Orgao[]>([]);
-    const [cargos, setCargos] = useState<Cargo[]>([]);
-    const [portarias, setPortarias] = useState<Portaria[]>([]);
-    const [ocupacoes, setOcupacoes] = useState<Ocupacao[]>([]);
-
-    console.log(portarias);
-
-    // Estados dos inputs de criação
-    const [nomePessoa, setNomePessoa] = useState("");
-    const [nomeOrgao, setNomeOrgao] = useState("");
-    const [nomeCargo, setNomeCargo] = useState("");
-    
-    // Estados para Cargo
-    const [orgaoSelecionadoId, setOrgaoSelecionadoId] = useState<number | null>(null);
-    const [exclusivoCargo, setExclusivoCargo] = useState(1); // Padrão 1 (true)
-
-    // Estados dos inputs de Ocupação (Vínculo)
-    const [pessoaSelecionadaId, setPessoaSelecionadaId] = useState<number | null>(null);
-    const [cargoSelecionadoId, setCargoSelecionadoId] = useState<number | null>(null);
-    const [portariaSelecionadaId, setPortariaSelecionadaId] = useState<number | null>(null);
-    const [dataInicio, setDataInicio] = useState("");
-    const [dataFim, setDataFim] = useState("");
-    
-    // Inputs para Portaria
-    const [numeroPortaria, setNumeroPortaria] = useState("");
-    const [dataPortaria, setDataPortaria] = useState("");
-    const [obsPortaria, setObsPortaria] = useState("");
-
-    const [loading, setLoading] = useState(true);
-    const [feedback, setFeedback] = useState("");
-
-    // --- Funções de API de Carregamento (GET) ----------------------------------
-
-    const fetchAllData = async () => {
-        try {
-            setLoading(true);
-            setFeedback("A carregar dados iniciais...");
-
-            // Usando Promise.all para carregar todos os dados em paralelo
-            const [pessoasRes, orgaosRes, cargosRes, portariasRes, ocupacoesRes] = await Promise.all([
-                api.get<Pessoa[]>("/pessoa/"),
-                api.get<Orgao[]>("/orgao/"),
-                api.get<Cargo[]>("/cargo/"),
-                api.get<Portaria[]>("/portaria/"),
-                api.get<Ocupacao[]>("/ocupacao/"),
-            ]);
-            
-            setPessoas(pessoasRes.data);
-            setOrgaos(orgaosRes.data);
-            setCargos(cargosRes.data);
-            setPortarias(portariasRes.data);
-            setOcupacoes(ocupacoesRes.data);
-
-            setFeedback("Dados carregados com sucesso!");
-
-        } catch (error: unknown) {
-            console.error("Erro ao carregar dados:", error);
-            // Type guard para garantir que 'error' tem a propriedade 'message' ou 'response.data.detail'
-            let errorMessage = "Erro desconhecido ao carregar dados.";
-            if (axios.isAxiosError(error) && error.response) {
-                // Tenta extrair a mensagem do erro do FastAPI, se existir
-                errorMessage = error.response.data.detail ? JSON.stringify(error.response.data.detail) : error.message;
-            } else if (error instanceof Error) {
-                errorMessage = error.message;
+    // === 1. Carregar dados ===
+    useEffect(() => {
+        const loadData = async () => {
+            try {
+                const [p, o, c] = await Promise.all([
+                    api.get<PessoaDB[]>('/pessoa/'),
+                    api.get<OrgaoDB[]>('/orgao/'),
+                    api.get<CargoDB[]>('/cargo/')
+                ]);
+                setDbPessoas(p.data);
+                setDbOrgaos(o.data);
+                setDbCargos(c.data);
+            } catch (err) {
+                console.error("Erro ao carregar dados base", err);
             }
-            setFeedback(`Erro ao carregar dados: ${errorMessage}`);
+        };
+        loadData();
+    }, []);
+
+    // === 2. Funções de Manipulação ===
+    const handleAdd = (tipo: string) => {
+        const id_temp = Date.now();
+        if (tipo === 'pessoa') setListaPessoas([...listaPessoas, { id_temp, nome: '' }]);
+        if (tipo === 'orgao') setListaOrgaos([...listaOrgaos, { id_temp, nome: '' }]);
+        if (tipo === 'cargo') setListaCargos([...listaCargos, { id_temp, nome: '', orgao_associado: '', exclusivo: false }]);
+        if (tipo === 'vinculo') setListaVinculos([...listaVinculos, { id_temp, pessoa_v: '', cargo_v: '', inicio_v: '', fim_v: '' }]);
+    };
+
+    const handleRemove = (tipo: string, id_temp: number) => {
+        // A verificação de segurança permanece aqui, mas o botão sumirá visualmente
+        if (tipo === 'pessoa' && listaPessoas.length > 1) setListaPessoas(listaPessoas.filter(i => i.id_temp !== id_temp));
+        if (tipo === 'orgao' && listaOrgaos.length > 1) setListaOrgaos(listaOrgaos.filter(i => i.id_temp !== id_temp));
+        if (tipo === 'cargo' && listaCargos.length > 1) setListaCargos(listaCargos.filter(i => i.id_temp !== id_temp));
+        if (tipo === 'vinculo' && listaVinculos.length > 1) setListaVinculos(listaVinculos.filter(i => i.id_temp !== id_temp));
+    };
+
+    const handleChange = (tipo: string, id_temp: number, field: string, value: any) => {
+        if (tipo === 'pessoa') setListaPessoas(listaPessoas.map(i => i.id_temp === id_temp ? { ...i, [field]: value } : i));
+        if (tipo === 'orgao') setListaOrgaos(listaOrgaos.map(i => i.id_temp === id_temp ? { ...i, [field]: value } : i));
+        if (tipo === 'cargo') setListaCargos(listaCargos.map(i => i.id_temp === id_temp ? { ...i, [field]: value } : i));
+        if (tipo === 'vinculo') setListaVinculos(listaVinculos.map(i => i.id_temp === id_temp ? { ...i, [field]: value } : i));
+    };
+
+    // === 3. Helpers e Envio ===
+    const extractId = (val: string): number | null => {
+        if (!val) return null;
+        const parts = val.split(' - ');
+        const id = parseInt(parts[0]);
+        return isNaN(id) ? null : id;
+    };
+
+    const enviar = async (tipo: string) => {
+        setLoading(true);
+        try {
+            if (tipo === 'pessoas') {
+                const payload = listaPessoas.filter(p => p.nome.trim() !== "").map(p => ({ nome: p.nome }));
+                if (payload.length === 0) return alert("Preencha os nomes.");
+                await api.post('/pessoa/', payload);
+                alert('Pessoas inseridas com sucesso!');
+                setListaPessoas([{ id_temp: Date.now(), nome: '' }]);
+            }
+            if (tipo === 'orgaos') {
+                const payload = listaOrgaos.filter(o => o.nome.trim() !== "").map(o => ({ nome: o.nome, ativo: 1 }));
+                if (payload.length === 0) return alert("Preencha os órgãos.");
+                await api.post('/orgao/', payload);
+                alert('Órgãos inseridos com sucesso!');
+                setListaOrgaos([{ id_temp: Date.now(), nome: '' }]);
+            }
+            if (tipo === 'cargos') {
+                const payload = [];
+                for (const c of listaCargos) {
+                    const idOrgao = extractId(c.orgao_associado);
+                    if (c.nome.trim() && idOrgao) {
+                        payload.push({ nome: c.nome, id_orgao: idOrgao, exclusivo: c.exclusivo ? 1 : 0, ativo: 1 });
+                    }
+                }
+                if (payload.length === 0) return alert("Verifique os nomes e órgãos.");
+                await api.post('/cargo/', payload);
+                alert('Cargos inseridos com sucesso!');
+                setListaCargos([{ id_temp: Date.now(), nome: '', orgao_associado: '', exclusivo: false }]);
+            }
+            if (tipo === 'vinculados') {
+                const payload = [];
+                for (const v of listaVinculos) {
+                    const idPessoa = extractId(v.pessoa_v);
+                    const idCargo = extractId(v.cargo_v);
+                    if (idPessoa && idCargo) {
+                        payload.push({ id_pessoa: idPessoa, id_cargo: idCargo, data_inicio: v.inicio_v || null, data_fim: v.fim_v || null, id_portaria: null, mandato: 1, observacoes: null });
+                    }
+                }
+                if (payload.length === 0) return alert("Verifique as seleções.");
+                await api.post('/ocupacao/', payload);
+                alert('Vinculações inseridas com sucesso!');
+                setListaVinculos([{ id_temp: Date.now(), pessoa_v: '', cargo_v: '', inicio_v: '', fim_v: '' }]);
+            }
+
+            // Recarrega datalists
+            const [p, o, c] = await Promise.all([
+                api.get<PessoaDB[]>('/pessoa/'),
+                api.get<OrgaoDB[]>('/orgao/'),
+                api.get<CargoDB[]>('/cargo/')
+            ]);
+            setDbPessoas(p.data); setDbOrgaos(o.data); setDbCargos(c.data);
+
+        } catch (error) {
+            console.error(error);
+            alert("Erro ao enviar dados.");
         } finally {
             setLoading(false);
         }
     };
 
+    const getOrgaoName = (id: number) => dbOrgaos.find(o => o.id_orgao === id)?.nome || 'Desc.';
 
-    // === Carregar dados iniciais ==============================================
-    useEffect(() => {
-        fetchAllData();
-    }, []);
-
-    // --- Funções de API de Adição (POST) --------------------------------------
-
-    const handleCreatePessoa = async () => {
-        if (!nomePessoa.trim()) {
-            setFeedback("O nome da pessoa é obrigatório.");
-            return;
-        }
-        try {
-            setFeedback(`A adicionar Pessoa: ${nomePessoa}...`);
-            const start = performance.now();
-            const payload = { nome: nomePessoa };
-            const response = await api.post("/pessoa/", payload);
-            const end = performance.now();
-            console.log(`Pessoa adicionada com ID: ${response.data.id_pessoa} (Tempo: ${(end - start).toFixed(2)} ms)`);
-            setNomePessoa("");
-            fetchAllData(); 
-        } catch (error: unknown) {
-            let errorMessage = "Erro desconhecido ao adicionar pessoa.";
-            if (axios.isAxiosError(error) && error.response) {
-                errorMessage = error.response.data.detail ? JSON.stringify(error.response.data.detail) : error.message;
-            } else if (error instanceof Error) errorMessage = error.message;
-            setFeedback(`Erro: ${errorMessage}`);
-            console.error("Erro ao adicionar pessoa:", error);
-        }
-    };
-
-    const handleCreateOrgao = async () => {
-        if (!nomeOrgao.trim()) {
-            setFeedback("O nome do órgão é obrigatório.");
-            return;
-        }
-        try {
-            setFeedback(`A adicionar Órgão: ${nomeOrgao}...`);
-            const payload = { nome: nomeOrgao, ativo: 1 }; // Ativo: 1 é INTEGER no DB
-            const response = await api.post("/orgao/", payload);
-            setFeedback(`Órgão adicionado com ID: ${response.data.id_orgao}`);
-            setNomeOrgao("");
-            fetchAllData(); 
-        } catch (error: unknown) {
-            let errorMessage = "Erro desconhecido ao adicionar órgão.";
-            if (axios.isAxiosError(error) && error.response) {
-                errorMessage = error.response.data.detail ? JSON.stringify(error.response.data.detail) : error.message;
-            } else if (error instanceof Error) errorMessage = error.message;
-            setFeedback(`Erro: ${errorMessage}`);
-            console.error("Erro ao adicionar órgão:", error);
-        }
-    };
-
-    const handleCreateCargo = async () => {
-        if (!nomeCargo.trim() || orgaoSelecionadoId === null) {
-            setFeedback("Nome do cargo e órgão são obrigatórios.");
-            return;
-        }
-        try {
-            setFeedback(`A adicionar Cargo: ${nomeCargo}...`);
-            const payload = { 
-                nome: nomeCargo, 
-                ativo: 1, 
-                id_orgao: orgaoSelecionadoId,
-                exclusivo: exclusivoCargo? 1 : 0
-            };
-            const response = await api.post("/cargo/", payload);
-            setFeedback(`Cargo adicionado com ID: ${response.data.id_cargo}`);
-            setNomeCargo("");
-            setOrgaoSelecionadoId(null);
-            setExclusivoCargo(1);
-            fetchAllData();
-        } catch (error: unknown) {
-            let errorMessage = "Erro desconhecido ao adicionar cargo.";
-            if (axios.isAxiosError(error) && error.response) {
-                errorMessage = error.response.data.detail ? JSON.stringify(error.response.data.detail) : error.message;
-            } else if (error instanceof Error) errorMessage = error.message;
-            setFeedback(`Erro: ${errorMessage}`);
-            console.error("Erro ao adicionar cargo:", error);
-        }
-    };
-    
-    const handleCreatePortaria = async () => {
-        if (!numeroPortaria.trim() || !dataPortaria.trim()) {
-            setFeedback("Número e Data da Portaria são obrigatórios.");
-            return;
-        }
-        try {
-            setFeedback(`A adicionar Portaria N° ${numeroPortaria}...`);
-            const payload = { 
-                numero: parseInt(numeroPortaria), 
-                data_portaria: dataPortaria,
-                observacoes: obsPortaria.trim() || null
-            };
-            const response = await api.post("/portaria/", payload);
-            setFeedback(`Portaria adicionada com ID: ${response.data.id_portaria}`);
-            setNumeroPortaria("");
-            setDataPortaria("");
-            setObsPortaria("");
-            fetchAllData();
-        } catch (error: unknown) {
-            let errorMessage = "Erro desconhecido ao adicionar portaria.";
-            if (axios.isAxiosError(error) && error.response) {
-                errorMessage = error.response.data.detail ? JSON.stringify(error.response.data.detail) : error.message;
-            } else if (error instanceof Error) errorMessage = error.message;
-            setFeedback(`Erro: ${errorMessage}`);
-            console.error("Erro ao adicionar portaria:", error);
-        }
-    };
-
-    const handleCreateOcupacao = async () => {
-        if (pessoaSelecionadaId === null || cargoSelecionadoId === null) {
-            setFeedback("Pessoa e Cargo devem ser selecionados.");
-            return;
-        }
-
-        const mandatoValue = 1; // Usando valor padrão
-        
-        try {
-            setFeedback(`A vincular Pessoa ${pessoaSelecionadaId} ao Cargo ${cargoSelecionadoId}...`);
-            const payload = { 
-                id_pessoa: pessoaSelecionadaId,
-                id_cargo: cargoSelecionadoId,
-                id_portaria: portariaSelecionadaId, 
-                data_inicio: dataInicio.trim() || null,
-                data_fim: dataFim.trim() || null,
-                mandato: mandatoValue,
-                observacoes: null
-            };
-            const response = await api.post("/ocupacao/", payload);
-            setFeedback(`Ocupação adicionada com ID: ${response.data.id_ocupacao}`);
-            setPessoaSelecionadaId(null);
-            setCargoSelecionadoId(null);
-            setPortariaSelecionadaId(null);
-            setDataInicio("");
-            setDataFim("");
-            fetchAllData();
-        } catch (error: unknown) {
-            let errorMessage = "Erro desconhecido ao adicionar ocupação.";
-            if (axios.isAxiosError(error) && error.response) {
-                errorMessage = error.response.data.detail ? JSON.stringify(error.response.data.detail) : error.message;
-            } else if (error instanceof Error) errorMessage = error.message;
-            setFeedback(`Erro: ${errorMessage}`);
-            console.error("Erro ao adicionar ocupação:", error);
-        }
-    };
-
-
-    // --- Funções de API de Remoção (DELETE) ------------------------------------
-
-    const handleReactivateEntity = async (entity: string, id: number) => {
-        if (!window.confirm(`Tem certeza que deseja reativar o(a) ${entity} com ID ${id}?`)) {
-            return;
-        }
-        try {
-            setFeedback(`A reativar ${entity} com ID ${id}...`);
-            const response = await api.put(`/${entity}/reativar/${id}`);
-            setFeedback(response.data.message || `${entity} reativado com sucesso.`);
-            fetchAllData();
-        } catch (error: unknown) {
-            let errorMessage = `Erro ao reativar ${entity}.`;
-            if (axios.isAxiosError(error) && error.response) {
-                errorMessage = error.response.data.detail ?
-                    (Array.isArray(error.response.data.detail) ? error.response.data.detail[0].msg : error.response.data.detail)
-                    : error.message;
-            }
-            else if (error instanceof Error) {
-                errorMessage = error.message;
-            }
-            setFeedback(`Erro: ${errorMessage}`);
-            console.error(`Erro ao reativar ${entity}:`, error);
-        }
-    };
-
-
-    const handleDeleteEntity = async (entity: string, id: number, soft: boolean = false) => {
-        const type = soft ? 'Inativação (Soft Delete)' : 'Exclusão Permanente (Hard Delete)';
-        
-        if (!window.confirm(`Tem certeza que deseja realizar a operação de ${type} no(a) ${entity} com ID ${id}?`)) {
-            return;
-        }
-        
-        try {
-            setFeedback(`A executar ${type} em ${entity} com ID ${id}...`);
-            
-            let url = `/${entity}/delete/${id}`;
-            if (soft) {
-                url += '?soft=true';
-            }
-            
-            const response = await api.delete(url);
-            setFeedback(response.data.message || `${entity} removido/inativado com sucesso.`);
-            fetchAllData();
-        } catch (error: unknown) {
-            let errorMessage = `Erro ao realizar a operação em ${entity}.`;
-            if (axios.isAxiosError(error) && error.response) {
-                // Tenta extrair a mensagem de erro do FastAPI/chave estrangeira
-                errorMessage = error.response.data.detail ? 
-                    (Array.isArray(error.response.data.detail) ? error.response.data.detail[0].msg : error.response.data.detail) 
-                    : error.message;
-            } else if (error instanceof Error) {
-                errorMessage = error.message;
-            }
-            // Verifica se é erro de chave estrangeira
-            if (errorMessage.includes("FOREIGN KEY constraint failed")) {
-                errorMessage = `Não pode remover o(a) ${entity} com ID ${id}. Existem outras entidades (ex: Cargos ou Ocupações) que dependem dele(a).`;
-            }
-
-            setFeedback(`Erro: ${errorMessage}`);
-            console.error(`Erro ao remover ${entity}:`, error);
-        }
-    };
-
-
-    // --- Funções Auxiliares ---------------------------------------------------
-    
-    // Função para obter o nome do órgão a partir do ID
-    const getOrgaoName = (id: number) => {
-        return orgaos.find(o => o.id_orgao === id)?.nome || 'Órgão Desconhecido';
-    };
-
-
-    const handleEndOcupacao = async (id_ocupacao: number) => {
-        if (!window.confirm(`Tem certeza que deseja finalizar a Ocupação com ID ${id_ocupacao}?`)) {
-            return;
-        }
-        try {
-            setFeedback(`A finalizar Ocupação com ID ${id_ocupacao}...`);
-            const response = await api.put(`/ocupacao/finalizar/${id_ocupacao}`);
-            setFeedback(response.data.message || `Ocupação finalizada com sucesso.`);
-            fetchAllData();
-        } catch (error: unknown) {
-            let errorMessage = `Erro ao finalizar Ocupação.`;
-            if (axios.isAxiosError(error) && error.response) {
-                errorMessage = error.response.data.detail ?
-                    (Array.isArray(error.response.data.detail) ? error.response.data.detail[0].msg : error.response.data.detail)
-                    : error.message;
-            }
-            else if (error instanceof Error) {
-                errorMessage = error.message;
-            }
-            setFeedback(`Erro: ${errorMessage}`);
-            console.error(`Erro ao finalizar Ocupação:`, error);
-        }
-    };
-
-
-    // Função para renderizar botões de remoção (Soft/Hard)
-    const renderDeleteButtons = (entity: string, id: number, isSoftDeletable: boolean, isActive: boolean) => {
-        if (!isSoftDeletable) {
-            // Hard Delete simples para Portaria e Ocupação
-            return (
-                <button 
-                    onClick={() => handleDeleteEntity(entity, id, false)}
-                    
-                    disabled={loading}
-                    title={`Excluir permanentemente ${entity} (ID: ${id})`}
-                >
-                    Excluir
-                </button>
-            );
-        }
-
-        // Botões duplos para Pessoa, Órgão, Cargo, Portaria
-        return (
-            <>
-                <button 
-                    onClick={isActive? () => handleDeleteEntity(entity, id, true) : () => handleReactivateEntity(entity, id)}
-                    
-                    disabled={loading}
-                    title={isActive? `Inativar ${entity} (Soft Delete) (ID: ${id})` : `Reativar ${entity} (ID: ${id})`}
-                >
-                    {isActive? "Inativar" : "Reativar"}
-
-                </button>
-                <button 
-                    onClick={() => handleDeleteEntity(entity, id, false)}
-                    
-                    disabled={loading}
-                    title={`Excluir permanentemente ${entity} (Hard Delete) (ID: ${id})`}
-                >
-                    Excluir
-                </button>
-            </>
-        );
-    };
-
-    // === Render ===============================================================
     return (
-        <div >
-            <h1 >
-                Teste de Integração
-            </h1>
+        <div>
+            {/* Datalists */}
+            <datalist id="dl-orgaos">
+                {dbOrgaos.map(o => o.ativo && <option key={o.id_orgao} value={`${o.id_orgao} - ${o.nome}`} />)}
+            </datalist>
+            <datalist id="dl-pessoas">
+                {dbPessoas.map(p => p.ativo && <option key={p.id_pessoa} value={`${p.id_pessoa} - ${p.nome}`} />)}
+            </datalist>
+            <datalist id="dl-cargos">
+                {dbCargos.map(c => c.ativo && <option key={c.id_cargo} value={`${c.id_cargo} - ${c.nome} (${getOrgaoName(c.id_orgao)})`} />)}
+            </datalist>
 
-            <div>
-                {loading ? "Aguarde..." : feedback}
+            <div className="topo">
+                <h1>INSERÇÃO DE DADOS</h1>
+                <p>Inserindo dados</p>
+                {loading && <p style={{color: 'orange'}}>Processando...</p>}
             </div>
 
-            <div >
-                {/* Coluna de Adição (POST) */}
-                <div >
-                    <h2 >Adicionar Entidades</h2>
+            <div className="conteudo">
+                <div className="form-box">
 
-                    {/* Adicionar Pessoa */}
-                    <div >
-                        <h3 >Pessoa</h3>
-                        <input
-                            type="text"
-                            placeholder="Nome da pessoa"
-                            value={nomePessoa}
-                            onChange={(e) => setNomePessoa(e.target.value)}
-                            
-                        />
-                        <button 
-                            onClick={handleCreatePessoa} 
-                            disabled={loading || !nomePessoa.trim()}
-                            
-                        >
-                            Adicionar Pessoa
-                        </button>
-                    </div>
-
-                    {/* Adicionar Órgão */}
-                    <div >
-                        <h3 >Órgão</h3>
-                        <input
-                            type="text"
-                            placeholder="Nome do órgão"
-                            value={nomeOrgao}
-                            onChange={(e) => setNomeOrgao(e.target.value)}
-                            
-                        />
-                        <button
-                            onClick={handleCreateOrgao}
-                            disabled={loading || !nomeOrgao.trim()}
-                            
-                        >
-                            Adicionar Órgão
-                        </button>
-                    </div>
-
-                    {/* Adicionar Cargo */}
-                    <div >
-                        <h3 >Cargo</h3>
-                        <input
-                            type="text"
-                            placeholder="Nome do cargo"
-                            value={nomeCargo}
-                            onChange={(e) => setNomeCargo(e.target.value)}
-                            
-                        />
-                        <select 
-                            value={orgaoSelecionadoId || ""} 
-                            onChange={(e) => setOrgaoSelecionadoId(parseInt(e.target.value))}
-                            
-                        >
-                            <option value="">Selecione um órgão</option>
-                            {orgaos.map((orgao) => (
-                              orgao.ativo === 1 && (
-                                <option key={orgao.id_orgao} value={orgao.id_orgao}>
-                                    {orgao.nome} ({orgao.id_orgao})
-                                </option>)
+                    {/* === PESSOAS === */}
+                    <div className="area">
+                        <div className="arrayObj pessoa pessoas">
+                            {listaPessoas.map((item, index) => (
+                                <div key={item.id_temp} className={`obj pessoa pessoas ${index}`}>
+                                    <h2>Pessoa:</h2>
+                                    <div id="c_nome_pessoa" className="input_container normal">
+                                        <div className="numero-item">
+                                            Nome:<br />
+                                            <input 
+                                                type="text" 
+                                                value={item.nome}
+                                                onChange={(e) => handleChange('pessoa', item.id_temp, 'nome', e.target.value)}
+                                                required 
+                                            />
+                                            {/* --- AQUI: Condicional adicionada --- */}
+                                            {listaPessoas.length > 1 && (
+                                                <button type="button" className="botao-remover" onClick={() => handleRemove('pessoa', item.id_temp)}>X</button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                             ))}
-                        </select>
-
-                        <label htmlFor="exclusivoCargo">Cargo Exclusivo?</label>
-                        <input id="exclusivoCargo" type="checkbox" style={{ width: '20px', height: '20px' }} value={exclusivoCargo} checked={exclusivoCargo === 1} onChange={(e) => setExclusivoCargo(e.target.checked ? 1 : 0)} />
-
-                        <button
-                            onClick={handleCreateCargo}
-                            disabled={loading || !nomeCargo.trim() || orgaoSelecionadoId === null}
-                            
-                        >
-                            Adicionar Cargo
-                        </button>
+                        </div>
+                        <button type='button' className='botao-obj' onClick={() => handleAdd('pessoa')}>+ Pessoa</button>
+                        <br /><br />
+                        <button onClick={() => enviar('pessoas')} className="botao-confirmar" disabled={loading}>Inserir Pessoas</button>
                     </div>
 
-                    {/* Adicionar Portaria */}
-                    <div >
-                        <h3 >Portaria</h3>
-                        <input
-                            type="number"
-                            placeholder="Número da Portaria (Ex: 100)"
-                            value={numeroPortaria}
-                            onChange={(e) => setNumeroPortaria(e.target.value)}
-                            
-                        />
-                        <input
-                            type="text"
-                            placeholder="Data (AAAA-MM-DD)"
-                            value={dataPortaria}
-                            onChange={(e) => setDataPortaria(e.target.value)}
-                            
-                        />
-                        <input
-                            type="text"
-                            placeholder="Observações (Opcional)"
-                            value={obsPortaria}
-                            onChange={(e) => setObsPortaria(e.target.value)}
-                            
-                        />
-                        <button
-                            onClick={handleCreatePortaria}
-                            disabled={loading || !numeroPortaria.trim() || !dataPortaria.trim()}
-                            
-                        >
-                            Adicionar Portaria
-                        </button>
+                    {/* === ORGÃOS === */}
+                    <div className="area">
+                        <div className="arrayObj orgao orgaos">
+                            {listaOrgaos.map((item, index) => (
+                                <div key={item.id_temp} className={`obj orgao orgaos ${index}`}>
+                                    <h2>Órgão:</h2>
+                                    <div id="c_nome_orgao" className="input_container normal">
+                                        <div className="numero-item">
+                                            Nome do Órgão:<br />
+                                            <input 
+                                                type="text" 
+                                                value={item.nome}
+                                                onChange={(e) => handleChange('orgao', item.id_temp, 'nome', e.target.value)}
+                                                required 
+                                            />
+                                            {/* --- AQUI: Condicional adicionada --- */}
+                                            {listaOrgaos.length > 1 && (
+                                                <button type="button" className="botao-remover" onClick={() => handleRemove('orgao', item.id_temp)}>X</button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                        <button type='button' className='botao-obj' onClick={() => handleAdd('orgao')}>+ Orgão</button>
+                        <br /><br />
+                        <button onClick={() => enviar('orgaos')} className="botao-confirmar" disabled={loading}>Inserir Órgãos</button>
                     </div>
 
-                    {/* Adicionar Ocupação (Vínculo) */}
-                    <div >
-                        <h3 >Vincular Pessoa a Cargo (Ocupação)</h3>
-                        <select 
-                            value={pessoaSelecionadaId || ""} 
-                            onChange={(e) => setPessoaSelecionadaId(parseInt(e.target.value))}
-                            
-                        >
-                            <option value="">Selecione uma pessoa</option>
-                            {pessoas.map((p) => (
-                              p.ativo === 1 && (
-                                <option key={p.id_pessoa} value={p.id_pessoa}>
-                                    {p.nome} (ID: {p.id_pessoa})
-                                </option>
-                              )
+                    {/* === CARGOS === */}
+                    <div className="area">
+                        <div className="arrayObj cargo cargos">
+                            {listaCargos.map((item, index) => (
+                                <div key={item.id_temp} className={`obj cargo cargos ${index}`}>
+                                    <h2>Cargo:</h2>
+                                    <div id="c_nome_cargo" className="input_container normal">
+                                        <div className="numero-item">
+                                            Nome do cargo:<br />
+                                            <input 
+                                                type="text" 
+                                                value={item.nome}
+                                                onChange={(e) => handleChange('cargo', item.id_temp, 'nome', e.target.value)}
+                                                required 
+                                            />
+                                        </div>
+                                    </div>
+                                    <div id="c_orgao_associado" className="input_container normal">
+                                        <div className="numero-item">
+                                            Órgão Associado:<br />
+                                            <input 
+                                                list="dl-orgaos"
+                                                type="text" 
+                                                placeholder="Busque o órgão..."
+                                                value={item.orgao_associado}
+                                                onChange={(e) => handleChange('cargo', item.id_temp, 'orgao_associado', e.target.value)}
+                                                required 
+                                            />
+                                        </div>
+                                    </div>
+                                    <div id="c_exclusivo" className="input_container normal">
+                                        <label className="numero-item">
+                                            Cargo Exclusivo?<br />
+                                            <input 
+                                                type="checkbox" 
+                                                checked={item.exclusivo}
+                                                onChange={(e) => handleChange('cargo', item.id_temp, 'exclusivo', e.target.checked)}
+                                            />
+                                            <span className="checkmark"></span>
+                                            
+                                            {/* --- AQUI: Condicional adicionada --- */}
+                                            {listaCargos.length > 1 && (
+                                                <button type="button" className="botao-remover" onClick={() => handleRemove('cargo', item.id_temp)}>X</button>
+                                            )}
+                                        </label>
+                                    </div>
+                                </div>
                             ))}
-                        </select>
-
-                        <select
-                            value={cargoSelecionadoId || ""}
-                            onChange={(e) => setCargoSelecionadoId(parseInt(e.target.value))}
-                            
-                        >
-                            <option value="">Selecione um cargo</option>
-                            {cargos.map((c) => (
-                              c.ativo === 1 && ( 
-                                <option key={c.id_cargo} value={c.id_cargo}>
-                                    {c.nome} ({getOrgaoName(c.id_orgao)})
-                                </option>
-                              )
-                            ))}
-                        </select>
-
-                        <select
-                            value={portariaSelecionadaId || ""}
-                            onChange={(e) => setPortariaSelecionadaId(parseInt(e.target.value))}
-                            
-                        >
-                            <option value="">Selecione uma portaria</option>
-                            {portarias.map((p) => (
-                            
-                              p.ativo === 1 && ( 
-                                <option key={p.id_portaria} value={p.id_portaria}>
-                                    N° {p.numero} - {p.data_portaria}
-                                </option>
-                              )
-                            ))}
-                        </select>
-
-                        <input
-                            type="text"
-                            placeholder="Data de início (AAAA-MM-DD)"
-                            value={dataInicio}
-                            onChange={(e) => setDataInicio(e.target.value)}
-                            
-                        />
-
-                        <input
-                            type="text"
-                            placeholder="Data de fim (AAAA-MM-DD)"
-                            value={dataFim}
-                            onChange={(e) => setDataFim(e.target.value)}
-
-                        />
-
-                        <button
-                            onClick={handleCreateOcupacao}
-                            disabled={loading || pessoaSelecionadaId === null || cargoSelecionadoId === null}
-                            
-                        >
-                            Criar Ocupação (Vínculo)
-                        </button>
+                        </div>
+                        <button type='button' className='botao-obj' onClick={() => handleAdd('cargo')}>+ Cargo</button>
+                        <br /><br />
+                        <button onClick={() => enviar('cargos')} className="botao-confirmar" disabled={loading}>Inserir Cargos</button>
                     </div>
 
-                </div>
-
-                {/* Coluna de Listas (GET) */}
-                <div >
-                    <h2 >Dados Carregados (GET)</h2>
-                    
-                    {/* Lista de Pessoas */}
-                    <div>
-                        <strong >Pessoas ({pessoas.length}):</strong>
-                        <ul >
-                            {pessoas.map((p) => (
-                                <li key={p.id_pessoa}>
-                                  <span>
-                                    [ID {p.id_pessoa}] {p.nome} ({p.ativo === 1 ? 'Ativo' : 'Inativo'})
-                                  </span>
-                                    {renderDeleteButtons('pessoa', p.id_pessoa, true, p.ativo === 1)}
-                                </li>
+                    {/* === VINCULAR === */}
+                    <div className="area">
+                        <div className="arrayObj vincular vinculados">
+                            {listaVinculos.map((item, index) => (
+                                <div key={item.id_temp} className={`obj vincular vinculados ${index}`}>
+                                    <h2>Vincular Pessoa a Cargo:</h2>
+                                    <div id="c_pessoa_v" className="input_container normal">
+                                        <div className="numero-item">
+                                            Pessoa:<br />
+                                            <input 
+                                                list="dl-pessoas"
+                                                type="text" 
+                                                placeholder="Busque a pessoa..."
+                                                value={item.pessoa_v}
+                                                onChange={(e) => handleChange('vinculo', item.id_temp, 'pessoa_v', e.target.value)}
+                                                required 
+                                            />
+                                        </div>
+                                    </div>
+                                    <div id="c_cargo_v" className="input_container normal">
+                                        <div className="numero-item">
+                                            Cargo:<br />
+                                            <input 
+                                                list="dl-cargos"
+                                                type="text" 
+                                                placeholder="Busque o cargo..."
+                                                value={item.cargo_v}
+                                                onChange={(e) => handleChange('vinculo', item.id_temp, 'cargo_v', e.target.value)}
+                                                required 
+                                            />
+                                        </div>
+                                    </div>
+                                    <div id="c_incio_v" className="input_container normal">
+                                        <div className="numero-item">
+                                            Data de Inicio<br />
+                                            <input 
+                                                type="text" 
+                                                placeholder="AAAA-MM-DD"
+                                                value={item.inicio_v}
+                                                onChange={(e) => handleChange('vinculo', item.id_temp, 'inicio_v', e.target.value)}
+                                                required 
+                                            />
+                                        </div>
+                                    </div>
+                                    <div id="c_fim_v" className="input_container normal">
+                                        <div className="numero-item">
+                                            Data de Fim<br />
+                                            <input 
+                                                type="text" 
+                                                placeholder="AAAA-MM-DD"
+                                                value={item.fim_v}
+                                                onChange={(e) => handleChange('vinculo', item.id_temp, 'fim_v', e.target.value)}
+                                            />
+                                            
+                                            {/* --- AQUI: Condicional adicionada --- */}
+                                            {listaVinculos.length > 1 && (
+                                                <button type="button" className="botao-remover" onClick={() => handleRemove('vinculo', item.id_temp)}>X</button>
+                                            )}
+                                        </div>
+                                    </div>
+                                </div>
                             ))}
-                        </ul>
-                    </div>
-
-                    {/* Lista de Órgãos */}
-                    <div >
-                        <strong >Órgãos ({orgaos.length}):</strong>
-                        <ul >
-                            {orgaos.map((o) => (
-                                <li key={o.id_orgao}>
-                                  <span>
-                                    [ID {o.id_orgao}] {o.nome} ({o.ativo === 1 ? 'Ativo' : 'Inativo'})
-                                  </span>
-                                    {renderDeleteButtons('orgao', o.id_orgao, true, o.ativo === 1)}
-
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
-                    {/* Lista de Cargos */}
-                    <div >
-                        <strong >Cargos ({cargos.length}):</strong>
-                        <ul >
-                            {cargos.map((c) => (
-                                <li key={c.id_cargo}>
-                                  <span>
-                                    [ID {c.id_cargo}] {c.nome} ({getOrgaoName(c.id_orgao)}) ({c.ativo === 1 ? "Ativo" : "Inativo"}) (Exclusivo: {c.exclusivo === 1 ? 'Sim' : 'Não'})
-                                  </span>
-                                    {renderDeleteButtons('cargo', c.id_cargo, true, c.ativo === 1)}
-                                 
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
-                    {/* Lista de Portarias */}
-                    <div >
-                        <strong >Portarias ({portarias.length}):</strong>
-                        <ul >
-                            {portarias.map((p) => (
-                                <li key={p.id_portaria}>
-                                  <span>
-                                    [ID {p.id_portaria}] N° {p.numero} - {p.data_portaria} {p.ativo === 1 ? '(Ativo)' : '(Inativo)'}
-                                  </span>
-                                    {renderDeleteButtons('portaria', p.id_portaria, true, p.ativo === 1)}
-                                </li>
-                            ))}
-                        </ul>
-                    </div>
-
-                    {/* Lista de Ocupações (Vínculos Persistentes) */}
-                    <div >
-                        <strong >Ocupações ({ocupacoes.length}):</strong>
-                        <ul >
-                            {ocupacoes.map((oc, index) => {
-                                const pessoa = pessoas.find(p => p.id_pessoa === oc.id_pessoa);
-                                const cargo = cargos.find(c => c.id_cargo === oc.id_cargo);
-                                const nomePessoa = pessoa ? pessoa.nome : 'Pessoa Não Encontrada';
-                                const nomeCargo = cargo ? cargo.nome : 'Cargo Não Encontrado';
-                                const portaria = oc.id_portaria ? portarias.find(p => p.id_portaria === oc.id_portaria) : null;
-                                const nomeOrgao = cargo ? getOrgaoName(cargo.id_orgao) : 'Órgão Desconhecido';
-                                return (
-                                    <li key={oc.id_ocupacao || index}>
-                                      <span>
-                                        [ID {oc.id_ocupacao}] <strong>{nomePessoa}</strong> &rarr; <strong>{nomeCargo} ({nomeOrgao})</strong>
-                                         (Início: {oc.data_inicio || 'N/A'})
-                                         (Fim: {oc.data_fim || 'N/A'})
-                                         (Portaria: {portaria ? `N° ${portaria.numero} - ${portaria.data_portaria}` : 'Nenhuma'})
-                                      </span>
-                                        {renderDeleteButtons('ocupacao', oc.id_ocupacao, false, true)}
-
-                                        {!oc.data_fim &&
-                                        <button 
-                                            onClick={() => handleEndOcupacao(oc.id_ocupacao)}
-                                            disabled={loading}
-                                        >
-                                            Finalizar
-                                        </button>
-                                        }
-
-                                    </li>
-                                );
-                            })}
-                        </ul>
+                        </div>
+                        <button type='button' className='botao-obj' onClick={() => handleAdd('vinculo')}>+ Vinculação</button>
+                        <br /><br />
+                        <button onClick={() => enviar('vinculados')} className="botao-confirmar" disabled={loading}>Inserir Vinculações</button>
                     </div>
 
                 </div>
@@ -715,4 +349,4 @@ function TestPage() {
     );
 }
 
-export default TestPage;
+export default InputPage;

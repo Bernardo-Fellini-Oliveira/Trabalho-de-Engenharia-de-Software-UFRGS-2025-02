@@ -21,7 +21,7 @@ CREATE TABLE IF NOT EXISTS Cargo (
     id_orgao INTEGER REFERENCES Orgao (id_orgao),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    exclusivo INTEGER DEFAULT 1,
+    exclusivo INTEGER DEFAULT 1
 
 );
 

@@ -2,6 +2,7 @@ import time
 from fastapi import APIRouter, HTTPException, Path, Query
 from pydantic import BaseModel
 from database import get_connection # Presume-se que 'database' e 'get_connection' existem
+from typing import List
 
 router = APIRouter(    prefix="/api/pessoa", # Define o prefixo aqui
                        tags=["Pessoa"])
@@ -29,31 +30,41 @@ class PessoaIn(BaseModel):
     nome: str
 
 @router.post("/")
-def adicionar_pessoa(pessoa: PessoaIn):
+def adicionar_lista_pessoas(pessoas: List[PessoaIn]):
     t0 = time.time()
+    conn = None
     try:
         conn = get_connection()
         cursor = conn.cursor()
         
-        # O id_pessoa é autoincrementado, não incluímos ele na inserção
-        cursor.execute(
-            "INSERT INTO Pessoa (nome, ativo) VALUES (%(nome)s, %(ativo)s)",
-            {"nome": pessoa.nome, "ativo": 1}
-        )
+        ids_gerados = []
+        
+        # Iniciamos uma transação para garantir que ou salva tudo ou nada
+        for p in pessoas:
+            cursor.execute(
+                "INSERT INTO Pessoa (nome, ativo) VALUES (%(nome)s, %(ativo)s)",
+                {"nome": p.nome, "ativo": 1}
+            )
+            ids_gerados.append(cursor.lastrowid)
         
         conn.commit()
         
-        # >>> AQUI: Recupera o ID gerado pelo AUTOINCREMENT <<<
-        id_gerado = cursor.lastrowid
-        
-        conn.close()
+        tempo_total = time.time() - t0
+        print(f"Tempo para adicionar {len(pessoas)} pessoas: {tempo_total:.4f}")
 
-        print(f"Tempo para adicionar pessoa: {time.time() - t0:.4f}")
+        return {
+            "status": "success", 
+            "message": f"{len(pessoas)} pessoas adicionadas com sucesso.", 
+            "ids": ids_gerados
+        }
 
-        # Retorna o ID gerado
-        return {"status": "success", "message": "Pessoa adicionada com sucesso", "id_pessoa": id_gerado}
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Pessoa: {str(e)}")
+        if conn:
+            conn.rollback() # Desfaz se der erro no meio
+        raise HTTPException(status_code=500, detail=f"Erro ao adicionar lista de Pessoas: {str(e)}")
+    finally:
+        if conn:
+            conn.close()
     
 
 @router.delete("/delete/{id_pessoa}")

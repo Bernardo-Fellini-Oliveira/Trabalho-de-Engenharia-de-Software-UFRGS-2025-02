@@ -1,0 +1,278 @@
+
+@font-face 
+{
+    font-family: 'Gilroy';
+    src: url('../FONTS/Gilroy-ExtraBold.ttf') format('truetype');
+    font-weight: 800;
+    font-style: normal;
+}
+
+.topo 
+{
+    text-align: center;
+    margin-bottom: 30px;
+}
+
+.topo h1
+{
+    /*font-family: 'Montserrat', sans-serif;*/
+    /*font-weight: 700;*/
+    font-family: 'Gilroy', 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-weight: bold;
+    font-size: 32px;
+    color: #213649;
+    text-align: center;
+    position: relative;
+    display: inline-block;
+    margin: 20px auto 20px auto;
+}
+
+.topo h1::after
+{
+    content: "";
+    display: block;
+    height: 4px;
+    background-color: #1a2b3c;
+    border-radius: 2px;
+    width: 80%; /* ou 100% para linha do tamanho completo */
+    margin: 8px auto 0 auto;
+}
+
+.topo p
+{
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    max-width: 1350px;
+    margin: 0 auto;
+}
+
+.conteudo
+{
+    display: flex;
+    justify-content: center;
+    align-items: flex-start;
+    gap: 60px;
+    padding: 0 40px;
+}
+
+.form-box {
+    max-width: 1200px; 
+    
+    width: 100%;
+    display: flex;
+    
+
+    justify-content: space-between; 
+    
+
+    gap: 20px; 
+    
+
+    flex-wrap: wrap; 
+}
+
+
+.area {
+    flex: 1; 
+    min-width: 200px;
+}
+
+.imagens 
+{
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+}
+
+.botao-adicionar 
+{
+    background-color: #213649;     /* fundo azul claro */
+    color: white;                  /* texto branco */
+    font-weight: bold;
+    border: 2px solid #213649;     /* mesma cor da borda */
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+}
+
+.botao-adicionar:hover 
+{
+    background-color: transparent; /* fundo transparente */
+    color: #213649;                /* texto azul */
+}
+
+.botao-obj 
+{
+    background-color: #FF7400;     /* fundo azul claro */
+    color: white;                  /* texto branco */
+    font-weight: bold;
+    border: 2px solid #FF7400;     /* mesma cor da borda */
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+}
+
+.botao-obj:hover 
+{
+    background-color: transparent; /* fundo transparente */
+    color: #FF7400;                /* texto azul */
+}
+
+.numero-item
+{
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    max-width: 1350px;
+    margin: 0 auto;
+    margin-bottom: 10px;
+}
+
+.botao-confirmar 
+{
+    background-color: #39BC2D;     /* fundo azul claro */
+    color: white;                  /* texto branco */
+    font-weight: bold;
+    border: 2px solid #39BC2D;     /* mesma cor da borda */
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 20px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+}
+
+.botao-confirmar:hover 
+{
+    background-color: transparent; /* fundo transparente */
+    color: #39BC2D;                /* texto azul */
+}
+
+.botao-remover
+{
+    background-color: #EE4237 !important;     /* fundo azul claro */
+    color: white !important;                  /* texto branco */
+    font-weight: bold !important;
+    border: 2px solid #EE4237 !important;     /* mesma cor da borda */
+    border-radius: 10px !important;
+    padding: 6px 6px !important;
+    font-size: 10px !important;
+    cursor: pointer !important;
+    transition: all 0.3s ease !important;
+    margin-left: 10px !important;
+    height: 27px;
+    margin-bottom: 10px;
+}
+
+.botao-remover:hover
+{
+    background-color: transparent !important; /* fundo transparente */
+    color: #EE4237 !important;                /* texto azul */
+}
+
+input[type="text"],
+input[type="number"] {
+  background-color: #f1f3f7;      /* fundo cinza claro */
+  border: 1px solid #ccc;                  
+  border-radius: 20px;           /* bordas arredondadas */
+  padding: 5px 10px;            /* espaço interno */
+  font-size: 14px;
+  /*width: 50%;                   /* ocupa toda a largura do container */
+  box-shadow: none;              /* remove sombras padrão */
+  outline: none;                 /* remove contorno azul ao clicar */
+  color: #333;                   /* cor do texto */
+}
+
+.checkmark
+{
+    width: 20px;
+    height: 20px;
+    border: 1px solid #ccc;
+    display: inline-block;
+    border-radius: 3px;
+    background: #f1f3f7
+    url(https://upload.wikimedia.org/wikipedia/commons/thumb/2/27/White_check.svg/1200px-White_check.svg.png) center/1250% no-repeat;
+    margin-bottom: 5px;
+}
+
+input[type="checkbox"]
+{
+    display: none;
+}
+
+input:checked + .checkmark
+{
+    background-size: 60%;
+    background-color: #21d0dd;
+    border-color: #21d0dd;
+}
+
+input:checked + .for-x .checkmark
+{
+    background-size: 60%;
+    background-color: #21d0dd;
+    border-color: #21d0dd;
+}
+
+input[type="file"]
+{
+    display: none;
+}
+
+.filebox
+{
+    background-color: #21d0dd;     /* fundo azul claro */
+    color: white;                  /* texto branco */
+    font-weight: bold;
+    border: 2px solid #21d0dd;     /* mesma cor da borda */
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 12px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-bottom: 5px;
+    margin-top: 5px;
+
+    display: inline-block;
+}
+
+.filebox:hover
+{
+    background-color: transparent; /* fundo transparente */
+    color: #21d0dd;                /* texto azul */
+}
+
+.file-text
+{
+    max-width: 250px;
+    text-overflow: ellipsis;
+    overflow: hidden;
+    white-space: nowrap;
+    margin-bottom: 10px;
+    color: #21d0dd;
+}
+
+.for-x
+{
+    display: flex;
+    align-items: center;
+}
+
+.arrayObj h2
+{
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+}
+
+.obj
+{
+    border-bottom: 3px solid #1a2b3c;
+    margin-bottom: 10px;
+}
