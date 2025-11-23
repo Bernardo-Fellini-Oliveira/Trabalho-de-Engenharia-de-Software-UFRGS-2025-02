@@ -1,6 +1,7 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import TestPage from "./views/TestPage";
 import SearchPage from "./views/SearchPage";
+import EditPage from "./views/EditPage";
 
 
 function App() {
@@ -11,6 +12,7 @@ function App() {
         <Routes>
           <Route path="/" element={<TestPage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/edit" element={<EditPage />} />
         </Routes>
       </BrowserRouter>
 

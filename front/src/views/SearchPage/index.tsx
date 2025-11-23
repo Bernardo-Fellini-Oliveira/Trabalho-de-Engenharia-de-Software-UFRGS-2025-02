@@ -166,7 +166,7 @@ function SearchPage() {
 
     const handleGoToEdit = () => {
         // Placeholder: aqui você usaria navigate('/editar')
-        alert("Redirecionando para a página de Edição/Inserção de Dados...");
+        alert("Mudando de pagina");
     };
 
     const handleExportCSV = () => {
@@ -187,209 +187,211 @@ function SearchPage() {
 
     // === Renderização ===
     return (
-        <div className="search-container">
-            <h1 className="search-title">Consulta de Dados</h1>
-            <p className='search-description'>Consulta de dados</p>
+        <div className="search-page-wrapper">
+            <div className="search-container">
+                <h1 className="search-title">Consulta de Dados</h1>
+                <p className='search-description'>Consulta de dados</p>
 
-            {/* CARD DE FILTROS */}
-            <div className="filter-card">
-                <div className="filter-row">
-                    
-                    {/* Busca Textual */}
-                    <div className="filter-group" style={{flex: 2}}>
-                        <label>Busca Textual</label>
-                        <input 
-                            className="filter-input"
-                            type="text" 
-                            placeholder="Nome, Cargo ou Órgão..." 
-                            value={filtroBusca} 
-                            onChange={(e) => setFiltroBusca(e.target.value)}
-                        />
-                    </div>
+                {/* CARD DE FILTROS */}
+                <div className="filter-card">
+                    <div className="filter-row">
+                        
+                        {/* Busca Textual */}
+                        <div className="filter-group" style={{flex: 2}}>
+                            <label>Busca Textual</label>
+                            <input 
+                                className="filter-input"
+                                type="text" 
+                                placeholder="Nome, Cargo ou Órgão..." 
+                                value={filtroBusca} 
+                                onChange={(e) => setFiltroBusca(e.target.value)}
+                            />
+                        </div>
 
-                    {/* Modo de Visualização */}
-                    <div className="filter-group">
-                        <label>Agrupar por</label>
-                        <select className="filter-select" value={modo} onChange={(e) => setModo(e.target.value as Modo)}>
-                            <option value="pessoa">Pessoa</option>
-                            <option value="orgao">Órgão</option>
-                            <option value="cargo">Cargo</option>
-                            <option value="flat">Sem Agrupamento (Lista)</option>
-                        </select>
-                    </div>
-
-                    {/* Filtro Status */}
-                    <div className="filter-group">
-                        <label>Status</label>
-                        <select className="filter-select" onChange={(e) => setFiltroAtivo(e.target.value as any)}>
-                            <option value="todos">Todos</option>
-                            <option value="ativos">Ativos</option>
-                            <option value="inativos">Inativos</option>
-                        </select>
-                    </div>
-
-                    {/* Botões de Ação do Filtro */}
-                    <div className="button-group">
-                        <button className="btn btn-primary" onClick={() => fetchData()}>
-                            Filtrar
-                        </button>
-                        <button className="btn btn-secondary" onClick={() => {
-                            setFiltroBusca("");
-                            setFiltroAtivo("todos");
-                            fetchData();
-                        }}>
-                            Limpar
-                        </button>
-                    </div>
-                </div>
-
-                {/* Filtro Extra Condicional (Cargo) */}
-                {modo === 'pessoa' && (
-                    <div className="filter-row" style={{marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
+                        {/* Modo de Visualização */}
                         <div className="filter-group">
-                            <label>Elegível para Cargo Específico:</label>
-                            <select
-                                className="filter-select"
-                                value={filtroCargo.join("||")}
-                                onChange={(e) => setFiltroCargo(e.target.value.split("||") as [string, string])}
-                            >
-                                <option value={["", ""]}>Selecione um cargo...</option>
-                                {cargosList.map((c) => (
-                                    <option key={c.id_cargo} value={`${c.nome}||${c.orgao}`}>
-                                        {c.nome} - {c.orgao}
-                                    </option>
-                                ))}
+                            <label>Agrupar por</label>
+                            <select className="filter-select" value={modo} onChange={(e) => setModo(e.target.value as Modo)}>
+                                <option value="pessoa">Pessoa</option>
+                                <option value="orgao">Órgão</option>
+                                <option value="cargo">Cargo</option>
+                                <option value="flat">Sem Agrupamento (Lista)</option>
                             </select>
                         </div>
-                        <button 
-                            className="btn btn-outline3"
-                            disabled={!filtroCargo[0]}
-                            onClick={() => alert("Adicionar lógica de filtro complexo aqui...")}
-                            style={{alignSelf: 'flex-end'}}
-                        >
-                            + Adicionar Regra
-                        </button>
+
+                        {/* Filtro Status */}
+                        <div className="filter-group">
+                            <label>Status</label>
+                            <select className="filter-select" onChange={(e) => setFiltroAtivo(e.target.value as any)}>
+                                <option value="todos">Todos</option>
+                                <option value="ativos">Ativos</option>
+                                <option value="inativos">Inativos</option>
+                            </select>
+                        </div>
+
+                        {/* Botões de Ação do Filtro */}
+                        <div className="button-group">
+                            <button className="btn btn-primary" onClick={() => fetchData()}>
+                                Filtrar
+                            </button>
+                            <button className="btn btn-secondary" onClick={() => {
+                                setFiltroBusca("");
+                                setFiltroAtivo("todos");
+                                fetchData();
+                            }}>
+                                Limpar
+                            </button>
+                        </div>
                     </div>
-                )}
-            </div>
 
-            {/* BARRA DE AÇÕES (Relatórios e Edição) */}
-            <div className="actions-bar">
-                <button className="btn btn-warning-outline" onClick={handleGoToEdit}>
-                    <IconPencil /> Editar Dados
-                </button>
-                <button className="btn btn-outline1" onClick={handleExportCSV}>📄 Emitir CSV</button>
-                <button className="btn btn-outline2" onClick={handleExportPDF}>🖨️ Emitir PDF</button>
-            </div>
+                    {/* Filtro Extra Condicional (Cargo) */}
+                    {modo === 'pessoa' && (
+                        <div className="filter-row" style={{marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
+                            <div className="filter-group">
+                                <label>Elegível para Cargo Específico:</label>
+                                <select
+                                    className="filter-select"
+                                    value={filtroCargo.join("||")}
+                                    onChange={(e) => setFiltroCargo(e.target.value.split("||") as [string, string])}
+                                >
+                                    <option value={["", ""]}>Selecione um cargo...</option>
+                                    {cargosList.map((c) => (
+                                        <option key={c.id_cargo} value={`${c.nome}||${c.orgao}`}>
+                                            {c.nome} - {c.orgao}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <button 
+                                className="btn btn-outline3"
+                                disabled={!filtroCargo[0]}
+                                onClick={() => alert("Adicionar lógica de filtro complexo aqui...")}
+                                style={{alignSelf: 'flex-end'}}
+                            >
+                                + Adicionar Regra
+                            </button>
+                        </div>
+                    )}
+                </div>
 
-            {/* TABELA DE RESULTADOS */}
-            <div className="table-container">
-                {loading ? (
-                    <div style={{padding: '30px', textAlign: 'center', color: '#6c757d'}}>Carregando dados...</div>
-                ) : !processedData.length ? (
-                    <div style={{padding: '30px', textAlign: 'center', color: '#6c757d'}}>Nenhum dado encontrado.</div>
-                ) : (
-                    <table className="data-table">
-                        <thead>
-                            {/* HEADERS DINÂMICOS BASEADOS NO MODO */}
-                            {modo === 'flat' && (
-                                <tr>
-                                    {renderHeader("Pessoa", "pessoa")}
-                                    {renderHeader("Cargo", "cargo")}
-                                    {renderHeader("Órgão", "orgao")}
-                                    {renderHeader("Início", "data_inicio")}
-                                    {renderHeader("Fim", "data_fim")}
-                                    {renderHeader("Mandato", "mandato")}
-                                </tr>
-                            )}
-                            {modo === 'pessoa' && (
-                                <tr>
-                                    {renderHeader("Pessoa (Grupo)", "pessoa")}
-                                    {renderHeader("Cargo", "cargo")}
-                                    {renderHeader("Órgão", "orgao")}
-                                    {renderHeader("Início", "data_inicio")}
-                                    {renderHeader("Fim", "data_fim")}
-                                    {renderHeader("Mandato", "mandato")}
-                                </tr>
-                            )}
-                            {modo === 'orgao' && (
-                                <tr>
-                                    {renderHeader("Órgão (Grupo)", "orgao")}
-                                    {renderHeader("Cargo", "cargo")}
-                                    {renderHeader("Pessoa", "pessoa")}
-                                    {renderHeader("Início", "data_inicio")}
-                                    {renderHeader("Fim", "data_fim")}
-                                    {renderHeader("Mandato", "mandato")}
-                                </tr>
-                            )}
-                            {modo === 'cargo' && (
-                                <tr>
-                                    {renderHeader("Cargo (Grupo)", "cargo")}
-                                    {renderHeader("Órgão", "orgao")}
-                                    {renderHeader("Pessoa", "pessoa")}
-                                    {renderHeader("Início", "data_inicio")}
-                                    {renderHeader("Fim", "data_fim")}
-                                    {renderHeader("Mandato", "mandato")}
-                                </tr>
-                            )}
-                        </thead>
-                        <tbody>
-                            {/* --- MODO FLAT (LISTA SIMPLES) --- */}
-                            {modo === 'flat' && (processedData as Ocupacao[]).map((row, i) => (
-                                <tr key={i}>
-                                    <td>{row.pessoa}</td>
-                                    <td>{row.cargo}</td>
-                                    <td>{row.orgao}</td>
-                                    <td>{row.data_inicio}</td>
-                                    <td>{row.data_fim || '-'}</td>
-                                    <td>{row.mandato}</td>
-                                </tr>
-                            ))}
+                {/* BARRA DE AÇÕES (Relatórios e Edição) */}
+                <div className="actions-bar">
+                    <button className="btn btn-warning-outline" onClick={handleGoToEdit}>
+                        <IconPencil /> Editar Dados
+                    </button>
+                    <button className="btn btn-outline1" onClick={handleExportCSV}>📄 Emitir CSV</button>
+                    <button className="btn btn-outline2" onClick={handleExportPDF}>🖨️ Emitir PDF</button>
+                </div>
 
-                            {/* --- MODO AGRUPADO POR PESSOA --- */}
-                            {modo === 'pessoa' && (processedData as PessoaAgrupada[]).map((group, i) => (
-                                group.cargos?.map((subItem, j) => (
-                                    <tr key={`${i}-${j}`}>
-                                        <td style={{fontWeight: '600'}}>{group.pessoa}</td>
-                                        <td>{subItem.cargo}</td>
-                                        <td>{subItem.orgao}</td>
-                                        <td>{subItem.data_inicio}</td>
-                                        <td>{subItem.data_fim || '-'}</td>
-                                        <td>{subItem.mandato}</td>
+                {/* TABELA DE RESULTADOS */}
+                <div className="table-container">
+                    {loading ? (
+                        <div style={{padding: '30px', textAlign: 'center', color: '#6c757d'}}>Carregando dados...</div>
+                    ) : !processedData.length ? (
+                        <div style={{padding: '30px', textAlign: 'center', color: '#6c757d'}}>Nenhum dado encontrado.</div>
+                    ) : (
+                        <table className="data-table">
+                            <thead>
+                                {/* HEADERS DINÂMICOS BASEADOS NO MODO */}
+                                {modo === 'flat' && (
+                                    <tr>
+                                        {renderHeader("Pessoa", "pessoa")}
+                                        {renderHeader("Cargo", "cargo")}
+                                        {renderHeader("Órgão", "orgao")}
+                                        {renderHeader("Início", "data_inicio")}
+                                        {renderHeader("Fim", "data_fim")}
+                                        {renderHeader("Mandato", "mandato")}
                                     </tr>
-                                ))
-                            ))}
-
-                            {/* --- MODO AGRUPADO POR ORGÃO --- */}
-                            {modo === 'orgao' && (processedData as OrgaoAgrupado[]).map((group, i) => (
-                                group.cargos?.map((subItem, j) => (
-                                    <tr key={`${i}-${j}`}>
-                                        <td style={{fontWeight: '600'}}>{group.orgao}</td>
-                                        <td>{subItem.cargo}</td>
-                                        <td>{subItem.pessoa}</td>
-                                        <td>{subItem.data_inicio}</td>
-                                        <td>{subItem.data_fim || '-'}</td>
-                                        <td>{subItem.mandato}</td>
+                                )}
+                                {modo === 'pessoa' && (
+                                    <tr>
+                                        {renderHeader("Pessoa (Grupo)", "pessoa")}
+                                        {renderHeader("Cargo", "cargo")}
+                                        {renderHeader("Órgão", "orgao")}
+                                        {renderHeader("Início", "data_inicio")}
+                                        {renderHeader("Fim", "data_fim")}
+                                        {renderHeader("Mandato", "mandato")}
                                     </tr>
-                                ))
-                            ))}
-
-                            {/* --- MODO AGRUPADO POR CARGO --- */}
-                            {modo === 'cargo' && (processedData as CargoAgrupado[]).map((group, i) => (
-                                group.ocupacoes?.map((subItem, j) => (
-                                    <tr key={`${i}-${j}`}>
-                                        <td style={{fontWeight: '600'}}>{group.cargo}</td>
-                                        <td>{group.orgao}</td>
-                                        <td>{subItem.pessoa}</td>
-                                        <td>{subItem.data_inicio}</td>
-                                        <td>{subItem.data_fim || '-'}</td>
-                                        <td>{subItem.mandato}</td>
+                                )}
+                                {modo === 'orgao' && (
+                                    <tr>
+                                        {renderHeader("Órgão (Grupo)", "orgao")}
+                                        {renderHeader("Cargo", "cargo")}
+                                        {renderHeader("Pessoa", "pessoa")}
+                                        {renderHeader("Início", "data_inicio")}
+                                        {renderHeader("Fim", "data_fim")}
+                                        {renderHeader("Mandato", "mandato")}
                                     </tr>
-                                ))
-                            ))}
-                        </tbody>
-                    </table>
-                )}
+                                )}
+                                {modo === 'cargo' && (
+                                    <tr>
+                                        {renderHeader("Cargo (Grupo)", "cargo")}
+                                        {renderHeader("Órgão", "orgao")}
+                                        {renderHeader("Pessoa", "pessoa")}
+                                        {renderHeader("Início", "data_inicio")}
+                                        {renderHeader("Fim", "data_fim")}
+                                        {renderHeader("Mandato", "mandato")}
+                                    </tr>
+                                )}
+                            </thead>
+                            <tbody>
+                                {/* --- MODO FLAT (LISTA SIMPLES) --- */}
+                                {modo === 'flat' && (processedData as Ocupacao[]).map((row, i) => (
+                                    <tr key={i}>
+                                        <td>{row.pessoa}</td>
+                                        <td>{row.cargo}</td>
+                                        <td>{row.orgao}</td>
+                                        <td>{row.data_inicio}</td>
+                                        <td>{row.data_fim || '-'}</td>
+                                        <td>{row.mandato}</td>
+                                    </tr>
+                                ))}
+
+                                {/* --- MODO AGRUPADO POR PESSOA --- */}
+                                {modo === 'pessoa' && (processedData as PessoaAgrupada[]).map((group, i) => (
+                                    group.cargos?.map((subItem, j) => (
+                                        <tr key={`${i}-${j}`}>
+                                            <td style={{fontWeight: '600'}}>{group.pessoa}</td>
+                                            <td>{subItem.cargo}</td>
+                                            <td>{subItem.orgao}</td>
+                                            <td>{subItem.data_inicio}</td>
+                                            <td>{subItem.data_fim || '-'}</td>
+                                            <td>{subItem.mandato}</td>
+                                        </tr>
+                                    ))
+                                ))}
+
+                                {/* --- MODO AGRUPADO POR ORGÃO --- */}
+                                {modo === 'orgao' && (processedData as OrgaoAgrupado[]).map((group, i) => (
+                                    group.cargos?.map((subItem, j) => (
+                                        <tr key={`${i}-${j}`}>
+                                            <td style={{fontWeight: '600'}}>{group.orgao}</td>
+                                            <td>{subItem.cargo}</td>
+                                            <td>{subItem.pessoa}</td>
+                                            <td>{subItem.data_inicio}</td>
+                                            <td>{subItem.data_fim || '-'}</td>
+                                            <td>{subItem.mandato}</td>
+                                        </tr>
+                                    ))
+                                ))}
+
+                                {/* --- MODO AGRUPADO POR CARGO --- */}
+                                {modo === 'cargo' && (processedData as CargoAgrupado[]).map((group, i) => (
+                                    group.ocupacoes?.map((subItem, j) => (
+                                        <tr key={`${i}-${j}`}>
+                                            <td style={{fontWeight: '600'}}>{group.cargo}</td>
+                                            <td>{group.orgao}</td>
+                                            <td>{subItem.pessoa}</td>
+                                            <td>{subItem.data_inicio}</td>
+                                            <td>{subItem.data_fim || '-'}</td>
+                                            <td>{subItem.mandato}</td>
+                                        </tr>
+                                    ))
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
             </div>
         </div>
     );
