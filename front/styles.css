@@ -21,7 +21,7 @@
     font-weight: 800;
     font-weight: bold;
     font-size: 32px;
-    color: #213649;
+    color: #9A0000;
     text-align: center;
     position: relative;
     display: inline-block;
@@ -33,7 +33,7 @@
     content: "";
     display: block;
     height: 4px;
-    background-color: #1a2b3c;
+    background-color: #D0D0D0;
     border-radius: 2px;
     width: 80%; /* ou 100% para linha do tamanho completo */
     margin: 8px auto 0 auto;
@@ -88,10 +88,10 @@
 
 .botao-adicionar 
 {
-    background-color: #213649;     /* fundo azul claro */
+    background-color: #9A0000;     /* fundo azul claro */
     color: white;                  /* texto branco */
     font-weight: bold;
-    border: 2px solid #213649;     /* mesma cor da borda */
+    border: 2px solid #9A0000;     /* mesma cor da borda */
     border-radius: 10px;
     padding: 10px 20px;
     font-size: 10px;
@@ -103,15 +103,15 @@
 .botao-adicionar:hover 
 {
     background-color: transparent; /* fundo transparente */
-    color: #213649;                /* texto azul */
+    color: #9A0000;                /* texto azul */
 }
 
 .botao-obj 
 {
-    background-color: #FF7400;     /* fundo azul claro */
+    background-color: #0C4F82;     /* fundo azul claro */
     color: white;                  /* texto branco */
     font-weight: bold;
-    border: 2px solid #FF7400;     /* mesma cor da borda */
+    border: 2px solid #0C4F82;     /* mesma cor da borda */
     border-radius: 10px;
     padding: 10px 20px;
     font-size: 10px;
@@ -123,7 +123,7 @@
 .botao-obj:hover 
 {
     background-color: transparent; /* fundo transparente */
-    color: #FF7400;                /* texto azul */
+    color: #0C4F82;                /* texto azul */
 }
 
 .numero-item
@@ -210,15 +210,15 @@ input[type="checkbox"]
 input:checked + .checkmark
 {
     background-size: 60%;
-    background-color: #21d0dd;
-    border-color: #21d0dd;
+    background-color: #9A0000;
+    border-color: #9A0000;
 }
 
 input:checked + .for-x .checkmark
 {
     background-size: 60%;
-    background-color: #21d0dd;
-    border-color: #21d0dd;
+    background-color: #9A0000;
+    border-color: #9A0000;
 }
 
 input[type="file"]
@@ -228,10 +228,10 @@ input[type="file"]
 
 .filebox
 {
-    background-color: #21d0dd;     /* fundo azul claro */
+    background-color: #9A0000;     /* fundo azul claro */
     color: white;                  /* texto branco */
     font-weight: bold;
-    border: 2px solid #21d0dd;     /* mesma cor da borda */
+    border: 2px solid #9A0000;     /* mesma cor da borda */
     border-radius: 10px;
     padding: 10px 20px;
     font-size: 12px;
@@ -246,7 +246,7 @@ input[type="file"]
 .filebox:hover
 {
     background-color: transparent; /* fundo transparente */
-    color: #21d0dd;                /* texto azul */
+    color: #9A0000;                /* texto azul */
 }
 
 .file-text
@@ -256,7 +256,7 @@ input[type="file"]
     overflow: hidden;
     white-space: nowrap;
     margin-bottom: 10px;
-    color: #21d0dd;
+    color: #9A0000;
 }
 
 .for-x
@@ -273,6 +273,6 @@ input[type="file"]
 
 .obj
 {
-    border-bottom: 3px solid #1a2b3c;
+    border-bottom: 3px solid #9A0000;
     margin-bottom: 10px;
 }
