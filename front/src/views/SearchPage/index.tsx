@@ -1,6 +1,7 @@
-import React, { useEffect, useState, useMemo } from 'react';
+import React, { useEffect, useState, useMemo, use } from 'react';
 import api from '../../services/api'; 
 import './SearchPage.css'; 
+import { useNavigate } from 'react-router';
 
 // === Ícones SVG Inline ===
 const IconPencil = () => (
@@ -39,6 +40,9 @@ type Modo = 'pessoa' | 'orgao' | 'cargo' | 'flat';
 type SortConfig = { key: string; direction: 'asc' | 'desc' } | null;
 
 function SearchPage() {
+
+    const navigate = useNavigate();
+    
     // === Estados ===
     const [loading, setLoading] = useState(true);
     const [dados, setDados] = useState<any[]>([]);
@@ -51,6 +55,8 @@ function SearchPage() {
     const [filtroMandato, setFiltroMandato] = useState<"todos" | "vigente" | "encerrado">("todos");
     const [filtroCargo, setFiltroCargo] = useState<[string, string]>(["", ""]);
 
+    const [lastFetchParams, setLastFetchParams] = useState<{modo: Modo; ativo: string; mandato: string; busca: string}>({modo, ativo: filtroAtivo, mandato: filtroMandato, busca: filtroBusca});
+
     // Configuração de Ordenação (Coluna e Direção)
     const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
@@ -60,6 +66,7 @@ function SearchPage() {
         try {
             const res = await api.get(`/busca?ativo=${filtroAtivo}&mandato=${filtroMandato}&search_type=${modo}`);
             setDados(res.data);
+            setLastFetchParams({modo, ativo: filtroAtivo, mandato: filtroMandato, busca: filtroBusca});
             setSortConfig(null); // Reseta ordenação ao buscar novos dados
         } catch (err) {
             console.error(err);
@@ -166,15 +173,137 @@ function SearchPage() {
 
     const handleGoToEdit = () => {
         // Placeholder: aqui você usaria navigate('/editar')
-        alert("Mudando de pagina");
+        navigate('/edit');
     };
 
-    const handleExportCSV = () => {
-        alert("Emitindo relatório CSV... (Funcionalidade pendente no Backend)");
+    const handleExportCSV = async () => {
+          const response = await api.post('relatorio/export/csv', 
+            {
+            tipo: lastFetchParams.modo,
+            ativo: lastFetchParams.ativo,
+            mandato: lastFetchParams.mandato,
+            busca: lastFetchParams.busca,
+        }, {
+            responseType: 'blob',
+            headers: { 'Content-Type': 'application/json' }
+        }
+    );
+
+    try {
+
+    // 2. Tratar Erros HTTP
+        if (response.status !== 200) {
+            // Em caso de erro, o Axios/navegador pode tentar ler a resposta como JSON se for o caso
+            // Se for 4xx/5xx, o corpo pode ser um JSON de erro
+            console.error("Erro ao gerar CSV:", response.data);
+            alert("Falha ao gerar o relatório CSV. Código de status: " + response.status);
+            return;
+        }
+
+        // 3. Obter o Nome do Arquivo
+        const contentDisposition = response.headers['content-disposition'];
+        let filename = 'relatorio.csv'; // Nome padrão
+        
+        if (contentDisposition) {
+            // Regex para extrair o nome do arquivo do header Content-Disposition
+            const filenameMatch = contentDisposition.match(/filename=["']?([^"']+)["']?/i);
+            if (filenameMatch && filenameMatch[1]) {
+                filename = filenameMatch[1];
+            }
+        }
+
+        // 4. Criar um Link de Download e Disparar o Download
+        // response.data já é o Blob (devido ao responseType: 'blob')
+        const blob = response.data;
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        
+        document.body.appendChild(a);
+        a.click();
+        
+        // 5. Limpeza
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        console.log(`Download do relatório CSV (${filename}) iniciado.`);
+
+     
+    
+    }catch (error) {
+        // Erros de rede ou erros não HTTP (e.g., Axios timeout)
+        console.error("Erro no download:", error);
+        alert("Ocorreu um erro de rede ao tentar baixar o CSV.");
+    }
+
     };
 
-    const handleExportPDF = () => {
-        alert("Emitindo relatório PDF... (Funcionalidade pendente no Backend)");
+    const handleExportPDF = async () => {
+        const response = await api.post('relatorio/export/pdf', 
+            {
+            tipo: lastFetchParams.modo,
+            ativo: lastFetchParams.ativo,
+            mandato: lastFetchParams.mandato,
+            busca: lastFetchParams.busca,
+        }, {
+            responseType: 'blob',
+            headers: { 'Content-Type': 'application/json' }
+        }
+    );
+
+    try {
+
+    // 2. Tratar Erros HTTP
+        if (response.status !== 200) {
+            // Em caso de erro, o Axios/navegador pode tentar ler a resposta como JSON se for o caso
+            // Se for 4xx/5xx, o corpo pode ser um JSON de erro
+            console.error("Erro ao gerar PDF:", response.data);
+            alert("Falha ao gerar o relatório PDF. Código de status: " + response.status);
+            return;
+        }
+
+        // 3. Obter o Nome do Arquivo
+        const contentDisposition = response.headers['content-disposition'];
+        let filename = 'relatorio.pdf'; // Nome padrão
+        
+        if (contentDisposition) {
+            // Regex para extrair o nome do arquivo do header Content-Disposition
+            const filenameMatch = contentDisposition.match(/filename=["']?([^"']+)["']?/i);
+            if (filenameMatch && filenameMatch[1]) {
+                filename = filenameMatch[1];
+            }
+        }
+
+        // 4. Criar um Link de Download e Disparar o Download
+        // response.data já é o Blob (devido ao responseType: 'blob')
+        const blob = response.data;
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        
+        document.body.appendChild(a);
+        a.click();
+        
+        // 5. Limpeza
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        console.log(`Download do relatório PDF (${filename}) iniciado.`);
+
+     
+    
+    }catch (error) {
+        // Erros de rede ou erros não HTTP (e.g., Axios timeout)
+        console.error("Erro no download:", error);
+        alert("Ocorreu um erro de rede ao tentar baixar o PDF.");
+    }
+
     };
 
     // === Helper para renderizar TH com ícone de sort ===
