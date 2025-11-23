@@ -7,19 +7,47 @@ from database import get_session
 router = APIRouter(prefix="/api/orgao", tags=["Órgão"])
 
 
+def core_adicionar_orgao(
+    orgao: Orgao,
+    session: Session
+):
+    if not orgao.nome.strip():
+        raise HTTPException(status_code=400, detail="O nome do órgão não pode ser vazio.")
+    
+    orgao.ativo = True  # força ativo=1 na criação
+    session.add(orgao)
+
+    return orgao
+
+def core_adicionar_orgaos_lote(
+    orgaos: list[Orgao],
+    session: Session
+):
+    resultados = []
+    for orgao in orgaos:
+        try:
+            resultado = core_adicionar_orgao(orgao, session)
+            resultados.append({"orgao": orgao.nome, "result": {
+                "status": "success",
+                "message": "Órgão adicionada com sucesso",
+                "id_orgao": resultado.id_orgao
+            }})
+        except HTTPException as he:
+            resultados.append({"orgao": orgao.nome, "error": he.detail})
+    return resultados
+
+
+
 # Criar órgão
 @router.post("/")
 def adicionar_orgao(orgao: Orgao, session: Session = Depends(get_session)):
     try:
-        if not orgao.nome.strip():
-            raise HTTPException(status_code=400, detail="O nome do órgão não pode ser vazio.")
-        
-        session.add(orgao)
+        orgao = core_adicionar_orgao(orgao, session)
         session.commit()
         session.refresh(orgao)
         return {
             "status": "success",
-            "message": "Órgão adicionado com sucesso",
+            "message": "Órgão adicionada com sucesso",
             "id_orgao": orgao.id_orgao
         }
     
@@ -38,6 +66,16 @@ def adicionar_orgao(orgao: Orgao, session: Session = Depends(get_session)):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao adicionar Órgão: {e}")
+
+
+@router.post("/lote/")
+def adicionar_orgaos_lote(orgaos: list[Orgao], session: Session = Depends(get_session)):
+    try:
+        resultados = core_adicionar_orgaos_lote(orgaos, session)
+        session.commit()
+        return {"results": resultados}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Órgãos em lote: {e}")
 
     
 # Listar órgãos

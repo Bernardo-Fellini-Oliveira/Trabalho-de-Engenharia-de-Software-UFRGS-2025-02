@@ -56,17 +56,12 @@ function SearchPage() {
     // === Efeitos ===============================================================
 
 
+
         const fetchData = async () => {
         setLoading(true);
         console.log("Iniciando busca de dados...");
         try {            
-            const res = await api.get(`/busca?search_type=${modo}`, {
-                params: {
-                    busca: filtroBusca,
-                    ativo: filtroAtivo,
-                    mandato: filtroMandato
-                }
-            });
+            const res = await api.get(`/busca?ativo=${filtroAtivo}&mandato=${filtroMandato}&search_type=${modo}`);
 
             setDados(res.data);
         } catch (err) {

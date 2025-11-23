@@ -154,7 +154,7 @@ def montar_query(tipo, busca, ativo, mandato, sort_list: List[str] = None):
 
 
 # Busca agrupada por pessoa
-@router.post("/busca/")
+@router.get("/busca/")
 def busca_generica(
     busca: str = Query("", description="Prefixo para busca"),
     ativo: str = Query("todos", description="Filtra por ativo/inativo (todos|ativos|inativos)"),
@@ -168,6 +168,10 @@ def busca_generica(
 
         results = session.exec(query).all()
 
+        print("----- RESULTADOS DA BUSCA -----")
+        print(results)
+        print("----- FIM DOS RESULTADOS -----")
+        
         agrupado = defaultdict(list)
 
         if search_type == "pessoa":

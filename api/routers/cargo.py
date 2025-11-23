@@ -34,84 +34,106 @@ class CargoCreate(SQLModel):
     exclusivo: bool = True
     substituto_para: Optional[int] = None
 
+
+def core_adicionar_cargo(
+    cargo: CargoCreate,
+    session: Session
+) -> Cargo:
+
+    # Criar objeto ORM novo cargo
+    novo = Cargo(**cargo.model_dump())
+
+    # ------------------------------------------
+    # 1. Se não tem substituto_para, só cria direto
+    # ------------------------------------------
+    if novo.substituto_para is None:
+        session.add(novo)
+        session.commit()
+        session.refresh(novo)
+        session.expunge(novo)  # evita flush/lazy load no retorno
+        return novo
+    
+    else:
+        if novo.exclusivo is False:
+            raise HTTPException(
+                400,
+                "Cargos exclusivos não podem ser substitutos."
+            )
+
+    # ------------------------------------------
+    # 2. Buscar o cargo que será substituído
+    # ------------------------------------------
+    acima = session.get(Cargo, novo.substituto_para)
+
+    if acima is None:
+        raise HTTPException(404, "Cargo 'substituto_para' não existe.")
+
+    # Deve ser do mesmo órgão
+    if acima.id_orgao != novo.id_orgao:
+        raise HTTPException(
+            400, "O substituto deve estar no mesmo órgão do cargo principal."
+        )
+
+    # ------------------------------------------
+    # 3. O cargo acima já possui substituto?
+    # ------------------------------------------
+    if acima.substituto is not None:
+        raise HTTPException(
+            400,
+            f"O cargo {acima.id_cargo} já possui um substituto definido."
+        )
+
+    # ------------------------------------------
+    # 4. Verificação de ciclo
+    # ------------------------------------------
+    atual = acima
+    while atual is not None:
+        if atual.id_cargo == novo.id_cargo:
+            raise HTTPException(
+                400,
+                "Ciclo detectado na cadeia de substituição."
+            )
+        atual = (
+            session.get(Cargo, atual.substituto_para)
+            if atual.substituto_para else None
+        )
+
+    # ------------------------------------------
+    # 5. Criar o novo cargo como substituto
+    # ------------------------------------------
+    session.add(novo)
+    session.flush()
+    acima.substituto = novo.id_cargo
+
+    update_stmt = (
+                update(Cargo) 
+                .where(Cargo.id_cargo == acima.id_cargo)
+                .values(substituto=novo.id_cargo)
+            )
+    session.exec(update_stmt)
+
+    return novo
+
+
+def core_adicionar_cargos_lote(
+    cargos: List[CargoCreate],
+    session: Session
+) -> List[Cargo]:
+    resultados = []
+    for cargo in cargos:
+        try:
+            novo = core_adicionar_cargo(cargo, session)
+            resultados.append({"status": "success", "cargo": novo})
+        except HTTPException as he:
+            resultados.append({"status": "error", "detail": he.detail})
+    return resultados
+
 @router.post("/", response_model=CargoRead)
 def adicionar_cargo(cargo: CargoCreate, session: Session = Depends(get_session)):
 
     try:
-        # Criar objeto ORM novo cargo
-        novo = Cargo(**cargo.model_dump())
-
-        # ------------------------------------------
-        # 1. Se não tem substituto_para, só cria direto
-        # ------------------------------------------
-        if novo.substituto_para is None:
-            session.add(novo)
-            session.commit()
-            session.refresh(novo)
-            session.expunge(novo)  # evita flush/lazy load no retorno
-            return novo
-        
-        else:
-            if novo.exclusivo is False:
-                raise HTTPException(
-                    400,
-                    "Cargos exclusivos não podem ser substitutos."
-                )
-
-        # ------------------------------------------
-        # 2. Buscar o cargo que será substituído
-        # ------------------------------------------
-        acima = session.get(Cargo, novo.substituto_para)
-
-        if acima is None:
-            raise HTTPException(404, "Cargo 'substituto_para' não existe.")
-
-        # Deve ser do mesmo órgão
-        if acima.id_orgao != novo.id_orgao:
-            raise HTTPException(
-                400, "O substituto deve estar no mesmo órgão do cargo principal."
-            )
-
-        # ------------------------------------------
-        # 3. O cargo acima já possui substituto?
-        # ------------------------------------------
-        if acima.substituto is not None:
-            raise HTTPException(
-                400,
-                f"O cargo {acima.id_cargo} já possui um substituto definido."
-            )
-
-        # ------------------------------------------
-        # 4. Verificação de ciclo
-        # ------------------------------------------
-        atual = acima
-        while atual is not None:
-            if atual.id_cargo == novo.id_cargo:
-                raise HTTPException(
-                    400,
-                    "Ciclo detectado na cadeia de substituição."
-                )
-            atual = (
-                session.get(Cargo, atual.substituto_para)
-                if atual.substituto_para else None
-            )
-
-        # ------------------------------------------
-        # 5. Criar o novo cargo como substituto
-        # ------------------------------------------
-        session.add(novo)
-        session.flush()
-        acima.substituto = novo.id_cargo
-
-        update_stmt = (
-                    update(Cargo) 
-                    .where(Cargo.id_cargo == acima.id_cargo)
-                    .values(substituto=novo.id_cargo)
-                )
-        session.exec(update_stmt)
-
+        novo = core_adicionar_cargo(cargo, session)
         session.commit()
-
         return CargoRead.model_validate(novo)
 
     except IntegrityError as e:
@@ -127,6 +149,18 @@ def adicionar_cargo(cargo: CargoCreate, session: Session = Depends(get_session))
     except Exception as e:
         session.rollback()
         raise HTTPException(500, f"Erro ao adicionar Cargo: {e}")
+
+
+@router.post("/lote/")
+def adicionar_cargos_lote(cargos: List[CargoCreate], session: Session = Depends(get_session)):
+    try:
+        resultados = core_adicionar_cargos_lote(cargos, session)
+        session.commit()
+        return {"results": resultados}
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Cargos em lote: {e}")
 
 
 @router.get("/", response_model=List[dict])

@@ -117,7 +117,8 @@ def core_adicionar_ocupacao(
             id_portaria=ocupacao.id_portaria,
             data_inicio=ocupacao.data_inicio,
             data_fim=ocupacao.data_fim,
-            mandato=num_mandatos_seguidos
+            mandato=num_mandatos_seguidos,
+            observacoes=ocupacao.observacoes,
         )
 
         # Regra 3: Se o cargo é substituto de outro, deve existir uma ocupação com o cargo principal com período de início anterior ou igual ao 
@@ -173,6 +174,27 @@ def core_adicionar_ocupacao(
         return nova_ocupacao
 
 
+def core_adicionar_ocupacoes_lote(
+    ocupacoes: List[Ocupacao],
+    session: Session
+) -> List[dict]:
+    resultados = []
+    for ocupacao in ocupacoes:
+        try:
+            nova_ocupacao = core_adicionar_ocupacao(ocupacao, session)
+            resultados.append({
+                "status": "success",
+                "message": "Ocupação adicionada com sucesso",
+                "id_ocupacao": nova_ocupacao.id_ocupacao
+            })
+        except HTTPException as he:
+            resultados.append({
+                "status": "error",
+                "detail": he.detail
+            })
+    return resultados
+
+
 # Criar ocupação
 @router.post("/")
 def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_session)):
@@ -181,7 +203,8 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
         session.commit()
         session.refresh(nova_ocupacao)
 
-        
+        print("Nova Ocupação Criada:")
+        print(nova_ocupacao)
         return {
             "status": "success",
             "message": "Ocupação adicionada com sucesso",
@@ -209,6 +232,16 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
             status_code=500,
             detail=f"Erro ao adicionar Ocupação. Verifique se os IDs de Pessoa, Cargo e Portaria existem: {e}"
         )
+    
+@router.post("/lote/")
+def adicionar_ocupacoes_lote(ocupacoes: List[Ocupacao], session: Session = Depends(get_session)):
+    try:
+        resultados = core_adicionar_ocupacoes_lote(ocupacoes, session)
+        session.commit()
+        return {"results": resultados}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Ocupações em lote: {e}")
+
 
 # Listar ocupações
 @router.get("/", response_model=List[Ocupacao])

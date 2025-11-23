@@ -29,6 +29,15 @@ def adicionar_pessoa(pessoa: Pessoa, session: Session = Depends(get_session)):
         "id_pessoa": pessoa.id_pessoa
     }
 
+def adicionar_pessoa_lote(pessoas: list[Pessoa], session: Session = Depends(get_session)):
+    resultados = []
+    for pessoa in pessoas:
+        try:
+            resultado = adicionar_pessoa(pessoa, session)
+            resultados.append({"pessoa": pessoa.nome, "result": resultado})
+        except HTTPException as he:
+            resultados.append({"pessoa": pessoa.nome, "error": he.detail})
+    return resultados
 
 
 # Criar pessoa

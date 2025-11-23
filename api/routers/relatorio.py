@@ -35,6 +35,8 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
       * flat: lista de linhas planas no formato [{"pessoa":..,"cargo":..,"orgao":..,"data_inicio":..,"data_fim":..,"mandato":..}, ...]
     """
 
+    BLANK_SYMBOL = "-"
+
     # configuração de colunas por modo (rótulos e ordem)
     if group_by == "cargo":
         header = ["Cargo", "Órgão", "Pessoa", "Início", "Fim", "Mandato", "Observações"]
@@ -62,14 +64,14 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
         # dados já são linhas planas
         for item in dados:
 
-            pessoa = item[0] or "-"
-            cargo = item[1] or "-"
-            orgao = item[2] or "-"
-            inicio = item[3] or "-"
-            fim = item[4] or "-"
+            pessoa = item[0] or BLANK_SYMBOL
+            cargo = item[1] or BLANK_SYMBOL
+            orgao = item[2] or BLANK_SYMBOL
+            inicio = item[3] or BLANK_SYMBOL
+            fim = item[4] or BLANK_SYMBOL
             exclusivo = item[9]
-            mandato = str(item[5]) if exclusivo and item[5] else "-"
-            observacoes = item[6] or "-"
+            mandato = str(item[5]) if exclusivo and item[5] else BLANK_SYMBOL
+            observacoes = item[6] or BLANK_SYMBOL
             
             table_data.append([pessoa, cargo, orgao, inicio, fim, mandato, observacoes])
             next_row_idx += 1
@@ -77,19 +79,30 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
     else:
         # modos agrupados: percorre blocos
         for bloco in dados:
+
+            print("---------------")
+            print(bloco)
+            print("---------------")
+        
+
             # extrai a lista de ocupações dependendo do formato
             if group_by == "cargo":
                 ocupacoes = bloco.get("ocupacoes", [])
-                label1 = bloco.get("cargo", "-")
-                label2 = bloco.get("orgao", "-")
+                label1 = bloco.get("cargo", "")
+                label2 = bloco.get("orgao", "")
                 # cada ocupação: pessoa, inicio, fim, mandato, id_ocupacao
                 rows = [
-                    [o.get("pessoa", "-"), o.get("data_inicio", "-") or "-", o.get("data_fim", "-") or "-", str(o.get("mandato", "-")) if o.get("mandato") is not None else "-", o.get("observacoes", ""), o.get("exclusivo", False)]
+                    [o.get("pessoa", BLANK_SYMBOL), 
+                     o.get("data_inicio", BLANK_SYMBOL) or BLANK_SYMBOL, 
+                     o.get("data_fim", BLANK_SYMBOL) or BLANK_SYMBOL, 
+                     str(o.get("mandato", BLANK_SYMBOL)) if o.get("mandato") is not None else BLANK_SYMBOL, 
+                     o.get("observacoes", BLANK_SYMBOL), 
+                     o.get("exclusivo", False)]
                     for o in ocupacoes
                 ]
                 # para este layout precisamos inserir Cargo, Orgão nas duas primeiras colunas
                 if not ocupacoes:
-                    table_data.append([label1, label2, "Sem ocupações.", "-", "-", "-", "-"])
+                    table_data.append([label1, label2, "Sem ocupações.", BLANK_SYMBOL, BLANK_SYMBOL, BLANK_SYMBOL, BLANK_SYMBOL])
                     style_cmds.append(("SPAN", (2, next_row_idx), (5, next_row_idx)))
                     style_cmds.append(("VALIGN", (0, next_row_idx), (1, next_row_idx), "MIDDLE"))
                     style_cmds.append(("ALIGN", (2, next_row_idx), (5, next_row_idx), "LEFT"))
@@ -99,11 +112,11 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
                 start = next_row_idx
                 for i, r in enumerate(rows):
                     pessoa, inicio, fim, mandato, observacoes, exclusivo = r
-                    mandato = mandato if exclusivo and mandato else "-"
+                    mandato = mandato if exclusivo and mandato else BLANK_SYMBOL
                     if i == 0:
                         table_data.append([label1, label2, pessoa, inicio, fim, mandato, observacoes])
                     else:
-                        table_data.append(["", "", pessoa, inicio, fim, mandato, observacoes])
+                        table_data.append([BLANK_SYMBOL, BLANK_SYMBOL, pessoa, inicio, fim, mandato, observacoes])
                     next_row_idx += 1
                 end = next_row_idx - 1
                 if start <= end and (end - start + 1) >= 1:
@@ -113,9 +126,9 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
 
             elif group_by == "pessoa":
                 ocupacoes = bloco.get("cargos", [])
-                label = bloco.get("pessoa", "-")
+                label = bloco.get("pessoa", BLANK_SYMBOL)
                 if not ocupacoes:
-                    table_data.append([label, "-", "-", "-", "-", "-", "-"])
+                    table_data.append([label, BLANK_SYMBOL, BLANK_SYMBOL, BLANK_SYMBOL, BLANK_SYMBOL, BLANK_SYMBOL, BLANK_SYMBOL])
                     style_cmds.append(("SPAN", (1, next_row_idx), (6, next_row_idx)))
                     style_cmds.append(("VALIGN", (0, next_row_idx), (0, next_row_idx), "MIDDLE"))
                     style_cmds.append(("ALIGN", (1, next_row_idx), (6, next_row_idx), "LEFT"))
@@ -124,28 +137,28 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
 
                 start = next_row_idx
                 for i, o in enumerate(ocupacoes):
-                    cargo = o.get("cargo", "-")
-                    orgao = o.get("orgao", "-")
-                    inicio = o.get("data_inicio", "-") or "-"
-                    fim = o.get("data_fim", "-") or "-"
-                    mandato = "-" if o.get("mandato") is None else str(o.get("mandato"))
+                    cargo = o.get("cargo", BLANK_SYMBOL)
+                    orgao = o.get("orgao", BLANK_SYMBOL)
+                    inicio = o.get("data_inicio", BLANK_SYMBOL) or BLANK_SYMBOL
+                    fim = o.get("data_fim", BLANK_SYMBOL) or BLANK_SYMBOL
+                    mandato = BLANK_SYMBOL if o.get("mandato") is None else str(o.get("mandato"))
                     exclusivo = o.get("exclusivo", False)
                     if not exclusivo:
-                        mandato = "-"
-                    observacoes = o.get("observacoes", "-")
+                        mandato = BLANK_SYMBOL
+                    observacoes = o.get("observacoes", BLANK_SYMBOL)
                     if i == 0:
                         table_data.append([label, cargo, orgao, inicio, fim, mandato, observacoes])
                     else:
-                        table_data.append(["", cargo, orgao, inicio, fim, mandato, observacoes])
+                        table_data.append([BLANK_SYMBOL, cargo, orgao, inicio, fim, mandato, observacoes])
                     next_row_idx += 1
                 end = next_row_idx - 1
                 spans_to_add.append((start, end, 0, 0))  # mesclar coluna Pessoa
 
             elif group_by == "orgao":
                 ocupacoes = bloco.get("cargos", [])
-                label = bloco.get("orgao", "-")
+                label = bloco.get("orgao", BLANK_SYMBOL)
                 if not ocupacoes:
-                    table_data.append([label, "-", "-", "-", "-", "-", "-"])
+                    table_data.append([label, BLANK_SYMBOL, BLANK_SYMBOL, BLANK_SYMBOL, BLANK_SYMBOL, BLANK_SYMBOL, BLANK_SYMBOL])
                     style_cmds.append(("SPAN", (1, next_row_idx), (6, next_row_idx)))
                     style_cmds.append(("VALIGN", (0, next_row_idx), (0, next_row_idx), "MIDDLE"))
                     style_cmds.append(("ALIGN", (1, next_row_idx), (6, next_row_idx), "LEFT"))
@@ -154,19 +167,19 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
 
                 start = next_row_idx
                 for i, o in enumerate(ocupacoes):
-                    cargo = o.get("cargo", "-")
-                    pessoa = o.get("pessoa", "-")
-                    inicio = o.get("data_inicio", "-") or "-"
-                    fim = o.get("data_fim", "-") or "-"
-                    mandato = "-" if o.get("mandato") is None else str(o.get("mandato"))
+                    cargo = o.get("cargo", BLANK_SYMBOL)
+                    pessoa = o.get("pessoa", BLANK_SYMBOL)
+                    inicio = o.get("data_inicio", BLANK_SYMBOL) or BLANK_SYMBOL
+                    fim = o.get("data_fim", BLANK_SYMBOL) or BLANK_SYMBOL
+                    mandato = BLANK_SYMBOL if o.get("mandato") is None else str(o.get("mandato"))
                     exclusivo = o.get("exclusivo", False)
                     if not exclusivo:
-                        mandato = "-"
-                    observacoes = o.get("observacoes", "-")
+                        mandato = BLANK_SYMBOL
+                    observacoes = o.get("observacoes", BLANK_SYMBOL)
                     if i == 0:
                         table_data.append([label, cargo, pessoa, inicio, fim, mandato, observacoes])
                     else:
-                        table_data.append(["", cargo, pessoa, inicio, fim, mandato, observacoes])
+                        table_data.append([BLANK_SYMBOL, cargo, pessoa, inicio, fim, mandato, observacoes])
                     next_row_idx += 1
                 end = next_row_idx - 1
                 spans_to_add.append((start, end, 0, 0))  # mesclar coluna Órgão
@@ -183,8 +196,6 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
 
     elementos.append(tabela)
     elementos.append(Spacer(1, 18))
-
-
 
 
 
@@ -210,6 +221,8 @@ def montar_query_export(req: ExportRequest, session: Session):
 
     resultados = session.exec(base).all()
 
+
+
     # ----------------------------
     # AGRUPAMENTO
     # ----------------------------
@@ -224,6 +237,7 @@ def montar_query_export(req: ExportRequest, session: Session):
         chave = lambda r: (r[1], r[2])  # (cargo, orgao)
     elif req.tipo == "orgao":
         chave = lambda r: r[2] # orgao
+
 
     for r in resultados:
         k = chave(r)
