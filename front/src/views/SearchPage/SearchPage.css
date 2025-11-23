@@ -1,0 +1,257 @@
+/* --- CONTAINER PRINCIPAL --- */
+.search-container {
+    padding: 20px 40px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa; /* Fundo cinza bem claro */
+    min-height: 100vh;
+}
+
+/* Título */
+/*.search-title {
+    font-size: 24px;
+    font-weight: 600;
+    color: #212529;
+    margin-bottom: 20px;
+}*/
+
+.search-title {
+    /* Fontes */
+    font-family: 'Gilroy', 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 32px;
+    color: #9A0000;
+    
+    /* Centralização */
+    text-align: center;
+    position: relative;
+    
+    /* O Segredo para centralizar mantendo o tamanho do texto */
+    display: block; 
+    width: fit-content; 
+    margin: 20px auto; /* auto nas laterais centraliza o bloco */
+}
+
+.search-title::after
+{
+    content: "";
+    display: block;
+    height: 4px;
+    background-color: #D0D0D0;
+    border-radius: 2px;
+    width: 80%; /* ou 100% para linha do tamanho completo */
+    margin: 8px auto 0 auto;
+}
+
+.search-description
+{
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    /* Centralização */
+    text-align: center;
+    position: relative;
+    
+    /* O Segredo para centralizar mantendo o tamanho do texto */
+    display: block; 
+    width: fit-content; 
+    margin: 20px auto; /* auto nas laterais centraliza o bloco */
+}
+
+/* --- CARD DE FILTROS --- */
+.filter-card {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+.filter-row {
+    display: flex;
+    gap: 20px;
+    align-items: flex-end; /* Alinha inputs e botões na base */
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 200px;
+}
+
+.filter-group label {
+    font-size: 14px;
+    color: black;
+    font-weight: 500;
+}
+
+.filter-input, .filter-select {
+    padding: 8px 12px;
+    border: 1px solid #ccc;                  
+    border-radius: 20px;           /* bordas arredondadas */
+    font-size: 14px;
+    width: 90%;
+    box-shadow: none;              /* remove sombras padrão */
+    outline: none;                 /* remove contorno azul ao clicar */
+    color: #333;                   /* cor do texto */
+    padding: 5px 10px;            /* espaço interno */
+}
+
+/* --- BOTÕES GERAIS --- */
+.button-group {
+    display: flex;
+    gap: 10px;
+}
+
+.btn {
+    padding: 8px 16px;
+    border: 2px solid #39BC2D;     /* mesma cor da borda */
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px; /* Espaço entre ícone e texto */
+    transition: all 0.3s ease;
+    color: white;
+    font-weight: bold;
+}
+
+/* Botão Azul (Filtrar) */
+.btn-primary 
+{
+    background-color: #0C4F82;
+    border: 2px solid #0C4F82;     /* mesma cor da borda */
+    color: white;
+}
+.btn-primary:hover 
+{
+    background-color: transparent; /* fundo transparente */
+    color: #0C4F82;                /* texto azul */
+}
+
+/* Botão Cinza (Limpar) */
+.btn-secondary {
+    background-color: #6c757d;
+    border: 2px solid #6c757d;     /* mesma cor da borda */
+    color: white;
+}
+.btn-secondary:hover 
+{
+    background-color: transparent; /* fundo transparente */
+    color: #6c757d;                /* texto azul */
+}
+
+/* Botões de Ação (Outline - Exportação) */
+.btn-outline1 {
+    background-color: #39BC2D;
+    border: 2px solid #39BC2D;     /* mesma cor da borda */
+    color: white;
+}
+.btn-outline1:hover {
+    background-color: transparent; /* fundo transparente */
+    color: #39BC2D;                /* texto azul */
+}
+
+/* Botões de Ação (Outline - Exportação) */
+.btn-outline2 {
+    background-color: #9A0000;
+    border: 2px solid #9A0000;     /* mesma cor da borda */
+    color: white;
+}
+.btn-outline2:hover {
+    background-color: transparent; /* fundo transparente */
+    color: #9A0000;                /* texto azul */
+}
+
+/* Botões de Ação (Outline - Exportação) */
+.btn-outline3 {
+    background-color: #0C4F82;
+    border: 2px solid #0C4F82;     /* mesma cor da borda */
+    color: white;
+}
+.btn-outline3:hover {
+    background-color: transparent; /* fundo transparente */
+    color: #0C4F82;                /* texto azul */
+}
+
+/* Botão de Edição (Laranja/Amarelo) na barra superior */
+.btn-warning-outline {
+    background-color: #ffc107;
+    border: 2px solid #ffc107;     /* mesma cor da borda */
+    color: white;
+}
+.btn-warning-outline:hover {
+    background-color: transparent; /* fundo transparente */
+    color: #ffc107;                /* texto azul */
+}
+
+/* --- ÁREA DE AÇÕES (DIREITA) --- */
+.actions-bar {
+    display: flex;
+    justify-content: flex-end; /* Joga para a direita */
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+/* --- TABELA --- */
+.table-container {
+    background-color: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    overflow-x: auto;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    color: #212529;
+}
+
+/* Cabeçalho da Tabela (Azul Claro) */
+.data-table thead th {
+    background-color: #9A0000; /* Cor parecida com a imagem */
+    color: #ffffff;
+    font-weight: 700;
+    text-align: left;
+    padding: 12px 15px;
+    border-bottom: 1px solid #995E5E;
+    cursor: pointer; /* Mãozinha para indicar clique/ordenação */
+    user-select: none;
+    white-space: nowrap;
+    position: relative;
+}
+
+.data-table thead th:hover {
+    background-color: #995E5E;
+}
+
+/* Células */
+.data-table tbody td {
+    padding: 10px 15px;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: middle;
+}
+
+/* Zebra Striping (Linhas pares com fundo cinza) */
+.data-table tbody tr:nth-child(even) {
+    background-color: #f8f9fa;
+}
+
+.data-table tbody tr:hover {
+    background-color: #e9ecef; /* Hover na linha */
+}
+
+/* --- ÍCONES --- */
+.sort-icon {
+    margin-left: 6px;
+    font-size: 10px;
+    opacity: 0.6;
+}
