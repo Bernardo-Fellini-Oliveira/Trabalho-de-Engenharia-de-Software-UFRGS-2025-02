@@ -127,7 +127,8 @@ def aplicar_filtros(query, busca, ativo, mandato, tipo):
     where_clause = traduzir_parsing_result(filtro) if filtro else None
 
     print("Where clause traduzida:", where_clause)
-    if where_clause:
+    if where_clause is not None:
+        print("Aplicando where clause...")
         query = query.where(where_clause)
 
     if ativo == "ativos":

@@ -1,6 +1,5 @@
 from lark import Lark
-from sqlmodel import select
-from sqlalchemy import and_, case, or_, not_
+from sqlmodel import case, select, and_, or_, not_
 
 from models.pessoa import Pessoa
 from models.cargo import Cargo
@@ -92,6 +91,7 @@ def traduzir_parsing_result(parse_result):
                 if not isinstance(valor, str):
                     raise TypeError("O operador 'LIKE' só pode ser usado com valores de string.")
                 
+                print("AAAAAAAAA")
                 return coluna.ilike(f"%{valor}%")
             
             case "<":
