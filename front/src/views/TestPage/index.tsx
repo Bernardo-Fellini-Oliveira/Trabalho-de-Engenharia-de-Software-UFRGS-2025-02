@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../services/api'; 
 import './styles.css'; 
+import { Form } from 'react-router-dom';
 
 // === Interfaces de Tipagem ===
 interface PessoaDB { id_pessoa: number; nome: string; ativo: boolean; }
@@ -9,8 +10,10 @@ interface CargoDB { id_cargo: number; nome: string; ativo: boolean; id_orgao: nu
 
 interface FormPessoa { id_temp: number; nome: string; }
 interface FormOrgao { id_temp: number; nome: string; }
-interface FormCargo { id_temp: number; nome: string; orgao_associado: string; exclusivo: boolean; }
-interface FormVinculo { id_temp: number; pessoa_v: string; cargo_v: string; inicio_v: string; fim_v: string; }
+interface FormCargo { id_temp: number; nome: string; orgao_associado: string; exclusivo: boolean; substituto_para?: string; }
+interface FormVinculo { id_temp: number; pessoa_v: string; cargo_v: string; inicio_v: string; fim_v: string; observacoes: string; }
+
+const MAX_OBSERVACOES_LENGTH = 50;
 
 function InputPage() {
     // === Estados para DATALISTS ===
@@ -21,8 +24,8 @@ function InputPage() {
     // === Estados dos Formulários Dinâmicos ===
     const [listaPessoas, setListaPessoas] = useState<FormPessoa[]>([{ id_temp: Date.now(), nome: '' }]);
     const [listaOrgaos, setListaOrgaos] = useState<FormOrgao[]>([{ id_temp: Date.now(), nome: '' }]);
-    const [listaCargos, setListaCargos] = useState<FormCargo[]>([{ id_temp: Date.now(), nome: '', orgao_associado: '', exclusivo: true }]);
-    const [listaVinculos, setListaVinculos] = useState<FormVinculo[]>([{ id_temp: Date.now(), pessoa_v: '', cargo_v: '', inicio_v: '', fim_v: '' }]);
+    const [listaCargos, setListaCargos] = useState<FormCargo[]>([{ id_temp: Date.now(), nome: '', orgao_associado: '', exclusivo: true, substituto_para: '' }]);
+    const [listaVinculos, setListaVinculos] = useState<FormVinculo[]>([{ id_temp: Date.now(), pessoa_v: '', cargo_v: '', inicio_v: '', fim_v: '', observacoes: '' }]);
 
     const [loading, setLoading] = useState(false);
 
@@ -51,8 +54,8 @@ function InputPage() {
         const id_temp = Date.now();
         if (tipo === 'pessoa') setListaPessoas([...listaPessoas, { id_temp, nome: '' }]);
         if (tipo === 'orgao') setListaOrgaos([...listaOrgaos, { id_temp, nome: '' }]);
-        if (tipo === 'cargo') setListaCargos([...listaCargos, { id_temp, nome: '', orgao_associado: '', exclusivo: true }]);
-        if (tipo === 'vinculo') setListaVinculos([...listaVinculos, { id_temp, pessoa_v: '', cargo_v: '', inicio_v: '', fim_v: '' }]);
+        if (tipo === 'cargo') setListaCargos([...listaCargos, { id_temp, nome: '', orgao_associado: '', exclusivo: true, substituto_para: '' }]);
+        if (tipo === 'vinculo') setListaVinculos([...listaVinculos, { id_temp, pessoa_v: '', cargo_v: '', inicio_v: '', fim_v: '', observacoes: '' }]);
     };
 
     const handleRemove = (tipo: string, id_temp: number) => {
@@ -68,6 +71,7 @@ function InputPage() {
         if (tipo === 'cargo') setListaCargos(listaCargos.map(i => i.id_temp === id_temp ? { ...i, [field]: value } : i));
         if (tipo === 'vinculo') setListaVinculos(listaVinculos.map(i => i.id_temp === id_temp ? { ...i, [field]: value } : i));
     };
+
 
     // === 3. Helpers e Envio ===
     const extractId = (val: string): number | null => {
@@ -123,7 +127,7 @@ function InputPage() {
                             id_orgao: idOrgao, 
                             exclusivo: Boolean(c.exclusivo), // Garante booleano true/false
                             ativo: true,
-                            substituto_para: null
+                            substituto_para: c.substituto_para ? extractId(c.substituto_para) : null
                         });
                     }
                 }
@@ -132,7 +136,7 @@ function InputPage() {
                 // Backend tem rota /lote/ para cargos
                 await api.post('/cargo/lote/', payload);
                 alert('Cargos inseridos com sucesso!');
-                setListaCargos([{ id_temp: Date.now(), nome: '', orgao_associado: '', exclusivo: true }]);
+                setListaCargos([{ id_temp: Date.now(), nome: '', orgao_associado: '', exclusivo: true, substituto_para: '' }]);
             }
 
             // === VINCULAÇÕES (OCUPAÇÕES) ===
@@ -151,7 +155,7 @@ function InputPage() {
                             data_fim: v.fim_v || null, 
                             id_portaria: null, 
                             mandato: 1, // Valor padrão, backend recalcula se necessário
-                            observacoes: null 
+                            observacoes: v.observacoes.trim().substring(0, MAX_OBSERVACOES_LENGTH) || null 
                         });
                     }
                 }
@@ -160,7 +164,7 @@ function InputPage() {
                 // Backend tem rota /lote/ para ocupações
                 await api.post('/ocupacao/lote/', payload);
                 alert('Vinculações inseridas com sucesso!');
-                setListaVinculos([{ id_temp: Date.now(), pessoa_v: '', cargo_v: '', inicio_v: '', fim_v: '' }]);
+                setListaVinculos([{ id_temp: Date.now(), pessoa_v: '', cargo_v: '', inicio_v: '', fim_v: '', observacoes: '' }]);
             }
 
             // Recarrega datalists após inserção
@@ -176,8 +180,17 @@ function InputPage() {
     };
 
     const getOrgaoName = (id: number) => dbOrgaos.find(o => o.id_orgao === id)?.nome || 'Desc.';
+    const extractOrgaoId = (val: string): number | null => {
+        if (!val) return null;
+        const parts = val.split(' - ');
+        const id = parseInt(parts[0]);
+        return isNaN(id) ? null : id;
+    };
+    
 
     return (
+
+        
         <div>
             {/* Datalists */}
             <datalist id="dl-orgaos">
@@ -189,6 +202,7 @@ function InputPage() {
             <datalist id="dl-cargos">
                 {dbCargos.map(c => c.ativo && <option key={c.id_cargo} value={`${c.id_cargo} - ${c.nome} (${getOrgaoName(c.id_orgao)})`} />)}
             </datalist>
+
 
             <div className="topo">
                 <h1>INSERÇÃO DE DADOS</h1>
@@ -299,6 +313,31 @@ function InputPage() {
                                             )}
                                         </label>
                                     </div>
+
+                                    <div className="input_container normal">
+                                        <div className="numero-item">
+                                            Substituto de:<br />
+                                            <input 
+                                                list="dl-cargos-substitutos"
+                                                type="text" 
+                                                placeholder="Busque o cargo..."
+                                                value={item.substituto_para}
+                                                onChange={(e) => handleChange('cargo', item.id_temp, 'substituto_para', e.target.value)}
+                                                required>
+                                            </input> 
+
+                                            <datalist id={"dl-cargos-substitutos"}>
+                                                {/* Mapeia SOMENTE os cargos filtrados pelo idOrgaoSelecionado */}
+                                                {dbCargos.filter(c => c.ativo && c.id_orgao === extractOrgaoId(item.orgao_associado)).map(c => (
+                                                    <option 
+                                                        key={c.id_cargo} 
+                                                        // O valor deve incluir o ID para fácil extração no handleChange
+                                                        value={`${c.id_cargo} - ${c.nome} (${getOrgaoName(c.id_orgao)})`} 
+                                                    />
+                                                ))}
+                                            </datalist>
+                                        </div>
+                                    </div>
                                 </div>
                             ))}
                         </div>
@@ -354,7 +393,6 @@ function InputPage() {
                                     <div className="input_container normal">
                                         <div className="numero-item">
                                             Data de Fim<br />
-                                            {/* Alterado para type="date" */}
                                             <input 
                                                 type="date" 
                                                 value={item.fim_v}
@@ -363,6 +401,22 @@ function InputPage() {
                                             {listaVinculos.length > 1 && (
                                                 <button type="button" className="botao-remover" onClick={() => handleRemove('vinculo', item.id_temp)}>X</button>
                                             )}
+                                        </div>
+                                    </div>
+
+                                    {/* Observações */}
+                                    <div className="input_container normal">
+                                        <div className="numero-item">
+                                        Observações:<br />
+                                            <textarea className="large-input"
+                                                value={item.observacoes}
+                                                onChange={(e) => handleChange('vinculo', item.id_temp, 'observacoes', e.target.value.substring(0, MAX_OBSERVACOES_LENGTH))}
+                                                rows={3}
+                                            />
+
+                                            <br />
+
+                                            <span style={{fontWeight: "normal", fontSize: "12px", color: "rgb(51, 51, 51)"}}>Número de Caracteres: {item.observacoes.length} / {MAX_OBSERVACOES_LENGTH}</span>
                                         </div>
                                     </div>
                                 </div>

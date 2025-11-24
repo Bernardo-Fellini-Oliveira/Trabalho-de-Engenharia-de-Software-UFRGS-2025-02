@@ -10,7 +10,9 @@ from io import BytesIO, StringIO
 from pydantic import BaseModel
 from sqlmodel import Session
 
-from routers.busca import montar_query
+from reportlab.platypus import Paragraph
+
+from routers.busca import core_busca_generica
 from database import get_session
 
 
@@ -24,6 +26,12 @@ router = APIRouter(
 from reportlab.lib import colors
 from reportlab.platypus import Table, TableStyle, Paragraph, Spacer
 
+
+def secure_get_dados(field: str, dados: List[Any], standard_value: Any = None):
+    value = dados.get(field, standard_value)
+    value = value if value is not None else standard_value
+    return value
+ 
 def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
     """
     Gera um PDF (adiciona uma tabela a `elementos`) com os dados agrupados conforme `group_by`.
@@ -64,14 +72,14 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
         # dados já são linhas planas
         for item in dados:
 
-            pessoa = item[0] or BLANK_SYMBOL
-            cargo = item[1] or BLANK_SYMBOL
-            orgao = item[2] or BLANK_SYMBOL
-            inicio = item[3] or BLANK_SYMBOL
-            fim = item[4] or BLANK_SYMBOL
-            exclusivo = item[9]
-            mandato = str(item[5]) if exclusivo and item[5] else BLANK_SYMBOL
-            observacoes = item[6] or BLANK_SYMBOL
+            pessoa = Paragraph(item.get("pessoa") or BLANK_SYMBOL, styles)
+            cargo = Paragraph(item.get("cargo") or BLANK_SYMBOL, styles)
+            orgao = Paragraph(item.get("orgao") or BLANK_SYMBOL, styles)
+            inicio = item.get("data_inicio") or BLANK_SYMBOL
+            fim = item.get("data_fim") or BLANK_SYMBOL
+            exclusivo = item.get("exclusivo", False)
+            mandato = str(item.get("mandato")) if exclusivo and item.get("mandato") is not None else BLANK_SYMBOL
+            observacoes = Paragraph(item.get("observacoes") or BLANK_SYMBOL, styles)
             
             table_data.append([pessoa, cargo, orgao, inicio, fim, mandato, observacoes])
             next_row_idx += 1
@@ -79,24 +87,21 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
     else:
         # modos agrupados: percorre blocos
         for bloco in dados:
-
-            print("---------------")
-            print(bloco)
-            print("---------------")
-        
-
+    
             # extrai a lista de ocupações dependendo do formato
             if group_by == "cargo":
                 ocupacoes = bloco.get("ocupacoes", [])
                 label1 = bloco.get("cargo", "")
                 label2 = bloco.get("orgao", "")
                 # cada ocupação: pessoa, inicio, fim, mandato, id_ocupacao
+
+                
                 rows = [
-                    [o.get("pessoa", BLANK_SYMBOL), 
+                    [secure_get_dados("pessoa", o, BLANK_SYMBOL),
                      o.get("data_inicio", BLANK_SYMBOL) or BLANK_SYMBOL, 
                      o.get("data_fim", BLANK_SYMBOL) or BLANK_SYMBOL, 
                      str(o.get("mandato", BLANK_SYMBOL)) if o.get("mandato") is not None else BLANK_SYMBOL, 
-                     o.get("observacoes", BLANK_SYMBOL), 
+                     secure_get_dados("observacoes", o, BLANK_SYMBOL), 
                      o.get("exclusivo", False)]
                     for o in ocupacoes
                 ]
@@ -137,15 +142,19 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
 
                 start = next_row_idx
                 for i, o in enumerate(ocupacoes):
-                    cargo = o.get("cargo", BLANK_SYMBOL)
-                    orgao = o.get("orgao", BLANK_SYMBOL)
+                    
+                    cargo = secure_get_dados("cargo", o, BLANK_SYMBOL)
+                    orgao = secure_get_dados("orgao", o, BLANK_SYMBOL)
+                    
                     inicio = o.get("data_inicio", BLANK_SYMBOL) or BLANK_SYMBOL
                     fim = o.get("data_fim", BLANK_SYMBOL) or BLANK_SYMBOL
                     mandato = BLANK_SYMBOL if o.get("mandato") is None else str(o.get("mandato"))
                     exclusivo = o.get("exclusivo", False)
                     if not exclusivo:
                         mandato = BLANK_SYMBOL
-                    observacoes = o.get("observacoes", BLANK_SYMBOL)
+
+                    observacoes = Paragraph(secure_get_dados("observacoes", o, BLANK_SYMBOL), styles)
+
                     if i == 0:
                         table_data.append([label, cargo, orgao, inicio, fim, mandato, observacoes])
                     else:
@@ -167,15 +176,17 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
 
                 start = next_row_idx
                 for i, o in enumerate(ocupacoes):
-                    cargo = o.get("cargo", BLANK_SYMBOL)
-                    pessoa = o.get("pessoa", BLANK_SYMBOL)
+                    cargo = secure_get_dados("cargo", o, BLANK_SYMBOL)
+                    pessoa = secure_get_dados("pessoa", o, BLANK_SYMBOL)
                     inicio = o.get("data_inicio", BLANK_SYMBOL) or BLANK_SYMBOL
                     fim = o.get("data_fim", BLANK_SYMBOL) or BLANK_SYMBOL
                     mandato = BLANK_SYMBOL if o.get("mandato") is None else str(o.get("mandato"))
                     exclusivo = o.get("exclusivo", False)
                     if not exclusivo:
                         mandato = BLANK_SYMBOL
-                    observacoes = o.get("observacoes", BLANK_SYMBOL)
+
+                    observacoes = Paragraph(secure_get_dados("observacoes", o, BLANK_SYMBOL), styles)
+
                     if i == 0:
                         table_data.append([label, cargo, pessoa, inicio, fim, mandato, observacoes])
                     else:
@@ -191,7 +202,7 @@ def gerar_pdf_agrupado(dados, elementos, styles, group_by: str = "cargo"):
         style_cmds.append(("VALIGN", (c0, start), (c1, end), "MIDDLE"))
         style_cmds.append(("ALIGN", (c0, start), (c1, end), "CENTER"))
 
-    tabela = Table(table_data, repeatRows=1)
+    tabela = Table(table_data, repeatRows=1, colWidths=[80, 80, 100, 60, 60, 50, 150])
     tabela.setStyle(TableStyle(style_cmds))
 
     elementos.append(tabela)
@@ -204,121 +215,36 @@ class ExportRequest(BaseModel):
     busca: str = ""
     ativo: Literal["todos", "ativos", "inativos"] = "todos"
     mandato: Literal["todos", "vigente", "encerrado"] = "todos"
-    sort_list: List[str] = None # ex: ["pessoa,asc", "cargo,desc"]
+    sort_by: str = "" # ex: "pessoa,asc", "cargo,desc"
 
 
 
-def montar_query_export(req: ExportRequest, session: Session):
-
-    base = montar_query(
+    
+@router.post("/export/pdf")
+def export_pdf(req: ExportRequest, session: Session = Depends(get_session)):
+    dados = core_busca_generica(
         tipo=req.tipo,
         busca=req.busca,
         ativo=req.ativo,
         mandato=req.mandato,
-        sort_list=req.sort_list
+        sort_by=req.sort_by,
+        session=session
     )
 
-
-    resultados = session.exec(base).all()
-
-
-
-    # ----------------------------
-    # AGRUPAMENTO
-    # ----------------------------
-    if req.tipo == "flat":
-        return resultados
-
-    agrupado = {}
-
-    if req.tipo == "pessoa":
-        chave = lambda r: r[0] # pessoa
-    elif req.tipo == "cargo":
-        chave = lambda r: (r[1], r[2])  # (cargo, orgao)
-    elif req.tipo == "orgao":
-        chave = lambda r: r[2] # orgao
-
-
-    for r in resultados:
-        k = chave(r)
-        agrupado.setdefault(k, []).append(r)
-
-    # Transformar no formato esperado pelo gerador PDF
-    if req.tipo == "pessoa":
-        return [
-            {
-                "pessoa": pessoa,
-                "cargos": [
-                    {
-                        "cargo": r[1],
-                        "orgao": r[2],
-                        "data_inicio": r[3],
-                        "data_fim": r[4],
-                        "mandato": r[5],
-                        "observacoes": r[6],
-                        "exclusivo": r[9]
-                    }
-                    for r in lista
-                ],
-            }
-            for pessoa, lista in agrupado.items()
-        ]
-
-    if req.tipo == "orgao":
-        return [
-            {
-                "orgao": orgao,
-                "cargos": [
-                    {
-                        "pessoa": r[0],
-                        "cargo": r[1],
-                        "data_inicio": r[3],
-                        "data_fim": r[4],
-                        "mandato": r[5],
-                        "observacoes": r[6],
-                        "exclusivo": r[9]
-                    }
-                    for r in lista
-                ],
-            }
-            for orgao, lista in agrupado.items()
-        ]
-
-    if req.tipo == "cargo":
-        return [
-            {
-                "cargo": cargo,
-                "orgao": orgao,
-                "ocupacoes": [
-                    {
-                        "pessoa": r[0],
-                        "data_inicio": r[3],
-                        "data_fim": r[4],
-                        "mandato": r[5],
-                        "observacoes": r[6],
-                        "exclusivo": r[9]
-                    }
-                    for r in lista
-                ],
-            }
-            for (cargo, orgao), lista in agrupado.items()
-        ]
-    
-@router.post("/export/pdf")
-def export_pdf(req: ExportRequest, session: Session = Depends(get_session)):
-    dados = montar_query_export(req, session)
+    print(f"Gerando PDF com {len(dados)} itens.")
+    print(dados)
 
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()
     elementos = []
 
-    elementos.append(Spacer(1, 12))
+    elementos.append(Spacer(1, 3))
 
     if req.tipo in ("cargo", "pessoa", "orgao"):
-        gerar_pdf_agrupado(dados, elementos, styles, group_by=req.tipo)
+        gerar_pdf_agrupado(dados, elementos, styles['Normal'], group_by=req.tipo)
     else:
-        gerar_pdf_agrupado(dados, elementos, styles, group_by="flat")
+        gerar_pdf_agrupado(dados, elementos, styles['Normal'], group_by="flat")
 
     doc.build(elementos)
     buffer.seek(0)
@@ -336,7 +262,14 @@ def export_pdf(req: ExportRequest, session: Session = Depends(get_session)):
 def export_csv(req: ExportRequest, session: Session = Depends(get_session)):
 
     # ========= 1) Refaz a consulta ao banco ==========
-    rows = montar_query_export(req, session)
+    rows = core_busca_generica(
+        tipo=req.tipo,
+        busca=req.busca,
+        ativo=req.ativo,
+        mandato=req.mandato,
+        sort_by=req.sort_by,
+        session=session
+    )
 
     # ========= 2) Monta o CSV ==========
     buffer = StringIO()
@@ -348,8 +281,8 @@ def export_csv(req: ExportRequest, session: Session = Depends(get_session)):
     if req.tipo == "flat":
         for r in rows:
             writer.writerow([
-                r[0], r[1], r[2],
-                r[3] or "", r[4] or "", r[5] if r[9] else "", r[6] or ""
+                r.get("pessoa", ""), r.get("cargo", ""), r.get("orgao", ""),
+                r.get("data_inicio", "") or "", r.get("data_fim", "") or "", str(r.get("mandato", "")) if r.get("exclusivo", False) else "", r.get("observacoes", "") or ""
             ])
     else:
         if req.tipo == "cargo":

@@ -20,7 +20,7 @@ print(DATABASE_URL)
 
 
 # Cria o engine global (sem abrir conexão ainda)
-engine = create_engine(DATABASE_URL, echo=False)
+engine = create_engine(DATABASE_URL, echo=True)
 
 
 def get_session():

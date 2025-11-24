@@ -1,6 +1,7 @@
-from typing import List
+from operator import itemgetter
+from typing import Any, Callable, Dict, List, Tuple
 from fastapi import APIRouter, Body, Depends, HTTPException, Path, Query
-from sqlmodel import Session, func, select
+from sqlmodel import Session, and_, func, or_, select
 from models.orgao import Orgao
 from models.cargo import Cargo 
 from models.pessoa import Pessoa
@@ -80,20 +81,52 @@ QUERY_BASE = {
     )
 }
 
-ORDENAVEIS = {
-    "nome": Pessoa.nome,
-    "cargo": Cargo.nome,
-    "orgao": Orgao.nome,
-    "data_inicio": Ocupacao.data_inicio,
-    "data_fim": Ocupacao.data_fim,
-    "exclusivo": Cargo.exclusivo,
+# Mapeamento: "Campo Query" -> "Chave do Dicionário Python"
+CHAVES_ORDENAVEIS = {
+    "pessoa": "pessoa",
+    "nome": "pessoa",
+    "cargo": "cargo",
+    "orgao": "orgao",
+    "data_inicio": "data_inicio",
+    "data_fim": "data_fim",
+    "exclusivo": "exclusivo",
 }
 
 
-def aplicar_filtros(query, busca, ativo, mandato):
-    filtro = parse_filtro(busca, "Pessoa") if busca else None
+def safe_key(valor):
+    if valor is None:
+        return (0, None)
+    return (1, valor)
+
+
+
+def obter_chave_ordenacao(sort_by_order_str: str) -> Tuple[Callable[[Dict[str, Any]], Any], bool]:
+    """
+    Retorna a chave de ordenação (função itemgetter ou uma função lambda customizada) e a direção.
+    """
+    try:
+        chave_raw, order_raw = sort_by_order_str.split(",")
+    except ValueError:
+        return None, False
+
+    chave_processada = chave_raw.strip().lower()
+    order_processada = order_raw.strip().lower()
+    
+    chave_final = CHAVES_ORDENAVEIS.get(chave_processada)
+    reverse = order_processada == "desc"
+
+    if chave_final is None:
+        return None, False
+    
+    return chave_final, reverse
+
+
+def aplicar_filtros(query, busca, ativo, mandato, tipo):
+    filtro = parse_filtro(busca, tipo) if busca else None
+    print("Filtro parseado:", filtro)
     where_clause = traduzir_parsing_result(filtro) if filtro else None
 
+    print("Where clause traduzida:", where_clause)
     if where_clause:
         query = query.where(where_clause)
 
@@ -103,106 +136,160 @@ def aplicar_filtros(query, busca, ativo, mandato):
         query = query.where(Pessoa.ativo == False)
 
     if mandato == "vigente":
-        query = query.where(Ocupacao.data_fim == None)
+        query = query.where(
+            and_(or_(Ocupacao.data_inicio <= func.current_date(), Ocupacao.data_inicio == None),
+                or_(Ocupacao.data_fim == None, Ocupacao.data_fim >= func.current_date())))
+        
     elif mandato == "encerrado":
-        query = query.where(Ocupacao.data_fim <= func.current_date())
+        query = query.where(Ocupacao.data_fim < func.current_date())
 
+    elif mandato == "futuro":
+        query = query.where(Ocupacao.data_inicio > func.current_date())
+    
     return query
 
 
-def aplicar_ordenacao(query, sort_list: List[str]):
-    
-    argumentos_ordenacao = []
-    
-    for item_str in sort_list:
-        try:
-            # Divide a string "campo,ordem" em campo e ordem
-            campo, ordem = item_str.split(',')
-            ordem = ordem.strip().lower() # Limpa espaços e minúsculas
-        except ValueError:
-            # Ignora ou trata strings malformadas
-            continue 
-        
-        if campo in ORDENAVEIS:
-            coluna = ORDENAVEIS[campo]
-            
-            # Aplica a direção correta à coluna
-            if ordem == "desc":
-                argumentos_ordenacao.append(coluna.desc())
-            else:
-                argumentos_ordenacao.append(coluna.asc())
-    
-    # Aplica todas as regras de ordenação de uma vez
-    if argumentos_ordenacao:
-        query = query.order_by(*argumentos_ordenacao)
-        
-    return query
 
-def montar_query(tipo, busca, ativo, mandato, sort_list: List[str] = None):
+
+def montar_query(tipo, busca, ativo, mandato):
     if tipo not in QUERY_BASE:
         raise ValueError("Tipo inválido")
 
     query = QUERY_BASE[tipo]()
-
-    query = aplicar_filtros(query, busca, ativo, mandato)
-
-    if sort_list:
-        query = aplicar_ordenacao(query, sort_list)
+    query = aplicar_filtros(query, busca, ativo, mandato, tipo if tipo != "flat" else "pessoa")
 
     return query
 
 
-
 # Busca agrupada por pessoa
+def core_busca_generica(
+    session: Session,
+    tipo: str,
+    busca: str = "",
+    ativo: str = "todos",
+    mandato: str = "todos",
+    sort_by: str = "",
+) -> List[Dict[str, Any]]:
+    """
+    Executa a busca, agrupa e ordena os resultados em memória,
+    pronto para ser consumido por endpoints ou serviços internos.
+    """
+    try:
+        # 1. MONTAGEM DA QUERY SQL
+        # Esta função não deve mais chamar aplicar_ordenacao no SQLAlchemy.
+        query = montar_query(tipo, busca, ativo, mandato)
+
+        # 2. EXECUÇÃO DA QUERY
+        results = session.exec(query).all()
+
+        # 3. PRÉ-PROCESSAMENTO DA ORDENAÇÃO
+        print(f"Sort by recebido: '{sort_by}'")
+        if sort_by:
+            print("Obtendo chave de ordenação...")
+            sort_key, reverse_order = obter_chave_ordenacao(sort_by)
+        else:
+            sort_key, reverse_order = None, False
+
+        print(f"Sort key: {sort_key}, Reverse: {reverse_order}")
+
+        agrupado = defaultdict(list)
+        resultados_agrupados = []
+
+        # Desempacotamento padronizado para o loop (total de 10 colunas)
+        # Campos: 0:nome_pessoa, 1:nome_cargo, 2:nome_orgao, 3:data_inicio, 4:data_fim, 
+        #         5:mandato, 6:observacoes, 7:substituto_para, 8:id_ocupacao, 9:exclusivo
+
+        if tipo == "pessoa":
+            for r in results:
+                nome = r[0]
+                agrupado[nome].append({
+                    "cargo": r[1], "orgao": r[2], "data_inicio": r[3], "data_fim": r[4], 
+                    "mandato": r[5], "observacoes": r[6], "substituto_para": r[7], 
+                    "id_ocupacao": r[8], "exclusivo": r[9]
+                })
+            resultados_agrupados = [{"pessoa": nome, "cargos": cargos or []} 
+                                    for nome, cargos in agrupado.items()]
+
+        elif tipo == "orgao":
+            for r in results:
+                orgao_nome = r[2]
+                agrupado[orgao_nome].append({
+                    "cargo": r[1], "pessoa": r[0], "data_inicio": r[3], "data_fim": r[4], 
+                    "mandato": r[5], "observacoes": r[6], "substituto_para": r[7], 
+                    "id_ocupacao": r[8], "exclusivo": r[9]
+                })
+            resultados_agrupados = [{"orgao": nome, "cargos": cargos or []} 
+                                    for nome, cargos in agrupado.items()]
+
+        elif tipo == "cargo":
+            for r in results:
+                chave = (r[1], r[2]) # (cargo, orgao)
+                agrupado[chave].append({
+                    "orgao": r[2], "pessoa": r[0], "data_inicio": r[3], "data_fim": r[4], 
+                    "mandato": r[5], "observacoes": r[6], "substituto_para": r[7], 
+                    "id_ocupacao": r[8], "exclusivo": r[9]
+                })
+            resultados_agrupados = [{"cargo": cargo, "orgao": orgao, "ocupacoes": cargos or []} 
+                                    for (cargo, orgao), cargos in agrupado.items()]
+
+        elif tipo == "flat":
+            resultados_agrupados = [{
+                "pessoa": r[0], "cargo": r[1], "orgao": r[2], "data_inicio": r[3], "data_fim": r[4], 
+                "mandato": r[5], "observacoes": r[6], "substituto_para": r[7], 
+                "id_ocupacao": r[8], "exclusivo": r[9]
+            } for r in results]
+
+        # 4. ORDENAÇÃO EM MEMÓRIA
+
+        if sort_key is None:
+            print("Nenhuma ordenação aplicada.")
+            return resultados_agrupados
+        
+        
+        if sort_key == tipo:
+            resultados_agrupados = sorted(resultados_agrupados, key= lambda x: safe_key(x[sort_key]), reverse=reverse_order)
+            return resultados_agrupados
+        
+        if tipo == "flat":
+            print("Ordenando flat...")
+            resultados_agrupados = sorted(resultados_agrupados, key= lambda x: safe_key(x[sort_key]), reverse=reverse_order)
+            print("Ordenação flat concluída.")
+            return resultados_agrupados
+        
+        # Vamos ordenar em cada grupo
+        for linha in resultados_agrupados:
+            if "cargos" in linha:
+                linha["cargos"] = sorted(linha["cargos"], key= lambda x: safe_key(x[sort_key]), reverse=reverse_order)
+            elif "ocupacoes" in linha:
+                linha["ocupacoes"] = sorted(linha["ocupacoes"], key= lambda x: safe_key(x[sort_key]), reverse=reverse_order)
+        
+        return resultados_agrupados
+        
+        
+    except Exception as e:
+        # Captura erros de montagem de query, execução ou processamento.
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+# =========================================================================
+# ENDPOINT BUSCA GENÉRICA (SIMPLIFICADO)
+# =========================================================================
+
 @router.get("/busca/")
 def busca_generica(
     busca: str = Query("", description="Prefixo para busca"),
-    ativo: str = Query("todos", description="Filtra por ativo/inativo (todos|ativos|inativos)"),
-    mandato: str = Query("todos", description="Filtra por mandato (todos|vigente|encerrado)"),
+    ativo: str = Query("todos", description="Filtra por ativo/inativo"),
+    mandato: str = Query("todos", description="Filtra por vigência de mandato ('vigente', 'encerrado', 'futuro', 'todos')"),
     session: Session = Depends(get_session),
-    search_type: str = Query("pessoa", description="Tipo de busca (pessoa|orgao|cargo|flat)"),
-    sort_list: List[str] = Query(None, description="Lista de ordenação no formato 'campo,ordem' (ex: sort_list=orgao,asc&sort_list=nome,desc)")):
-    
-    try:
-        query = montar_query(search_type, busca, ativo, mandato, sort_list=sort_list)
-
-        results = session.exec(query).all()
-
-        print("----- RESULTADOS DA BUSCA -----")
-        print(results)
-        print("----- FIM DOS RESULTADOS -----")
-        
-        agrupado = defaultdict(list)
-
-        if search_type == "pessoa":
-            for nome, cargo, orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao, exclusivo in results:
-                agrupado[nome].append({"cargo": cargo, "orgao": orgao, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao, "observacoes": observacoes, "substituto_para": substituto_para, "exclusivo": exclusivo})
-            return [{"pessoa": nome, "cargos": cargos or []} for nome, cargos in agrupado.items()]
-            
-        if search_type == "orgao":
-            for nome, cargo, orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao, exclusivo in results:
-                agrupado[orgao].append({"cargo": cargo, "pessoa": nome, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao, "observacoes": observacoes, "substituto_para": substituto_para, "exclusivo": exclusivo})
-            return [{"orgao": nome, "cargos": cargos or []} for nome, cargos in agrupado.items()]
-        
-        if search_type == "cargo":
-            for nome, cargo, orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao, exclusivo in results:
-                chave = (cargo, orgao)
-                agrupado[chave].append({"orgao": orgao, "pessoa": nome, "data_inicio": data_inicio, "data_fim": data_fim, "mandato": mandato, "id_ocupacao": id_ocupacao, "observacoes": observacoes, "substituto_para": substituto_para, "exclusivo": exclusivo})
-            return [{"cargo": cargo, "orgao": orgao, "ocupacoes": cargos or []} for (cargo, orgao), cargos in agrupado.items()]
-        
-        if search_type == "flat":
-            return [{
-                "pessoa": nome,
-                "cargo": id_cargo,
-                "orgao": id_orgao,
-                "data_inicio": data_inicio,
-                "data_fim": data_fim,
-                "mandato": mandato,
-                "id_ocupacao": id_ocupacao,
-                "observacoes": observacoes,
-                "substituto_para": substituto_para,
-                "exclusivo": exclusivo
-            } for nome, id_cargo, id_orgao, data_inicio, data_fim, mandato, observacoes, substituto_para, id_ocupacao, exclusivo in results]
-        
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    tipo: str = Query("pessoa", description="Tipo de busca"),
+    sort_by: str = Query(None, description="Campo para ordenar (ex: 'nome,asc')"),
+):
+    # Chama a função core, transferindo a lógica para ela.
+    return core_busca_generica(
+        session=session,
+        tipo=tipo,
+        busca=busca,
+        ativo=ativo,
+        mandato=mandato,
+        sort_by=sort_by
+    )

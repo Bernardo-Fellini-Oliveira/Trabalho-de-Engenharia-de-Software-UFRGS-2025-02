@@ -11,7 +11,7 @@ from search_grammar.transformer import FiltroTransformer
 
 
 # Exporta o transformer e parser para uso em outras partes do sistema
-def parse_filtro(filtro, categoria_atual="Pessoa"):
+def parse_filtro(filtro, categoria_atual="pessoa"):
     parser = Lark(grammar, start="start")
     transformer = FiltroTransformer(categoria_atual=categoria_atual)
     tree = parser.parse(filtro)
@@ -64,8 +64,11 @@ def traduzir_parsing_result(parse_result):
         op = parse_result["op"]
         valor = parse_result["valor"]
 
+        print("TRADUZINDO FILTRO:")
+        print(campo, op, valor)
         if campo == "pessoa":
             coluna = Pessoa.nome
+            print("Entrou em pessoa")
         elif campo == "cargo":
             coluna = Cargo.nome
         elif campo == "orgao":
@@ -81,7 +84,6 @@ def traduzir_parsing_result(parse_result):
 
         match op:
             case "=":
-                print("KSDJNKJFNSKN")
                 print(valor)
                 return coluna == valor
             
@@ -89,6 +91,7 @@ def traduzir_parsing_result(parse_result):
                 # *** CORREÇÃO AQUI: Implementação do LIKE usando ilike (case-insensitive) e curingas (%) ***
                 if not isinstance(valor, str):
                     raise TypeError("O operador 'LIKE' só pode ser usado com valores de string.")
+                
                 return coluna.ilike(f"%{valor}%")
             
             case "<":

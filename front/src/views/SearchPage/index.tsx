@@ -51,11 +51,12 @@ function SearchPage() {
     // Filtros
     const [modo, setModo] = useState<Modo>("pessoa");
     const [filtroBusca, setFiltroBusca] = useState<string>("");
+    const [filtroBuscaComplexa, setFiltroBuscaComplexa] = useState<string>("");
     const [filtroAtivo, setFiltroAtivo] = useState<"todos" | "ativos" | "inativos">("todos");
-    const [filtroMandato, setFiltroMandato] = useState<"todos" | "vigente" | "encerrado">("todos");
+    const [filtroVigencia, setFiltroVigencia] = useState<"todos" | "vigente" | "encerrado" | "futuro">("todos");
     const [filtroCargo, setFiltroCargo] = useState<[string, string]>(["", ""]);
 
-    const [lastFetchParams, setLastFetchParams] = useState<{modo: Modo; ativo: string; mandato: string; busca: string}>({modo, ativo: filtroAtivo, mandato: filtroMandato, busca: filtroBusca});
+    const [lastFetchParams, setLastFetchParams] = useState<{ modo: Modo; ativo: string; mandato: string; busca: string; vigencia: string }>({modo, ativo: filtroAtivo, mandato: filtroVigencia, busca: filtroBusca, vigencia: filtroVigencia});
 
     // Configuração de Ordenação (Coluna e Direção)
     const [sortConfig, setSortConfig] = useState<SortConfig>(null);
@@ -64,9 +65,9 @@ function SearchPage() {
     const fetchData = async () => {
         setLoading(true);
         try {
-            const res = await api.get(`/busca?ativo=${filtroAtivo}&mandato=${filtroMandato}&search_type=${modo}`);
+            const res = await api.get(`/busca?ativo=${filtroAtivo}&mandato=${filtroVigencia}&tipo=${modo}&busca=${filtroBuscaComplexa}`);
             setDados(res.data);
-            setLastFetchParams({modo, ativo: filtroAtivo, mandato: filtroMandato, busca: filtroBusca});
+            setLastFetchParams({modo, ativo: filtroAtivo, mandato: filtroVigencia, busca: filtroBuscaComplexa, vigencia: filtroVigencia});
             setSortConfig(null); // Reseta ordenação ao buscar novos dados
         } catch (err) {
             console.error(err);
@@ -177,12 +178,17 @@ function SearchPage() {
     };
 
     const handleExportCSV = async () => {
+
+        if(sortConfig)
+            console.log(`${sortConfig.key},${sortConfig.direction}`);
+
           const response = await api.post('relatorio/export/csv', 
             {
             tipo: lastFetchParams.modo,
             ativo: lastFetchParams.ativo,
             mandato: lastFetchParams.mandato,
             busca: lastFetchParams.busca,
+            sort_by: sortConfig ? `${sortConfig.key},${sortConfig.direction}` : ""
         }, {
             responseType: 'blob',
             headers: { 'Content-Type': 'application/json' }
@@ -248,6 +254,7 @@ function SearchPage() {
             ativo: lastFetchParams.ativo,
             mandato: lastFetchParams.mandato,
             busca: lastFetchParams.busca,
+            sort_by: sortConfig ? `${sortConfig.key},${sortConfig.direction}` : ""
         }, {
             responseType: 'blob',
             headers: { 'Content-Type': 'application/json' }
@@ -348,7 +355,7 @@ function SearchPage() {
                             </select>
                         </div>
 
-                        {/* Filtro Status */}
+                        {/* Filtro Atividade */}
                         <div className="filter-group">
                             <label>Status</label>
                             <select className="filter-select" onChange={(e) => setFiltroAtivo(e.target.value as any)}>
@@ -357,6 +364,19 @@ function SearchPage() {
                                 <option value="inativos">Inativos</option>
                             </select>
                         </div>
+
+                        {/* Filtro Vigencia */}
+                        <div className="filter-group">
+                            <label>Vigência</label>
+                            <select className="filter-select" onChange={(e) => setFiltroVigencia(e.target.value as any)}>
+                                <option value="todos">Todos</option>
+                                <option value="vigente">Vigente</option>
+                                <option value="encerrado">Encerrado</option>
+                                <option value="futuro">Futuro</option>
+                            </select>
+                        </div>
+
+
 
                         {/* Botões de Ação do Filtro */}
                         <div className="button-group">
@@ -371,6 +391,20 @@ function SearchPage() {
                                 Limpar
                             </button>
                         </div>
+                    </div>
+
+                    <div className="filter-row" style={{marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
+                        <div className="filter-group">
+                            <label>Pesquisa Complexa</label>
+                            <input 
+                                className="filter-input"
+                                type="text" 
+                                placeholder={"Ex: pessoa = \"João\" AND (cargo = \"Diretor\" OR orgao = \"INT\")..."}
+                                value={filtroBuscaComplexa} 
+                                onChange={(e) => setFiltroBuscaComplexa(e.target.value)}
+                            />
+                        </div>
+                    
                     </div>
 
                     {/* Filtro Extra Condicional (Cargo) */}

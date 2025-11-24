@@ -16,14 +16,17 @@ filtro: campo_string OP_STRING valor_str  -> filtro_term_string
      |  "ELECTABLE TO" valor_str "DE" valor_str           -> filtro_electable_to
      |  valor_str                           -> filtro_str_simplified
 
-campo_string: "Pessoa"       -> pessoa
-              | "Cargo"      -> cargo
-              | "Orgao"      -> orgao
+campo_string: CAMPO_PESSOA | CAMPO_CARGO | CAMPO_ORGAO
+campo_numeric: CAMPO_MANDATO
+campo_date: CAMPO_INICIO | CAMPO_FIM
 
-campo_numeric: "Mandato"  -> mandato
-
-campo_date: "Inicio"   -> inicio
-            | "Fim"   -> fim
+// Definições dos Terminals (Tokens)
+CAMPO_PESSOA: /pessoa/i
+CAMPO_CARGO: /cargo/i
+CAMPO_ORGAO: /orgao/i
+CAMPO_MANDATO: /mandato/i
+CAMPO_INICIO: /inicio/i
+CAMPO_FIM: /fim/i
 
 OP_NUMERIC: "=" | "<" | ">"
 OP_STRING: "=" | "LIKE"
