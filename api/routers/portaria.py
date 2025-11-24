@@ -1,17 +1,17 @@
 from datetime import date
 from fastapi import APIRouter, HTTPException, Path, Query, Depends
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Field, SQLModel, Session, select
 from utils.history_log import add_to_log
 from database import get_session  # função que deve retornar Session()
 from typing import Optional, List
-from models import EntidadeAlvo, Portaria, TipoOperacao
+from models.portaria import Portaria
+from utils.enums import TipoOperacao, EntidadeAlvo
 
 router = APIRouter(
     prefix="/api/portaria",
     tags=["Portaria"]
 )
-
-
 
 @router.get("/", response_model=List[Portaria])
 def carregar_portarias(session: Session = Depends(get_session)):
@@ -28,17 +28,29 @@ def adicionar_portaria(portaria: Portaria, session: Session = Depends(get_sessio
     """Adiciona uma nova portaria ao banco de dados."""
     try:
         session.add(portaria)
-        session.commit()
-        session.refresh(portaria)
-
         add_to_log(
-            db=session,
+            session=session,
             tipo_operacao=TipoOperacao.ADICAO,
             entidade_alvo=EntidadeAlvo.PORTARIA,
             operation=f"[ADD] Adicionada portaria de número {portaria.numero}"
         )
+        session.commit()
+        session.refresh(portaria)
         
         return portaria
+    
+    except IntegrityError as e:
+        session.rollback()
+        # checa se foi violação de unicidade
+        error_code = getattr(e.orig, "pgcode", None)
+
+        if error_code == '23505':  # código de erro para violação de unicidade no PostgreSQL
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe Portaria com esses dados."
+            )
+        # outros erros de integridade
+        raise HTTPException(400, f"Erro de integridade: {e}")
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao adicionar Portaria: {str(e)}")
 
@@ -61,7 +73,7 @@ def remover_portaria(
             portaria.ativo = False
             session.add(portaria)
             add_to_log(
-                db=session,
+                session=session,
                 tipo_operacao=TipoOperacao.INATIVACAO,
                 entidade_alvo=EntidadeAlvo.PORTARIA,
                 operation=f"[DELETE] Portaria de número {portaria.numero} foi inativada"
@@ -69,7 +81,7 @@ def remover_portaria(
         else:
             session.delete(portaria)
             add_to_log(
-                db=session,
+                session=session,
                 tipo_operacao=TipoOperacao.REMOCAO,
                 entidade_alvo=EntidadeAlvo.PORTARIA,
                 operation=f"[DELETE] Portaria de número {portaria.numero} foi deletada"
@@ -99,13 +111,14 @@ def reativar_portaria(
 
         portaria.ativo = True
         session.add(portaria)
-        session.commit()
         add_to_log(
-            db=session,
+            session=session,
             tipo_operacao=TipoOperacao.REATIVACAO,
             entidade_alvo=EntidadeAlvo.PORTARIA,
             operation=f"[REACTIVATE] Portaria de número {portaria.numero} foi reativada"
         )
+        session.commit()
+        
         return {"status": "success", "message": f"Portaria com ID {id_portaria} reativada com sucesso."}
 
     except HTTPException:

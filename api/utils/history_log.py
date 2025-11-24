@@ -1,10 +1,11 @@
 from datetime import datetime
 from sqlmodel import Session
-from models import EntidadeAlvo, Historico, TipoOperacao
+from models.historico import Historico
+from utils.enums import EntidadeAlvo, TipoOperacao
 
 # Por enquanto armazena a operação como uma string
 def add_to_log(
-    db: Session,
+    session: Session,
     operation: str,
     tipo_operacao: TipoOperacao,
     entidade_alvo: EntidadeAlvo
@@ -15,5 +16,5 @@ def add_to_log(
         tipo_operacao=tipo_operacao,
         entidade_alvo=entidade_alvo
     )
-    db.add(entry)
-    db.commit()
+    session.add(entry)
+    #session.commit()

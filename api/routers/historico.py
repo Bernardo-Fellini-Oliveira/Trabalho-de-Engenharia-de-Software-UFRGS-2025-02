@@ -1,7 +1,8 @@
 from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlmodel import Session, func, select
 from typing import List, Optional
-from models import EntidadeAlvo, Historico, HistoricoModel, TipoOperacao
+from models.historico import HistoricoModel, Historico
+from utils.enums import TipoOperacao, EntidadeAlvo
 from database import get_session
 
 router = APIRouter(prefix="/api/historico", tags=["Histórico de Operações"])   

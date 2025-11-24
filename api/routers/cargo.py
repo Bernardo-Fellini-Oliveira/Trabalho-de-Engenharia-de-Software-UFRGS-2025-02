@@ -1,106 +1,411 @@
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
-from sqlmodel import Session, select
+from sqlalchemy import update
+from sqlalchemy.exc import IntegrityError
+from sqlmodel import SQLModel, Session, delete, select
 from typing import List
 from utils.history_log import add_to_log
-from models import Cargo, EntidadeAlvo, Orgao, TipoOperacao
+from models.cargo import Cargo
+from models.orgao import Orgao
+from models.ocupacao import Ocupacao
+from utils.enums import TipoOperacao, EntidadeAlvo
 from database import get_session
+from typing import Optional
+from datetime import datetime
+
 
 router = APIRouter(prefix="/api/cargo", tags=["Cargo"])
 
-# Criar cargo
-@router.post("/", response_model=Cargo)
-def adicionar_cargo(cargo: Cargo, session: Session = Depends(get_session)):
+
+class CargoRead(SQLModel):
+    id_cargo: int
+    nome: str
+    ativo: bool
+    id_orgao: int
+    exclusivo: bool
+    substituto_para: Optional[int]
+    substituto: Optional[int]
+    created_at: datetime
+    updated_at: datetime
+
+class CargoCreate(SQLModel):
+    nome: str
+    ativo: bool = True
+    id_orgao: int
+    exclusivo: bool = True
+    substituto_para: Optional[int] = None
+
+@router.post("/", response_model=CargoRead)
+def adicionar_cargo(cargo: CargoCreate, session: Session = Depends(get_session)):
+
     try:
-        session.add(cargo)
-        session.commit()
-        session.refresh(cargo)
+        # Criar objeto ORM novo cargo
+        novo = Cargo(**cargo.model_dump())
 
-        orgao = session.get(Orgao, cargo.id_orgao)
+        # ------------------------------------------
+        # 1. Se não tem substituto_para, só cria direto
+        # ------------------------------------------
+        if novo.substituto_para is None:
+            session.add(novo)
+            orgao = session.get(Orgao, novo.id_orgao)
+            add_to_log(
+                session=session,
+                tipo_operacao=TipoOperacao.ADICAO,
+                entidade_alvo=EntidadeAlvo.CARGO,
+                operation=f"[ADD] O cargo {novo.nome}, do órgão {orgao.nome}, foi adicionado(a)",
+            ) 
+            session.commit()
+            session.refresh(novo)
+            session.expunge(novo)  # evita flush/lazy load no retorno
+            return novo
 
+        # ------------------------------------------
+        # 2. Buscar o cargo que será substituído
+        # ------------------------------------------
+        acima = session.get(Cargo, novo.substituto_para)
+
+        if acima is None:
+            raise HTTPException(404, "Cargo 'substituto_para' não existe.")
+
+        # Deve ser do mesmo órgão
+        if acima.id_orgao != novo.id_orgao:
+            raise HTTPException(
+                400, "O substituto deve estar no mesmo órgão do cargo principal."
+            )
+
+        # ------------------------------------------
+        # 3. O cargo acima já possui substituto?
+        # ------------------------------------------
+        if acima.substituto is not None:
+            raise HTTPException(
+                400,
+                f"O cargo {acima.id_cargo} já possui um substituto definido."
+            )
+
+        # ------------------------------------------
+        # 4. Verificação de ciclo
+        # ------------------------------------------
+        atual = acima
+        while atual is not None:
+            if atual.id_cargo == novo.id_cargo:
+                raise HTTPException(
+                    400,
+                    "Ciclo detectado na cadeia de substituição."
+                )
+            atual = (
+                session.get(Cargo, atual.substituto_para)
+                if atual.substituto_para else None
+            )
+
+        # ------------------------------------------
+        # 5. Criar o novo cargo como substituto
+        # ------------------------------------------
+        orgao = session.get(Orgao, novo.id_orgao)
+        session.add(novo)
         add_to_log(
-            db=session,
+            session=session,
             tipo_operacao=TipoOperacao.ADICAO,
             entidade_alvo=EntidadeAlvo.CARGO,
-            operation=f"[ADD] O cargo {cargo.nome}, do órgão {orgao.nome}, foi adicionado(a)",
-        )   
-        return cargo
+            operation=f"[ADD] O cargo {novo.nome}, do órgão {orgao.nome}, foi adicionado(a)",
+        ) 
+        session.flush()
+        acima.substituto = novo.id_cargo
+
+        update_stmt = (
+                    update(Cargo) 
+                    .where(Cargo.id_cargo == acima.id_cargo)
+                    .values(substituto=novo.id_cargo)
+                )
+        session.exec(update_stmt)
+
+        session.commit()
+
+        return CargoRead.model_validate(novo)
+
+    except IntegrityError as e:
+        session.rollback()
+        error_code = getattr(e.orig, "pgcode", None)
+        if error_code == "23505":
+            raise HTTPException(
+                409,
+                "Já existe Cargo com esse nome para o órgão."
+            )
+        raise HTTPException(400, f"Erro de integridade: {e}")
+
+
     except Exception as e:
         session.rollback()
-        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Cargo: {e}")
+        raise HTTPException(500, f"Erro ao adicionar Cargo: {e}")
 
-# Listar cargos
-@router.get("/", response_model=List[Cargo])
+
+@router.get("/", response_model=List[dict])
 def carregar_cargo(session: Session = Depends(get_session)):
     try:
-        return session.exec(select(Cargo)).all()
+        dados = session.exec(select(Cargo, Orgao.nome).join(Orgao, Cargo.id_orgao == Orgao.id_orgao)).all()
+
+        # Monta o retorno com o nome do órgão
+        return [
+            {
+                "id_cargo": cargo.id_cargo,
+                "nome": cargo.nome,
+                "orgao": nome_orgao,
+                "ativo": cargo.ativo,
+                "exclusivo": cargo.exclusivo,
+                "id_orgao": cargo.id_orgao,
+                "substituto_para": cargo.substituto_para,
+                'substituto': cargo.substituto
+            }
+            for (cargo, nome_orgao) in dados
+        ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao carregar Cargos: {e}")
     
 
-# Soft ou Hard delete
-@router.delete("/delete/{id_cargo}")
+
+
+def coletar_cadeia_abaixo(session: Session, cargo: Cargo, hard_delete: bool) -> List[Cargo]:
+    """
+    Retorna lista de cargos na cadeia *abaixo* do cargo (substitutos diretos e recursivos),
+    na ordem imediata: [sub1, sub2, ...].
+    """
+    cadeia = []
+    visitado = set()
+    atual = cargo
+
+    while atual and atual.substituto:
+        proximo_id = atual.substituto
+        if proximo_id in visitado:
+            # proteção contra ciclo (não deveria ocorrer, mas por segurança)
+            break
+        visitado.add(proximo_id)
+        proximo = session.get(Cargo, proximo_id)
+
+        # Se a operação for um hard delete, vai preparando para deleção removendo a referência do substituto para não violar FK
+        if hard_delete:
+            atual.substituto = None
+
+        if not proximo:
+            break
+        cadeia.append(proximo)
+        atual = proximo
+
+    return cadeia
+
 def remover_cargo(
     id_cargo: int = Path(..., description="ID do Cargo a ser removido"),
     soft: bool = Query(False, description="Se 'true', realiza soft delete (ativo=0)."),
-    session: Session = Depends(get_session)
+    force: bool = Query(False, description="Se 'true', ao fazer hard delete, também remove ocupações vinculadas."),
+    session: Session = Depends(get_session),
+    em_lote: bool = True
 ):
     cargo = session.get(Cargo, id_cargo)
-    orgao = session.get(Orgao, cargo.id_orgao)
     if not cargo:
+        if em_lote:
+            return {"status": "not_found", "message": f"Cargo não encontrado.", "ids": [id_cargo]}
         raise HTTPException(status_code=404, detail="Cargo não encontrado.")
 
+    if not cargo.ativo and soft:
+        if em_lote:
+            return {"status": "already_inactive", "message": "Cargo já está inativo.", "ids": [id_cargo]}
+        raise HTTPException(status_code=400, detail="Cargo já está inativo.")
+    
+
+    # busca o cargo acima (se houver) que aponta para este cargo
+    acima = session.exec(select(Cargo).where(Cargo.substituto == cargo.id_cargo)).first()
+
+    # coleta a cadeia abaixo (substitutos diretos/recursivos)
+    cadeia_abaixo = coletar_cadeia_abaixo(session, cargo, hard_delete=not soft)
+    session.flush()
+
+
+    # cargos afetados: o próprio + toda a cadeia abaixo
+    afetados = [cargo] + cadeia_abaixo
+
+    ids_afetados = [c.id_cargo for c in afetados]
+
+
     if soft:
-        if not cargo.ativo:
-            raise HTTPException(status_code=400, detail="Cargo já está inativo.")
-        cargo.ativo = False
-        add_to_log(
-            db=session,
-            tipo_operacao=TipoOperacao.INATIVACAO,
-            entidade_alvo=EntidadeAlvo.CARGO,
-            operation=f"[DELETE] O cargo {cargo.nome}, do órgão {orgao.nome}, foi reativado(a)",
-        )   
+        # marca todos como inativos
+        for c in afetados:
+            if c.ativo:
+                orgao = session.get(Orgao, c.id_orgao)
+                c.ativo = False
+                add_to_log(
+                    session=session,
+                    tipo_operacao=TipoOperacao.REMOCAO,
+                    entidade_alvo=EntidadeAlvo.CARGO,
+                    operation=f"[DELETE] O cargo {c.nome}, do órgão {orgao.nome}, foi inativado(a)"
+                )
+
+        # ajustar ponteiro do 'acima' para não apontar para cargo removido
+        if acima:
+            acima.substituto = None
+
+        # commit automático ao sair do with
+        return {"status": "success", "message": "Soft delete aplicado na cadeia.", "ids": ids_afetados}
+
     else:
-        try:
-            session.delete(cargo)
-            add_to_log(
-                db=session,
-                tipo_operacao=TipoOperacao.REMOCAO,
-                entidade_alvo=EntidadeAlvo.CARGO,
-                operation=f"[DELETE] O cargo {cargo.nome}, do órgão {orgao.nome}, foi deletado(a)",
-            )      
-        except Exception as e:
-            session.rollback()
+        # HARD DELETE:
+        # Verifica existências de ocupações (qualquer ocupação, histórica ou atual)
+        stmt = select(Ocupacao).where(Ocupacao.id_cargo.in_(ids_afetados))
+        ocup = session.exec(stmt).first()
+
+        if ocup and not force:
+            # há ocupações vinculadas e não permitimos apagar por padrão
             raise HTTPException(
-                status_code=500,
-                detail=f"Erro ao remover Cargo: {e}. Verifique se há ocupações vinculadas."
+                status_code=400,
+                detail=(
+                    "Existem ocupações vinculadas aos cargos afetados. "
+                    "Use ?force=true para remover ocupações e cargos (operação destrutiva)."
+                )
             )
 
-    session.commit()
-    return {
-        "status": "success",
-        "message": "Cargo inativado (soft delete)." if soft else "Cargo removido permanentemente."
-    }
+        # se for force, remover ocupações vinculadas primeiro
+        if ocup and force:
+            # deletar todas ocupações que referenciam qualquer cargo da cadeia
+            del_stmt = delete(Ocupacao).where(Ocupacao.id_cargo.in_(ids_afetados))
+            session.exec(del_stmt)
+
+        # atualizar ponteiro acima (se existir) para None
+        if acima:
+            acima.substituto = None
+            session.add(acima)
+            session.flush()
+
+
+        # agora remover os cargos (do final para o início por segurança)
+        # remover em ordem reversa evita FK problems (mas aqui substituto/substituto_para referenciam na mesma tabela)
+        for c in reversed(afetados):
+            orgao = session.get(Orgao, c.id_orgao)
+            session.delete(c)
+            add_to_log(
+                session=session,
+                tipo_operacao=TipoOperacao.REMOCAO,
+                entidade_alvo=EntidadeAlvo.CARGO,
+                operation=f"[DELETE] O cargo {c.nome}, do órgão {orgao.nome}, foi deletado(a)"
+            )
+            session.flush()
+
+        return {"status": "success", "message": "Hard delete realizado na cadeia.", "ids": ids_afetados}
+
+
+
+@router.delete("/delete/{id_cargo}")
+def remover_cargo_and_commit(
+    id_cargo: int = Path(..., description="ID do Cargo a ser removido"),
+    soft: bool = Query(False, description="Se 'true', realiza soft delete (ativo=0)."),
+    force: bool = Query(False, description="Se 'true', ao fazer hard delete, também remove ocupações vinculadas."),
+    session: Session = Depends(get_session)
+):
+
+    try:
+        resultado = remover_cargo(id_cargo=id_cargo, soft=soft, force=force, session=session, em_lote=False)
+        
+        session.commit()
+
+        return resultado
+
+    except HTTPException:
+        # repropaga erros de validação
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao remover/inativar cadeia: {e}")
+
+@router.delete("/delete/lista/")
+def remover_cargos_em_lote(
+    ids_cargo: List[int] = Query(..., description="Lista de IDs de Cargos a serem removidos"),
+    soft: bool = Query(False, description="Se 'true', realiza soft delete (ativo=0)."),
+    force: bool = Query(False, description="Se 'true', ao fazer hard delete, também remove ocupações vinculadas."),
+    session: Session = Depends(get_session)
+):
+    resultados = []
+    try:
+        for id_cargo in ids_cargo:
+            resultado = remover_cargo(id_cargo=id_cargo, soft=soft, force=force, session=session, em_lote=True)
+            resultados.append(resultado)
+
+        session.commit()
+        return resultados
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao processar remoção/inativação em lote: {e}")
+    
+
+
+def reativar_cargo(
+    id_cargo: int = Path(..., description="ID do Cargo a ser reativado"),
+    session: Session = Depends(get_session),
+    em_lote: bool = True
+):
+    cargo = session.get(Cargo, id_cargo)
+
+    if not cargo:
+        if em_lote:
+            return {"status": "not_found", "message": f"Cargo não encontrado.", "ids": [id_cargo]}
+        raise HTTPException(status_code=404, detail="Cargo não encontrado.")
+    if cargo.ativo:
+        if em_lote:
+            return {"status": "already_active", "message": "Cargo já está ativo.", "ids": [id_cargo]}
+        raise HTTPException(status_code=400, detail="Cargo já está ativo.")
+    
+    afetados = [cargo.id_cargo]
+
+    id_acima = cargo.substituto_para
+
+    while id_acima:
+        cargo_acima = session.get(Cargo, id_acima)
+        if cargo_acima.ativo == False:
+            cargo_acima.ativo = True
+            afetados.append(cargo_acima.id_cargo)
+            orgao = session.get(Orgao, cargo_acima.id_orgao)
+            add_to_log(
+                session=session,
+                tipo_operacao=TipoOperacao.REMOCAO,
+                entidade_alvo=EntidadeAlvo.CARGO,
+                operation=f"[REACTIVATE] O cargo {cargo_acima.nome}, do órgão {orgao.nome}, foi reativado(a)"
+            )
+            id_acima = cargo_acima.substituto_para
+        else: 
+            break
+
+
+    cargo.ativo = True
+    orgao = session.get(Orgao, cargo.id_orgao)
+    add_to_log(
+        session=session,
+        tipo_operacao=TipoOperacao.REMOCAO,
+        entidade_alvo=EntidadeAlvo.CARGO,
+        operation=f"[REACTIVATE] O cargo {cargo.nome}, do órgão {orgao.nome}, foi reativado(a)"
+    )
+    return {"status": "success", "message": "Cargo reativado com sucesso.", "ids": afetados} 
 
 # Reativar
 @router.put("/reativar/{id_cargo}")
-def reativar_cargo(
+def reativar_cargo_and_commit(
     id_cargo: int = Path(..., description="ID do Cargo a ser reativado"),
     session: Session = Depends(get_session)
 ):
-    cargo = session.get(Cargo, id_cargo)
-    orgao = session.get(Orgao, cargo.id_orgao) 
-    if not cargo:
-        raise HTTPException(status_code=404, detail="Cargo não encontrado.")
-    if cargo.ativo:
-        raise HTTPException(status_code=400, detail="Cargo já está ativo.")
-
-    cargo.ativo = True
+    resultado = reativar_cargo(id_cargo=id_cargo, session=session, em_lote=False)
     session.commit()
-    session.refresh(cargo)
-    add_to_log(
-        db=session,
-        tipo_operacao=TipoOperacao.REATIVACAO,
-        entidade_alvo=EntidadeAlvo.CARGO,
-        operation=f"[REACTIVATE] O cargo {cargo.nome}, do órgão {orgao.nome} foi reativado(a)",
-    )   
-    return {"status": "success", "message": "Cargo reativado com sucesso."}
+
+    return resultado
+
+@router.put("/reativar/lista/")
+def reativar_cargos_em_lote(
+    ids_cargo: List[int] = Query(..., description="Lista de IDs de Cargos a serem reativados"),
+    session: Session = Depends(get_session)
+):
+    resultados = []
+    try:
+        for id_cargo in ids_cargo:
+            resultado = reativar_cargo(id_cargo=id_cargo, session=session, em_lote=True)
+            resultados.append(resultado)
+
+        session.commit()
+        return resultados
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao processar reativação em lote: {e}")
+
