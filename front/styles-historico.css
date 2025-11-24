@@ -1,0 +1,98 @@
+.page {
+min-height: 100vh;
+width: 100%;
+background: #c9c4c4;
+display: flex;
+flex-direction: column;
+align-items: center;
+padding: 40px;
+font-family: sans-serif;
+}
+
+
+.header-row {
+width: 100%;
+max-width: 1200px;
+display: flex;
+align-items: center;
+gap: 16px;
+margin-bottom: 20px;
+}
+
+
+.back-button {
+width: 48px;
+height: 48px;
+border-radius: 50%;
+border: none;
+background: white;
+font-size: 22px;
+cursor: pointer;
+box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+}
+
+
+.title {
+flex: 1;
+text-align: center;
+font-size: 42px;
+font-weight: bold;
+}
+
+
+.filter-box {
+width: 100%;
+max-width: 1200px;
+background: #8a0000;
+color: white;
+padding: 28px;
+border-radius: 14px;
+box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+}
+
+
+.filter-title {
+text-align: center;
+font-size: 24px;
+font-weight: 600;
+margin-bottom: 18px;
+}
+
+
+.filter-grid {
+display: grid;
+grid-template-columns: repeat(3, 1fr);
+gap: 12px 0;
+font-size: 18px;
+}
+
+
+.search-row {
+display: flex;
+justify-content: flex-end;
+margin-top: 20px;
+}
+
+
+.search-input {
+width: 300px;
+padding: 10px 14px;
+border-radius: 6px;
+border: 1px solid #ccc;
+font-size: 16px;
+}
+
+
+.log-list {
+width: 100%;
+max-width: 1200px;
+margin-top: 24px;
+display: flex;
+flex-direction: column;
+gap: 12px;
+}
+
+
+.log-item {
+width: 100%;
+background: white;
