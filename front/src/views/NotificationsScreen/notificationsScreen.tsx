@@ -2,7 +2,7 @@
 import React from 'react';
 import api from "../../services/api";
 import axios from "axios";
-import "../../../style-notificacoes.css";
+import "style-notificacoes.css";
 
 export default function NotificationPage() {
   const allRows = [
