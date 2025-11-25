@@ -34,6 +34,9 @@ class CargoCreate(SQLModel):
     exclusivo: bool = True
     substituto_para: Optional[int] = None
 
+class CargoUpdateData(SQLModel):
+    nome: Optional[str] = None
+    id_orgao: Optional[int] = None
 
 def core_adicionar_cargo(
     cargo: CargoCreate,
@@ -133,76 +136,6 @@ def core_adicionar_cargos_lote(
         except HTTPException as he:
             resultados.append({"status": "error", "detail": he.detail})
     return resultados
-
-@router.post("/", response_model=CargoRead)
-def adicionar_cargo(cargo: CargoCreate, session: Session = Depends(get_session)):
-
-    try:
-        novo = core_adicionar_cargo(cargo, session)
-        
-        # Adicionar Log
-        orgao = session.get(Orgao, novo.id_orgao)
-        add_to_log(
-            session=session,
-            tipo_operacao=TipoOperacao.ADICAO,
-            entidade_alvo=EntidadeAlvo.CARGO,
-            operation=f"[ADD] O cargo {novo.nome}, do órgão {orgao.nome}, foi adicionado(a)",
-        ) 
-        
-        session.commit()
-        session.refresh(novo)
-        return CargoRead.model_validate(novo)
-
-    except IntegrityError as e:
-        session.rollback()
-        error_code = getattr(e.orig, "pgcode", None)
-        if error_code == "23505":
-            raise HTTPException(
-                409,
-                "Já existe Cargo com esse nome para o órgão."
-            )
-        raise HTTPException(400, f"Erro de integridade: {e}")
-
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(500, f"Erro ao adicionar Cargo: {e}")
-
-
-@router.post("/lote/")
-def adicionar_cargos_lote(cargos: List[CargoCreate], session: Session = Depends(get_session)):
-    try:
-        resultados = core_adicionar_cargos_lote(cargos, session)
-        session.commit()
-        return {"results": resultados}
-
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Cargos em lote: {e}")
-
-
-@router.get("/", response_model=List[dict])
-def carregar_cargo(session: Session = Depends(get_session)):
-    try:
-        dados = session.exec(select(Cargo, Orgao.nome).join(Orgao, Cargo.id_orgao == Orgao.id_orgao)).all()
-
-        # Monta o retorno com o nome do órgão
-        return [
-            {
-                "id_cargo": cargo.id_cargo,
-                "nome": cargo.nome,
-                "orgao": nome_orgao,
-                "ativo": cargo.ativo,
-                "exclusivo": cargo.exclusivo,
-                "id_orgao": cargo.id_orgao,
-                "substituto_para": cargo.substituto_para,
-                'substituto': cargo.substituto
-            }
-            for (cargo, nome_orgao) in dados
-        ]
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao carregar Cargos: {e}")
-
-
 
 def coletar_cadeia_abaixo(session: Session, cargo: Cargo, hard_delete: bool) -> List[Cargo]:
     """
@@ -331,52 +264,7 @@ def remover_cargo(
             session.flush()
 
         return {"status": "success", "message": "Hard delete realizado na cadeia.", "ids": ids_afetados}
-
-
-
-@router.delete("/delete/{id_cargo}")
-def remover_cargo_and_commit(
-    id_cargo: int = Path(..., description="ID do Cargo a ser removido"),
-    soft: bool = Query(False, description="Se 'true', realiza soft delete (ativo=0)."),
-    force: bool = Query(False, description="Se 'true', ao fazer hard delete, também remove ocupações vinculadas."),
-    session: Session = Depends(get_session)
-):
-
-    try:
-        resultado = remover_cargo(id_cargo=id_cargo, soft=soft, force=force, session=session, em_lote=False)
-        session.commit()
-
-        return resultado
-
-    except HTTPException:
-        # repropaga erros de validação
-        raise
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(status_code=500, detail=f"Erro ao remover/inativar cadeia: {e}")
-
-@router.delete("/delete/lista/")
-def remover_cargos_em_lote(
-    ids_cargo: List[int] = Query(..., description="Lista de IDs de Cargos a serem removidos"),
-    soft: bool = Query(False, description="Se 'true', realiza soft delete (ativo=0)."),
-    force: bool = Query(False, description="Se 'true', ao fazer hard delete, também remove ocupações vinculadas."),
-    session: Session = Depends(get_session)
-):
-    resultados = []
-    try:
-        for id_cargo in ids_cargo:
-            resultado = remover_cargo(id_cargo=id_cargo, soft=soft, force=force, session=session, em_lote=True)
-            resultados.append(resultado)
-
-        session.commit()
-        return resultados
-
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(status_code=500, detail=f"Erro ao processar remoção/inativação em lote: {e}")
     
-
-
 def reativar_cargo(
     id_cargo: int = Path(..., description="ID do Cargo a ser reativado"),
     session: Session = Depends(get_session),
@@ -427,45 +315,6 @@ def reativar_cargo(
     )
     
     return {"status": "success", "message": "Cargo reativado com sucesso.", "ids": afetados} 
- 
-
-
-# Reativar
-@router.put("/reativar/{id_cargo}")
-def reativar_cargo_and_commit(
-    id_cargo: int = Path(..., description="ID do Cargo a ser reativado"),
-    session: Session = Depends(get_session)
-):
-
-    resultado = reativar_cargo(id_cargo=id_cargo, session=session, em_lote=False)
-    session.commit()
-    return resultado
-
-@router.put("/reativar/lista/")
-def reativar_cargos_em_lote(
-    ids_cargo: List[int] = Query(..., description="Lista de IDs de Cargos a serem reativados"),
-    session: Session = Depends(get_session)
-):
-    resultados = []
-    try:
-        for id_cargo in ids_cargo:
-            resultado = reativar_cargo(id_cargo=id_cargo, session=session, em_lote=True)
-            resultados.append(resultado)
-
-        session.commit()
-        return resultados
-
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(status_code=500, detail=f"Erro ao processar reativação em lote: {e}")
-    
-
-
-class CargoUpdateData(SQLModel):
-    nome: Optional[str] = None
-    id_orgao: Optional[int] = None
-
-
 def core_alterar_cargo(
     id_cargo: int,
     payload: CargoUpdateData,
@@ -506,7 +355,158 @@ def core_alterar_cargo(
     if novo_id_orgao is not None:
         cargo.id_orgao = novo_id_orgao
     
-    return cargo
+    return cargo 
+
+@router.post("/", response_model=CargoRead)
+def adicionar_cargo(cargo: CargoCreate, session: Session = Depends(get_session)):
+
+    try:
+        novo = core_adicionar_cargo(cargo, session)
+        
+        # Adicionar Log
+        orgao = session.get(Orgao, novo.id_orgao)
+        add_to_log(
+            session=session,
+            tipo_operacao=TipoOperacao.ADICAO,
+            entidade_alvo=EntidadeAlvo.CARGO,
+            operation=f"[ADD] O cargo {novo.nome}, do órgão {orgao.nome}, foi adicionado(a)",
+        ) 
+        
+        session.commit()
+        session.refresh(novo)
+        return CargoRead.model_validate(novo)
+
+    except IntegrityError as e:
+        session.rollback()
+        error_code = getattr(e.orig, "pgcode", None)
+        if error_code == "23505":
+            raise HTTPException(
+                409,
+                "Já existe Cargo com esse nome para o órgão."
+            )
+        raise HTTPException(400, f"Erro de integridade: {e}")
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(500, f"Erro ao adicionar Cargo: {e}")
+
+
+@router.post("/lote/")
+def adicionar_cargos_lote(cargos: List[CargoCreate], session: Session = Depends(get_session)):
+    try:
+        resultados = core_adicionar_cargos_lote(cargos, session)
+        session.commit()
+        return {"results": resultados}
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Cargos em lote: {e}")
+
+
+@router.get("/", response_model=List[dict])
+def carregar_cargo(session: Session = Depends(get_session)):
+    try:
+        dados = session.exec(select(Cargo, Orgao.nome).join(Orgao, Cargo.id_orgao == Orgao.id_orgao)).all()
+
+        # Monta o retorno com o nome do órgão
+        return [
+            {
+                "id_cargo": cargo.id_cargo,
+                "nome": cargo.nome,
+                "orgao": nome_orgao,
+                "ativo": cargo.ativo,
+                "exclusivo": cargo.exclusivo,
+                "id_orgao": cargo.id_orgao,
+                "substituto_para": cargo.substituto_para,
+                'substituto': cargo.substituto
+            }
+            for (cargo, nome_orgao) in dados
+        ]
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao carregar Cargos: {e}")
+
+
+@router.delete("/delete/{id_cargo}")
+def remover_cargo_and_commit(
+    id_cargo: int = Path(..., description="ID do Cargo a ser removido"),
+    soft: bool = Query(False, description="Se 'true', realiza soft delete (ativo=0)."),
+    force: bool = Query(False, description="Se 'true', ao fazer hard delete, também remove ocupações vinculadas."),
+    session: Session = Depends(get_session)
+):
+
+    try:
+        resultado = remover_cargo(id_cargo=id_cargo, soft=soft, force=force, session=session, em_lote=False)
+        session.commit()
+
+        return resultado
+
+    except HTTPException:
+        # repropaga erros de validação
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao remover/inativar cadeia: {e}")
+
+@router.delete("/delete/lista/")
+def remover_cargos_em_lote(
+    ids_cargo: List[int] = Query(..., description="Lista de IDs de Cargos a serem removidos"),
+    soft: bool = Query(False, description="Se 'true', realiza soft delete (ativo=0)."),
+    force: bool = Query(False, description="Se 'true', ao fazer hard delete, também remove ocupações vinculadas."),
+    session: Session = Depends(get_session)
+):
+    resultados = []
+    try:
+        for id_cargo in ids_cargo:
+            resultado = remover_cargo(id_cargo=id_cargo, soft=soft, force=force, session=session, em_lote=True)
+            resultados.append(resultado)
+
+        session.commit()
+        return resultados
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao processar remoção/inativação em lote: {e}")
+    
+
+
+
+
+
+# Reativar
+@router.put("/reativar/{id_cargo}")
+def reativar_cargo_and_commit(
+    id_cargo: int = Path(..., description="ID do Cargo a ser reativado"),
+    session: Session = Depends(get_session)
+):
+
+    resultado = reativar_cargo(id_cargo=id_cargo, session=session, em_lote=False)
+    session.commit()
+    return resultado
+
+@router.put("/reativar/lista/")
+def reativar_cargos_em_lote(
+    ids_cargo: List[int] = Query(..., description="Lista de IDs de Cargos a serem reativados"),
+    session: Session = Depends(get_session)
+):
+    resultados = []
+    try:
+        for id_cargo in ids_cargo:
+            resultado = reativar_cargo(id_cargo=id_cargo, session=session, em_lote=True)
+            resultados.append(resultado)
+
+        session.commit()
+        return resultados
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao processar reativação em lote: {e}")
+    
+
+
+
+
+
+
 
 
 

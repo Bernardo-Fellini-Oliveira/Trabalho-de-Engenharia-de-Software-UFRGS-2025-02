@@ -9,13 +9,6 @@ from utils.enums import TipoOperacao, EntidadeAlvo
 router = APIRouter(prefix="/api/pessoa", tags=["Pessoa"])
 
 # Listar pessoas
-@router.get("/")
-def carregar_pessoa(session: Session = Depends(get_session)):
-    try:
-        pessoas = session.exec(select(Pessoa)).all()
-        return pessoas
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao carregar Pessoas: {e}")
 
 
 def adicionar_pessoa(pessoa: Pessoa, session: Session = Depends(get_session)):
@@ -48,32 +41,6 @@ def adicionar_pessoa_lote(pessoas: list[Pessoa], session: Session = Depends(get_
         except HTTPException as he:
             resultados.append({"pessoa": pessoa.nome, "error": he.detail})
     return resultados
-
-
-# Criar pessoa
-@router.post("/")
-def adicionar_pessoa_endpoint(pessoa: Pessoa, session: Session = Depends(get_session)):
-    try:
-        retorno = adicionar_pessoa(pessoa, session)
-        session.commit()
-        session.refresh(pessoa)
-
-        return retorno
-    
-    except IntegrityError as e:
-        session.rollback()
-        # checa se foi violação de unicidade
-        error_code = getattr(e.orig, "pgcode", None)
-        if error_code == '23505':  # código de erro para violação de unicidade no PostgreSQL
-            raise HTTPException(
-                status_code=409,
-                detail="Já existe Pessoa com esse nome."
-            )
-        # outros erros de integridade
-        raise HTTPException(400, f"Erro de integridade: {e}")
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Pessoa: {e}")
-
 
 def remover_pessoa(
     id_pessoa: int,
@@ -116,6 +83,60 @@ def remover_pessoa(
         "message": "Pessoa inativada (soft delete)." if soft else "Pessoa removida permanentemente."
     }
 
+def reativar_pessoa(
+    id_pessoa: int,
+    session: Session
+):
+    pessoa = session.get(Pessoa, id_pessoa)
+    if not pessoa:
+        raise HTTPException(status_code=404, detail="Pessoa não encontrada.")
+    if pessoa.ativo:
+        raise HTTPException(status_code=400, detail="Pessoa já está ativa.")
+
+    pessoa.ativo = True
+    add_to_log(
+        session=session,
+        tipo_operacao=TipoOperacao.REATIVACAO,
+        entidade_alvo=EntidadeAlvo.PESSOA,
+        operation=f"[REACTIVATE] A pessoa {pessoa.nome} foi reativado(a)"
+    )
+    return {
+        "status": "success",
+        "message": "Pessoa reativada com sucesso."
+    }
+
+@router.get("/")
+def carregar_pessoa(session: Session = Depends(get_session)):
+    try:
+        pessoas = session.exec(select(Pessoa)).all()
+        return pessoas
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao carregar Pessoas: {e}")
+
+
+# Criar pessoa
+@router.post("/")
+def adicionar_pessoa_endpoint(pessoa: Pessoa, session: Session = Depends(get_session)):
+    try:
+        retorno = adicionar_pessoa(pessoa, session)
+        session.commit()
+        session.refresh(pessoa)
+
+        return retorno
+    
+    except IntegrityError as e:
+        session.rollback()
+        # checa se foi violação de unicidade
+        error_code = getattr(e.orig, "pgcode", None)
+        if error_code == '23505':  # código de erro para violação de unicidade no PostgreSQL
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe Pessoa com esse nome."
+            )
+        # outros erros de integridade
+        raise HTTPException(400, f"Erro de integridade: {e}")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Pessoa: {e}")
 
 
 # Soft ou Hard delete
@@ -158,27 +179,7 @@ def remover_pessoas_em_lote(
         raise HTTPException(status_code=500, detail=f"Erro ao remover Pessoas em lote: {str(e)}")
     
 
-def reativar_pessoa(
-    id_pessoa: int,
-    session: Session
-):
-    pessoa = session.get(Pessoa, id_pessoa)
-    if not pessoa:
-        raise HTTPException(status_code=404, detail="Pessoa não encontrada.")
-    if pessoa.ativo:
-        raise HTTPException(status_code=400, detail="Pessoa já está ativa.")
 
-    pessoa.ativo = True
-    add_to_log(
-        session=session,
-        tipo_operacao=TipoOperacao.REATIVACAO,
-        entidade_alvo=EntidadeAlvo.PESSOA,
-        operation=f"[REACTIVATE] A pessoa {pessoa.nome} foi reativado(a)"
-    )
-    return {
-        "status": "success",
-        "message": "Pessoa reativada com sucesso."
-    }
 
 # Reativar pessoa
 @router.put("/reativar/{id_pessoa}")
