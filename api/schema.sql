@@ -60,9 +60,10 @@ CREATE TABLE IF NOT EXISTS Ocupacao (
     data_inicio DATE,
     data_fim DATE,
     mandato INTEGER NOT NULL,
-    observacoes TEXT,
-    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    observacoes VARCHAR(50),
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE (id_pessoa, id_cargo, data_inicio, mandato)
 );
 
 CREATE TABLE IF NOT EXISTS Usuario (

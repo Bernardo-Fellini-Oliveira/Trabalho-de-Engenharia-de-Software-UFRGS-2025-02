@@ -2,15 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import SQLModel, Session, delete, select
-from typing import List
+from typing import List, Optional
+from datetime import datetime
+
 from utils.history_log import add_to_log
 from models.cargo import Cargo
 from models.orgao import Orgao
 from models.ocupacao import Ocupacao
 from utils.enums import TipoOperacao, EntidadeAlvo
 from database import get_session
-from typing import Optional
-from datetime import datetime
 
 
 router = APIRouter(prefix="/api/cargo", tags=["Cargo"])
@@ -34,91 +34,123 @@ class CargoCreate(SQLModel):
     exclusivo: bool = True
     substituto_para: Optional[int] = None
 
-@router.post("/", response_model=CargoRead)
-def adicionar_cargo(cargo: CargoCreate, session: Session = Depends(get_session)):
 
-    try:
-        # Criar objeto ORM novo cargo
-        novo = Cargo(**cargo.model_dump())
+def core_adicionar_cargo(
+    cargo: CargoCreate,
+    session: Session
+) -> Cargo:
 
-        # ------------------------------------------
-        # 1. Se não tem substituto_para, só cria direto
-        # ------------------------------------------
-        if novo.substituto_para is None:
-            session.add(novo)
+    # Criar objeto ORM novo cargo
+    novo = Cargo(**cargo.model_dump())
+
+    # ------------------------------------------
+    # 1. Se não tem substituto_para, só cria direto
+    # ------------------------------------------
+    if novo.substituto_para is None:
+        session.add(novo)
+        session.flush() # Flush para gerar ID e validar constraints, commit é feito fora
+        return novo
+    
+    else:
+        if novo.exclusivo is False:
+            raise HTTPException(
+                400,
+                "Cargos exclusivos não podem ser substitutos."
+            )
+
+    # ------------------------------------------
+    # 2. Buscar o cargo que será substituído
+    # ------------------------------------------
+    acima = session.get(Cargo, novo.substituto_para)
+
+    if acima is None:
+        raise HTTPException(404, "Cargo 'substituto_para' não existe.")
+
+    # Deve ser do mesmo órgão
+    if acima.id_orgao != novo.id_orgao:
+        raise HTTPException(
+            400, "O substituto deve estar no mesmo órgão do cargo principal."
+        )
+
+    # ------------------------------------------
+    # 3. O cargo acima já possui substituto?
+    # ------------------------------------------
+    if acima.substituto is not None:
+        raise HTTPException(
+            400,
+            f"O cargo {acima.id_cargo} já possui um substituto definido."
+        )
+
+    # ------------------------------------------
+    # 4. Verificação de ciclo
+    # ------------------------------------------
+    atual = acima
+    while atual is not None:
+        if atual.id_cargo == novo.id_cargo:
+            raise HTTPException(
+                400,
+                "Ciclo detectado na cadeia de substituição."
+            )
+        atual = (
+            session.get(Cargo, atual.substituto_para)
+            if atual.substituto_para else None
+        )
+
+    # ------------------------------------------
+    # 5. Criar o novo cargo como substituto
+    # ------------------------------------------
+    session.add(novo)
+    session.flush()
+    acima.substituto = novo.id_cargo
+
+    update_stmt = (
+                update(Cargo) 
+                .where(Cargo.id_cargo == acima.id_cargo)
+                .values(substituto=novo.id_cargo)
+            )
+    session.exec(update_stmt)
+
+    return novo
+
+
+def core_adicionar_cargos_lote(
+    cargos: List[CargoCreate],
+    session: Session
+) -> List[Cargo]:
+    resultados = []
+    for cargo in cargos:
+        try:
+            novo = core_adicionar_cargo(cargo, session)
+            # Log individual para lote é opcional, mas recomendado se o volume não for gigante
             orgao = session.get(Orgao, novo.id_orgao)
             add_to_log(
                 session=session,
                 tipo_operacao=TipoOperacao.ADICAO,
                 entidade_alvo=EntidadeAlvo.CARGO,
                 operation=f"[ADD] O cargo {novo.nome}, do órgão {orgao.nome}, foi adicionado(a)",
-            ) 
-            session.commit()
-            session.refresh(novo)
-            session.expunge(novo)  # evita flush/lazy load no retorno
-            return novo
-
-        # ------------------------------------------
-        # 2. Buscar o cargo que será substituído
-        # ------------------------------------------
-        acima = session.get(Cargo, novo.substituto_para)
-
-        if acima is None:
-            raise HTTPException(404, "Cargo 'substituto_para' não existe.")
-
-        # Deve ser do mesmo órgão
-        if acima.id_orgao != novo.id_orgao:
-            raise HTTPException(
-                400, "O substituto deve estar no mesmo órgão do cargo principal."
             )
+            resultados.append({"status": "success", "cargo": novo})
+        except HTTPException as he:
+            resultados.append({"status": "error", "detail": he.detail})
+    return resultados
 
-        # ------------------------------------------
-        # 3. O cargo acima já possui substituto?
-        # ------------------------------------------
-        if acima.substituto is not None:
-            raise HTTPException(
-                400,
-                f"O cargo {acima.id_cargo} já possui um substituto definido."
-            )
+@router.post("/", response_model=CargoRead)
+def adicionar_cargo(cargo: CargoCreate, session: Session = Depends(get_session)):
 
-        # ------------------------------------------
-        # 4. Verificação de ciclo
-        # ------------------------------------------
-        atual = acima
-        while atual is not None:
-            if atual.id_cargo == novo.id_cargo:
-                raise HTTPException(
-                    400,
-                    "Ciclo detectado na cadeia de substituição."
-                )
-            atual = (
-                session.get(Cargo, atual.substituto_para)
-                if atual.substituto_para else None
-            )
-
-        # ------------------------------------------
-        # 5. Criar o novo cargo como substituto
-        # ------------------------------------------
+    try:
+        novo = core_adicionar_cargo(cargo, session)
+        
+        # Adicionar Log
         orgao = session.get(Orgao, novo.id_orgao)
-        session.add(novo)
         add_to_log(
             session=session,
             tipo_operacao=TipoOperacao.ADICAO,
             entidade_alvo=EntidadeAlvo.CARGO,
             operation=f"[ADD] O cargo {novo.nome}, do órgão {orgao.nome}, foi adicionado(a)",
         ) 
-        session.flush()
-        acima.substituto = novo.id_cargo
-
-        update_stmt = (
-                    update(Cargo) 
-                    .where(Cargo.id_cargo == acima.id_cargo)
-                    .values(substituto=novo.id_cargo)
-                )
-        session.exec(update_stmt)
-
+        
         session.commit()
-
+        session.refresh(novo)
         return CargoRead.model_validate(novo)
 
     except IntegrityError as e:
@@ -131,10 +163,21 @@ def adicionar_cargo(cargo: CargoCreate, session: Session = Depends(get_session))
             )
         raise HTTPException(400, f"Erro de integridade: {e}")
 
-
     except Exception as e:
         session.rollback()
         raise HTTPException(500, f"Erro ao adicionar Cargo: {e}")
+
+
+@router.post("/lote/")
+def adicionar_cargos_lote(cargos: List[CargoCreate], session: Session = Depends(get_session)):
+    try:
+        resultados = core_adicionar_cargos_lote(cargos, session)
+        session.commit()
+        return {"results": resultados}
+
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Cargos em lote: {e}")
 
 
 @router.get("/", response_model=List[dict])
@@ -158,7 +201,6 @@ def carregar_cargo(session: Session = Depends(get_session)):
         ]
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao carregar Cargos: {e}")
-    
 
 
 
@@ -229,11 +271,12 @@ def remover_cargo(
             if c.ativo:
                 orgao = session.get(Orgao, c.id_orgao)
                 c.ativo = False
+                # Log para cada inativação
                 add_to_log(
                     session=session,
                     tipo_operacao=TipoOperacao.REMOCAO,
                     entidade_alvo=EntidadeAlvo.CARGO,
-                    operation=f"[DELETE] O cargo {c.nome}, do órgão {orgao.nome}, foi inativado(a)"
+                    operation=f"[DELETE/SOFT] O cargo {c.nome}, do órgão {orgao.nome}, foi inativado(a)"
                 )
 
         # ajustar ponteiro do 'acima' para não apontar para cargo removido
@@ -277,11 +320,13 @@ def remover_cargo(
         for c in reversed(afetados):
             orgao = session.get(Orgao, c.id_orgao)
             session.delete(c)
+            
+            # Log para cada deleção
             add_to_log(
                 session=session,
                 tipo_operacao=TipoOperacao.REMOCAO,
                 entidade_alvo=EntidadeAlvo.CARGO,
-                operation=f"[DELETE] O cargo {c.nome}, do órgão {orgao.nome}, foi deletado(a)"
+                operation=f"[DELETE/HARD] O cargo {c.nome}, do órgão {orgao.nome}, foi deletado(a)"
             )
             session.flush()
 
@@ -299,7 +344,6 @@ def remover_cargo_and_commit(
 
     try:
         resultado = remover_cargo(id_cargo=id_cargo, soft=soft, force=force, session=session, em_lote=False)
-        
         session.commit()
 
         return resultado
@@ -358,13 +402,16 @@ def reativar_cargo(
         if cargo_acima.ativo == False:
             cargo_acima.ativo = True
             afetados.append(cargo_acima.id_cargo)
-            orgao = session.get(Orgao, cargo_acima.id_orgao)
+            
+            # Log para reativação recursiva
+            orgao_acima = session.get(Orgao, cargo_acima.id_orgao)
             add_to_log(
                 session=session,
-                tipo_operacao=TipoOperacao.REMOCAO,
+                tipo_operacao=TipoOperacao.ALTERACAO, # Usando ALTERACAO pois REACTIVATE não estava no enum original
                 entidade_alvo=EntidadeAlvo.CARGO,
-                operation=f"[REACTIVATE] O cargo {cargo_acima.nome}, do órgão {orgao.nome}, foi reativado(a)"
+                operation=f"[REATIVAÇÃO] O cargo {cargo_acima.nome}, do órgão {orgao_acima.nome}, foi reativado(a)"
             )
+            
             id_acima = cargo_acima.substituto_para
         else: 
             break
@@ -374,11 +421,14 @@ def reativar_cargo(
     orgao = session.get(Orgao, cargo.id_orgao)
     add_to_log(
         session=session,
-        tipo_operacao=TipoOperacao.REMOCAO,
+        tipo_operacao=TipoOperacao.REATIVACAO, 
         entidade_alvo=EntidadeAlvo.CARGO,
-        operation=f"[REACTIVATE] O cargo {cargo.nome}, do órgão {orgao.nome}, foi reativado(a)"
+        operation=f"[REATIVAÇÃO] O cargo {cargo.nome}, do órgão {orgao.nome}, foi reativado(a)"
     )
+    
     return {"status": "success", "message": "Cargo reativado com sucesso.", "ids": afetados} 
+ 
+
 
 # Reativar
 @router.put("/reativar/{id_cargo}")
@@ -386,9 +436,9 @@ def reativar_cargo_and_commit(
     id_cargo: int = Path(..., description="ID do Cargo a ser reativado"),
     session: Session = Depends(get_session)
 ):
+
     resultado = reativar_cargo(id_cargo=id_cargo, session=session, em_lote=False)
     session.commit()
-
     return resultado
 
 @router.put("/reativar/lista/")
@@ -408,4 +458,95 @@ def reativar_cargos_em_lote(
     except Exception as e:
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Erro ao processar reativação em lote: {e}")
+    
 
+
+class CargoUpdateData(SQLModel):
+    nome: Optional[str] = None
+    id_orgao: Optional[int] = None
+
+
+def core_alterar_cargo(
+    id_cargo: int,
+    payload: CargoUpdateData,
+    session: Session
+):
+    cargo = session.get(Cargo, id_cargo)
+    if not cargo:
+        raise HTTPException(status_code=404, detail="Cargo não encontrado.")
+    
+    novo_nome = payload.nome if payload.nome != cargo.nome else None
+    novo_id_orgao = payload.id_orgao if payload.id_orgao != cargo.id_orgao else None
+
+    # Verificar unicidade se houver mudança relevante - orgao nao deve conter cargo com mesmo nome
+    if novo_nome is not None or novo_id_orgao is not None:
+
+        nome_final = novo_nome if novo_nome is not None else cargo.nome
+        orgao_final = novo_id_orgao if novo_id_orgao is not None else cargo.id_orgao
+
+        # Consulta para achar outro cargo (diferente do atual) com a nova combinação
+        stmt = (
+            select(Cargo)
+            .where(Cargo.nome == nome_final)
+            .where(Cargo.id_orgao == orgao_final)
+            .where(Cargo.id_cargo != cargo.id_cargo)
+        )
+        
+        cargo_existente = session.exec(stmt).first()
+        
+        if cargo_existente:
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe um Cargo com esse nome nesse órgão."
+            )
+
+    # Aplica as mudanças
+    if novo_nome is not None:
+        cargo.nome = novo_nome
+    if novo_id_orgao is not None:
+        cargo.id_orgao = novo_id_orgao
+    
+    return cargo
+
+
+
+@router.put("/{id_cargo}", response_model=CargoRead)
+def alterar_cargo(
+    id_cargo: int,
+    payload: CargoUpdateData,
+    session: Session = Depends(get_session)
+):
+    try:
+        # A função core faz a validação de unicidade e aplica as alterações no objeto.
+        cargo_atualizado = core_alterar_cargo(id_cargo, payload, session)
+        
+        # Log de alteração
+        add_to_log(
+            session=session,
+            tipo_operacao=TipoOperacao.ALTERACAO,
+            entidade_alvo=EntidadeAlvo.CARGO,
+            operation=f"[UPDATE] O cargo {cargo_atualizado.nome} (ID: {id_cargo}) foi atualizado."
+        )
+
+        # A transação finaliza aqui, persistindo o UPDATE no objeto 'cargo_atualizado'.
+        session.commit()
+        session.refresh(cargo_atualizado)
+        
+        return cargo_atualizado
+    
+    except IntegrityError as e:
+        session.rollback()
+        # Tratamento para outras violações de integridade (ex: Foreign Key em id_orgao)
+        error_code = getattr(e.orig, "pgcode", None)
+        if error_code == '23503': # Código para Foreign Key Violation
+            raise HTTPException(400, "O id_orgao especificado não existe.")
+        
+        raise HTTPException(400, f"Erro de integridade no banco de dados: {e}")
+        
+    except HTTPException:
+        # Garante o rollback para erros de unicidade (código 409) ou not found (404) vindos do core
+        session.rollback()
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(500, f"Erro interno ao atualizar cargo: {e}")

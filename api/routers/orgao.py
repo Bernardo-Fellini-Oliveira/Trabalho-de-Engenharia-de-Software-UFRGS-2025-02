@@ -9,11 +9,42 @@ from database import get_session
 router = APIRouter(prefix="/api/orgao", tags=["Órgão"])
 
 
+def core_adicionar_orgao(
+    orgao: Orgao,
+    session: Session
+):
+    if not orgao.nome.strip():
+        raise HTTPException(status_code=400, detail="O nome do órgão não pode ser vazio.")
+    
+    orgao.ativo = True  # força ativo=1 na criação
+    session.add(orgao)
+
+    return orgao
+
+def core_adicionar_orgaos_lote(
+    orgaos: list[Orgao],
+    session: Session
+):
+    resultados = []
+    for orgao in orgaos:
+        try:
+            resultado = core_adicionar_orgao(orgao, session)
+            resultados.append({"orgao": orgao.nome, "result": {
+                "status": "success",
+                "message": "Órgão adicionada com sucesso",
+                "id_orgao": resultado.id_orgao
+            }})
+        except HTTPException as he:
+            resultados.append({"orgao": orgao.nome, "error": he.detail})
+    return resultados
+
+
+
 # Criar órgão
 @router.post("/")
 def adicionar_orgao(orgao: Orgao, session: Session = Depends(get_session)):
     try:
-        session.add(orgao)
+        orgao = core_adicionar_orgao(orgao, session)
         add_to_log(
             session=session,
             tipo_operacao=TipoOperacao.ADICAO,
@@ -25,7 +56,7 @@ def adicionar_orgao(orgao: Orgao, session: Session = Depends(get_session)):
         
         return {
             "status": "success",
-            "message": "Órgão adicionado com sucesso",
+            "message": "Órgão adicionada com sucesso",
             "id_orgao": orgao.id_orgao
         }
     
@@ -44,6 +75,16 @@ def adicionar_orgao(orgao: Orgao, session: Session = Depends(get_session)):
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao adicionar Órgão: {e}")
+
+
+@router.post("/lote/")
+def adicionar_orgaos_lote(orgaos: list[Orgao], session: Session = Depends(get_session)):
+    try:
+        resultados = core_adicionar_orgaos_lote(orgaos, session)
+        session.commit()
+        return {"results": resultados}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Órgãos em lote: {e}")
 
     
 # Listar órgãos
@@ -187,3 +228,52 @@ def reativar_orgaos_em_lote(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao reativar Órgãos em lote: {e}")
 
+
+@router.put("/{id_orgao}")
+def alterar_orgao(
+    id_orgao: int = Path(..., description="ID do Órgão a ser alterado"),
+    orgao_atualizado: Orgao = ...,
+    session: Session = Depends(get_session)
+):
+    if not orgao_atualizado.nome.strip():
+        raise HTTPException(status_code=400, detail="O nome do órgão não pode ser vazio.")
+    
+    orgao = session.get(Orgao, id_orgao)
+    if not orgao:
+        raise HTTPException(status_code=404, detail="Órgão não encontrado.")
+
+    orgao.nome = orgao_atualizado.nome
+    orgao.ativo = orgao_atualizado.ativo
+
+    try:
+        # Log de alteração
+        add_to_log(
+            session=session,
+            tipo_operacao=TipoOperacao.ALTERACAO,
+            entidade_alvo=EntidadeAlvo.CARGO,
+            operation=f"[UPDATE] O cargo {orgao.nome} (ID: {id_orgao}) foi atualizado."
+        )
+        session.add(orgao)
+        session.commit()
+        session.refresh(orgao)
+        return {
+            "status": "success",
+            "message": "Órgão atualizado com sucesso.",
+            "id_orgao": orgao.id_orgao
+        }
+    
+    except IntegrityError as e:
+        session.rollback()
+        # checa se foi violação de unicidade
+        error_code = getattr(e.orig, "pgcode", None)
+
+        if error_code == '23505':  # código de erro para violação de unicidade no PostgreSQL
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe Órgão com esse nome."
+            )
+        # outros erros de integridade
+        raise HTTPException(400, f"Erro de integridade: {e}")
+    
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar Órgão: {e}")

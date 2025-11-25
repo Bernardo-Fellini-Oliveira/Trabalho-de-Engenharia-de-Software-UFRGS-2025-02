@@ -12,9 +12,9 @@ This can make the code cleaner and more intuitive when the number of children is
 """
 @v_args(inline=True)
 class FiltroTransformer(Transformer):
-    def __init__(self, categoria_atual="Pessoa"):
+    def __init__(self, categoria_atual="pessoa"):
         super().__init__()
-        self.categoria_atual = categoria_atual
+        self.categoria_atual = categoria_atual.lower()
 
     def string(self, s):
         return s[1:-1]  # remove aspas
@@ -57,20 +57,12 @@ class FiltroTransformer(Transformer):
     def not_grouped_expr(self, e):
         return e
     
-    def pessoa(self):
-        return "Pessoa"
+    def campo_string(self, token):
+        return str(token)
     
-    def cargo(self):
-        return "Cargo"
+    def campo_numeric(self, token):
+        return str(token)
     
-    def orgao(self):
-        return "Orgao"
+    def campo_date(self, token):
+        return str(token)
     
-    def fim(self):
-        return "Fim"
-    
-    def inicio(self):
-        return "Inicio"
-    
-    def mandato(self):
-        return "Mandato"

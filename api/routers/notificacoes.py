@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime  # <--- Importe a classe datetime diretamente
 from fastapi import APIRouter, HTTPException, Path, Query, Depends
 from sqlmodel import Field, SQLModel, Session, select
 from models.cargo import Cargo

@@ -39,6 +39,15 @@ def adicionar_pessoa(pessoa: Pessoa, session: Session = Depends(get_session)):
         "id_pessoa": pessoa.id_pessoa
     }
 
+def adicionar_pessoa_lote(pessoas: list[Pessoa], session: Session = Depends(get_session)):
+    resultados = []
+    for pessoa in pessoas:
+        try:
+            resultado = adicionar_pessoa(pessoa, session)
+            resultados.append({"pessoa": pessoa.nome, "result": resultado})
+        except HTTPException as he:
+            resultados.append({"pessoa": pessoa.nome, "error": he.detail})
+    return resultados
 
 
 # Criar pessoa
@@ -55,7 +64,6 @@ def adicionar_pessoa_endpoint(pessoa: Pessoa, session: Session = Depends(get_ses
         session.rollback()
         # checa se foi violação de unicidade
         error_code = getattr(e.orig, "pgcode", None)
-        print(error_code)
         if error_code == '23505':  # código de erro para violação de unicidade no PostgreSQL
             raise HTTPException(
                 status_code=409,
@@ -202,3 +210,56 @@ def reativar_pessoas_em_lote(
     
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao reativar Pessoas em lote: {str(e)}")
+    
+
+
+# Atualizar pessoa
+@router.put("/{id_pessoa}")
+def atualizar_pessoa(
+    id_pessoa: int = Path(..., description="ID da Pessoa a ser atualizada"),
+    pessoa_atualizada: Pessoa = ...,
+    session: Session = Depends(get_session)
+):
+    try:
+        pessoa_existente = session.get(Pessoa, id_pessoa)
+        if not pessoa_existente:
+            raise HTTPException(status_code=404, detail="Pessoa não encontrada.")
+
+        if not pessoa_atualizada.nome.strip():
+            raise HTTPException(status_code=400, detail="O nome da pessoa não pode ser vazio.")
+
+        pessoa_existente.nome = pessoa_atualizada.nome
+        pessoa_existente.ativo = pessoa_atualizada.ativo
+
+        # Log de alteração
+        add_to_log(
+            session=session,
+            tipo_operacao=TipoOperacao.ALTERACAO,
+            entidade_alvo=EntidadeAlvo.PESSOA,
+            operation=f"[UPDATE] O pessoa {pessoa_existente.nome} (ID: {id_pessoa}) foi atualizada."
+        )
+
+        session.add(pessoa_existente)
+        session.commit()
+        session.refresh(pessoa_existente)
+
+        return {
+            "status": "success",
+            "message": "Pessoa atualizada com sucesso.",
+            "id_pessoa": pessoa_existente.id_pessoa
+        }
+
+    except IntegrityError as e:
+        session.rollback()
+        # checa se foi violação de unicidade
+        error_code = getattr(e.orig, "pgcode", None)
+        if error_code == '23505':  # código de erro para violação de unicidade no PostgreSQL
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe Pessoa com esse nome."
+            )
+        # outros erros de integridade
+        raise HTTPException(400, f"Erro de integridade: {e}")
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao atualizar Pessoa: {e}")

@@ -1,7 +1,11 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
 import TestPage from "./views/TestPage";
 import SearchPage from "./views/SearchPage";
-
+import EditPage from "./views/EditPage";
+import TicketsPage from "./views/TicketsPage";
+import LogPage from "./views/LogPage";
+import HomePage from "./views/HomePage";
+import EligibilityPage from "./views/EligibilityPage";
 
 function App() {
 
@@ -9,8 +13,13 @@ function App() {
     <>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<TestPage />} />
+          <Route path="/" element={<HomePage />} />
+          <Route path="/check" element={<EligibilityPage />} />
+          <Route path="/insert" element={<TestPage />} />
           <Route path="/search" element={<SearchPage />} />
+          <Route path="/edit" element={<EditPage />} />
+          <Route path="/tickets" element={<TicketsPage />} />
+          <Route path="/log" element={<LogPage />} />
         </Routes>
       </BrowserRouter>
 

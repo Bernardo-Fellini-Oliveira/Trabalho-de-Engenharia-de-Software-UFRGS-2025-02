@@ -7,7 +7,8 @@ class TipoOperacao(str, PyEnum):
     INATIVACAO = "Inativação"
     REATIVACAO = "Reativação"
     ASSOCIACAO = "Associação"
-    FINALIZACAO = "Finalização" 
+    FINALIZACAO = "Finalização"
+    ALTERACAO = "Alteração" 
 
 class EntidadeAlvo(str, PyEnum):
     PESSOA = "Pessoa"
