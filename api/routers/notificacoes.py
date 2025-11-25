@@ -1,5 +1,4 @@
-from datetime import date
-import datetime
+from datetime import datetime
 from fastapi import APIRouter, HTTPException, Path, Query, Depends
 from sqlmodel import Field, SQLModel, Session, select
 from models.cargo import Cargo
@@ -44,30 +43,64 @@ def aprovar_ocupacao(
         nova_entidade = Ocupacao.model_validate(data_payload)
 
         if approve:
-            cargo = session.get(Cargo, nova_entidade.id_cargo)
-            pessoa = session.get(Pessoa, nova_entidade.id_pessoa)
-            orgao = session.get(Orgao, cargo.id_orgao)
+            if notificacao.regra == 1:
+                cargo = session.get(Cargo, nova_entidade.id_cargo)
+                pessoa = session.get(Pessoa, nova_entidade.id_pessoa)
+                orgao = session.get(Orgao, cargo.id_orgao)
 
-            notificacao.status_aprovacao = Status.APROVADO
-            notificacao.data_aprovacao = datetime.now()
-            session.add(nova_entidade)
-            add_to_log(
-                session=session,
-                tipo_operacao=notificacao.tipo_operacao,
-                entidade_alvo=notificacao.entidade_alvo,
-                operation=f"[ADD] Adicionada ocupação de {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
-            )
-            session.commit()
-            session.refresh(nova_entidade)
-            session.refresh(notificacao)
-            return {
-                "status": "success",
-                "message": "Notificação aprovada com sucesso"
-            }
+                notificacao.status_aprovacao = Status.APROVADO
+                notificacao.data_aprovacao = datetime.now()
+                ocupacao_afetada = session.get(Ocupacao, notificacao.id_afetado)
+                pessoa_afetada = session.get(Pessoa, ocupacao_afetada.id_pessoa)
+
+                add_to_log(
+                    session=session,
+                    tipo_operacao=TipoOperacao.REMOCAO,
+                    entidade_alvo=EntidadeAlvo.OCUPACAO,
+                    operation=f"[DELETE] Removida ocupação de {pessoa_afetada.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
+                )
+
+                add_to_log(
+                    session=session,
+                    tipo_operacao=notificacao.tipo_operacao,
+                    entidade_alvo=notificacao.entidade_alvo,
+                    operation=f"[ADD] Adicionada ocupação de {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
+                )
+
+                session.delete(ocupacao_afetada)
+                session.add(nova_entidade)
+                session.commit()
+                session.refresh(nova_entidade)
+                session.refresh(notificacao)
+                return {
+                    "status": "success",
+                    "message": "Notificação aprovada com sucesso"
+                }
+            if notificacao.regra == 2:
+                cargo = session.get(Cargo, nova_entidade.id_cargo)
+                pessoa = session.get(Pessoa, nova_entidade.id_pessoa)
+                orgao = session.get(Orgao, cargo.id_orgao)
+
+                notificacao.status_aprovacao = Status.APROVADO
+                notificacao.data_aprovacao = datetime.now()
+                session.add(nova_entidade)
+                add_to_log(
+                    session=session,
+                    tipo_operacao=notificacao.tipo_operacao,
+                    entidade_alvo=notificacao.entidade_alvo,
+                    operation=f"[ADD] Adicionada ocupação de {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
+                )
+                session.commit()
+                session.refresh(nova_entidade)
+                session.refresh(notificacao)
+                return {
+                    "status": "success",
+                    "message": "Notificação aprovada com sucesso"
+                }
         else:
             notificacao.status_aprovacao = Status.RECUSADO
-            session.refresh(notificacao)
             session.commit()
+            session.refresh(notificacao)
             return {
                 "status": "success",
                 "message": "Notificação rejeitada com sucesso"

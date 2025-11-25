@@ -48,12 +48,25 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
             ).first()
 
             if ocupacao_existente:
-
+                dadospayload = ocupacao.model_dump()
+                cargo = session.get(Cargo, ocupacao.id_cargo)
+                orgao = session.get(Orgao, cargo.id_orgao)
+                pessoa = session.get(Pessoa, ocupacao_existente.id_pessoa)
+                solicitacao = Notificacoes(
+                    operation=f"O cargo {cargo.nome}, do órgão {orgao.nome}, já está ocupado por {ocupacao_existente.id_pessoa}. Abrindo solicitação de aprovação para esta ocupação.",
+                    tipo_operacao=TipoOperacao.ASSOCIACAO,
+                    entidade_alvo=EntidadeAlvo.OCUPACAO,
+                    dados_payload=dadospayload,
+                    id_afetado=ocupacao_existente.id_ocupacao,
+                    regra=1   
+                )
+                session.add(solicitacao)
+                session.commit()
+                session.refresh(solicitacao)
                 raise HTTPException(
                     status_code=400,
                     detail=(
-                        f"O cargo {ocupacao.id_cargo} já está ocupado "
-                        f"pela pessoa {ocupacao_existente.id_pessoa}."
+                        f"O cargo {cargo.nome}, do órgão {orgao.nome}, já está ocupado por {pessoa.nome}. Abrindo solicitação de aprovação para esta ocupação."
                     )
                 )
 
@@ -67,10 +80,11 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
         if len(ultimas) >= 2 and all(pid == ocupacao.id_pessoa for pid in ultimas) and cargo and cargo.exclusivo:
             dadospayload = ocupacao.model_dump()
             solicitacao = Notificacoes(
-                operation=f"As últimas duas ocupações do cargo {cargo.nome} já foram de {pessoa.nome}. Criada uma solicitação de aprovação para esta ocupação.",
+                operation=f"As últimas duas ou mais ocupações do cargo {cargo.nome} já foram de {pessoa.nome}. Criada uma solicitação de aprovação para esta ocupação.",
                 tipo_operacao=TipoOperacao.ASSOCIACAO,
                 entidade_alvo=EntidadeAlvo.OCUPACAO,
-                dados_payload=dadospayload   
+                dados_payload=dadospayload,
+                regra=2   
             )
 
             session.add(solicitacao)

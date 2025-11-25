@@ -94,7 +94,8 @@ CREATE TABLE IF NOT EXISTS Notificacoes (
     entidade_alvo TEXT NOT NULL,
     status_aprovacao TEXT NOT NULL DEFAULT 'Pendente',
     data_aprovacao TIMESTAMP,
-    aprovador_id INTEGER,
+    regra INTEGER NOT NULL,
+    id_afetado INTEGER,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

@@ -16,6 +16,7 @@ class EntidadeAlvo(str, PyEnum):
     PORTARIA = "Portaria"
     OCUPACAO = "Ocupação"
 
+#Status da notificação
 class Status(str, PyEnum):
     PENDENTE = "Pendente"
     APROVADO = "Aprovado"
