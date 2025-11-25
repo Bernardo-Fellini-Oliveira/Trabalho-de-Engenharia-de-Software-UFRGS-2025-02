@@ -16,7 +16,7 @@ export default function PrivateRoute({ children, roles }: PrivateRouteProps) {
 
   // Se não está autenticado, redireciona para a página de login
   if (!isAuthenticated)
-    return <Navigate to="/login" replace />;
+    return <Navigate to="/" replace />;
 
   // Se está autenticado mas não tem a role necessária, dá um alerta e redireciona para a home
   if (roles && !hasAnyRole(roles)){
