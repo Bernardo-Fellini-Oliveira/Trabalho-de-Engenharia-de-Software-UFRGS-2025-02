@@ -3,6 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import SQLModel, Session, nulls_first, or_, select, and_
 from typing import List, Optional, Set
+from api.models.pessoa import Pessoa
 from models.cargo import Cargo 
 from models.ocupacao import Ocupacao
 from database import get_session
@@ -247,7 +248,8 @@ def adicionar_ocupacoes_lote(ocupacoes: List[Ocupacao], session: Session = Depen
 @router.get("/", response_model=List[Ocupacao])
 def carregar_ocupacao(session: Session = Depends(get_session)):
     try:
-        return session.exec(select(Ocupacao)).all()
+        # Puxa as ocupações e também o nome dos substitutos (se houver)
+        return session.exec(select(Ocupacao, Cargo.nome, Pessoa.nome )).all()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao carregar Ocupações: {e}")
 

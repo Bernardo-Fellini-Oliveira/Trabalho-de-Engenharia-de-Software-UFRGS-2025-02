@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { use, useEffect, useState } from 'react';
 import api from '../../services/api';
 import './EditPage.css';
 
@@ -22,6 +22,8 @@ interface Cargo {
     id_orgao: number; 
     ativo: number | boolean; 
     exclusivo: number | boolean; 
+    orgao: string;
+    substituto_para?: number;
 }
 
 interface Ocupacao {
@@ -32,9 +34,9 @@ interface Ocupacao {
     data_fim: string | null;
     mandato: number;
     // Campos auxiliares para exibição
-    nome_pessoa?: string;
-    nome_cargo?: string;
-    nome_orgao?: string;
+    pessoa?: string;
+    cargo?: string;
+    orgao?: string;
     id_orgao?: number;
 }
 
@@ -43,6 +45,8 @@ function EditPage() {
     const [activeTab, setActiveTab] = useState<Tab>('pessoa');
     const [filtroBusca, setFiltroBusca] = useState("");
     
+    const [filtroBuscaComplexa, setFiltroBuscaComplexa] = useState("");
+
     const [loading, setLoading] = useState(false);
     const [data, setData] = useState<any[]>([]);
 
@@ -55,10 +59,14 @@ function EditPage() {
     const [editingId, setEditingId] = useState<number | null>(null);
     const [editForm, setEditForm] = useState<any>({});
     const [selectedIds, setSelectedIds] = useState<number[]>([]);
+    const [deleting, setDeleting] = useState(false);
 
     // Modal de Finalização
     const [showModal, setShowModal] = useState(false);
-    const [finishData, setFinishData] = useState({ id_ocupacao: 0, data_fim: '', data_inicio_sub: '', data_fim_sub: '', definitiva: false });
+    const [finishData, setFinishData] = useState({ id_ocupacao: 0, data_fim: '', data_inicio_sub: '', data_fim_sub: '', definitiva: false, orgao: ''})//pessoa_substituta: '', cargo_substituto: '',  });
+
+    console.log("aux_cargos:", auxCargos);
+    console.log("edit_form:", editForm);
 
     // === FETCH DATA ===
     const fetchAux = async () => {
@@ -90,13 +98,15 @@ function EditPage() {
                     const cargo = auxCargos.find(c => c.id_cargo === o.id_cargo);
                     return {
                         ...o,
-                        nome_pessoa: auxPessoas.find(p => p.id_pessoa === o.id_pessoa)?.nome || `ID ${o.id_pessoa}`,
-                        nome_cargo: cargo?.nome || `ID ${o.id_cargo}`,
-                        nome_orgao: auxOrgaos.find(org => org.id_orgao === cargo?.id_orgao)?.nome,
+                        pessoa: auxPessoas.find(p => p.id_pessoa === o.id_pessoa)?.nome || `ID ${o.id_pessoa}`,
+                        cargo: cargo?.nome || `ID ${o.id_cargo}`,
+                        orgao: auxOrgaos.find(org => org.id_orgao === cargo?.id_orgao)?.nome,
                         id_orgao: cargo?.id_orgao
                     };
                 });
                 setData(enriched);
+
+                console.log("Ocupações carregadas:", enriched);
             } else {
                 setData(res.data);
             }
@@ -110,9 +120,11 @@ function EditPage() {
         }
     };
 
-    useEffect(() => { fetchAux(); }, []);
-    useEffect(() => { if(auxCargos.length > 0 || activeTab !== 'ocupacao') fetchData(); }, [activeTab, auxCargos]);
 
+    useEffect(() => { fetchAux(); }, []);
+    useEffect(() => { if(auxCargos.length > 0) fetchData(); }, [activeTab, auxPessoas, auxOrgaos, auxCargos]);
+
+    console.log("Data:", data);
     const filteredData = data.filter(item => {
         if (!filtroBusca) return true;
         const term = filtroBusca.toLowerCase();
@@ -121,26 +133,25 @@ function EditPage() {
             return item.nome?.toLowerCase().includes(term);
         }
         if (activeTab === 'ocupacao') {
-            return (item.nome_pessoa?.toLowerCase().includes(term) ||
-                    item.nome_cargo?.toLowerCase().includes(term));
+            return (item.pessoa?.toLowerCase().includes(term) ||
+                    item.cargo?.toLowerCase().includes(term));
         }
         return true;
     });
 
     // === HANDLERS ===
+    const handleClickRow = (id: number) => {
+        console.log("Clicou na linha:", id, "Deletando?", deleting);
+        if (deleting) {
+            toggleSelect(id);
+        }
+    };
+
 
     const toggleSelect = (id: number) => {
         setSelectedIds(prev => prev.includes(id) ? prev.filter(i => i !== id) : [...prev, id]);
     };
 
-    const toggleSelectAll = (e: React.ChangeEvent<HTMLInputElement>) => {
-        if (e.target.checked) {
-            const idKey = activeTab === 'ocupacao' ? 'id_ocupacao' : `id_${activeTab}`;
-            setSelectedIds(filteredData.map(i => i[idKey]));
-        } else {
-            setSelectedIds([]);
-        }
-    };
 
     const startEdit = (row: any) => {
         const idKey = activeTab === 'ocupacao' ? 'id_ocupacao' : `id_${activeTab}`;
@@ -156,7 +167,8 @@ function EditPage() {
 
             await api.put(url, editForm);
             alert("Atualizado com sucesso!");
-            fetchData();
+            fetchAux();
+            //fetchData();
         } catch (err: any) {
             alert("Erro ao salvar: " + (err.response?.data?.detail || err.message));
         }
@@ -177,19 +189,25 @@ function EditPage() {
                 await api.delete(`${url}?${params.toString()}`);
             }
             alert("Itens excluídos!");
-            fetchData();
+            fetchAux();
         } catch (err: any) {
             alert("Erro ao excluir: " + (err.response?.data?.detail || err.message));
         }
     };
 
     const openFinishModal = (row: Ocupacao) => {
+ 
+
+        
         setFinishData({
             id_ocupacao: row.id_ocupacao,
             data_fim: new Date().toISOString().split('T')[0],
             data_inicio_sub: '',
             data_fim_sub: '',
-            definitiva: false
+            definitiva: false,
+            //pessoa_substituta: substituto?.pessoa || '',
+           // cargo_substituto: substituto?.cargo || '',
+            orgao: row.orgao || ''
         });
         setShowModal(true);
     };
@@ -205,11 +223,28 @@ function EditPage() {
             await api.put(`/ocupacao/finalizar/${finishData.id_ocupacao}`, payload);
             alert("Finalizado com sucesso!");
             setShowModal(false);
-            fetchData();
+            fetchAux();
         } catch (err: any) {
             alert("Erro ao finalizar: " + (err.response?.data?.detail || err.message));
         }
     };
+
+    const fetchFilteredOcupacoes = async () => {
+        setLoading(true);
+        try {
+            const res = await api.get(`/busca?tipo=flat&busca=${filtroBuscaComplexa}`);
+            setData(res.data);
+            console.log(res.data);
+        } catch (err) {
+            console.error(err);
+            alert("Erro ao carregar dados.");
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    console.log("Filtered Data:", filteredData);
+
 
     // === RENDER TABLE ===
     const renderTable = () => {
@@ -220,10 +255,7 @@ function EditPage() {
             <table className="data-table">
                 <thead>
                     <tr>
-                        <th style={{width: 40}}>
-                            <input type="checkbox" onChange={toggleSelectAll} checked={filteredData.length > 0 && selectedIds.length === filteredData.length} />
-                        </th>
-                        
+
                         {activeTab === 'pessoa' && <><th>ID</th><th>Nome</th><th>Ativo</th></>}
                         {activeTab === 'orgao' && <><th>ID</th><th>Nome</th><th>Ativo</th></>}
                         {/* CORREÇÃO 3: Adicionada coluna Exclusivo */}
@@ -240,10 +272,7 @@ function EditPage() {
                         const isEditing = editingId === id;
 
                         return (
-                            <tr key={id}>
-                                <td>
-                                    <input type="checkbox" checked={selectedIds.includes(id)} onChange={() => toggleSelect(id)} />
-                                </td>
+                            <tr key={id} onClick={() => handleClickRow(id)} style={{backgroundColor: selectedIds.includes(id) ? "#FFEEF0" : "transparent"}}>
 
                                 {/* === PESSOA === */}
                                 {activeTab === 'pessoa' && (
@@ -251,7 +280,7 @@ function EditPage() {
                                         <td>{row.id_pessoa}</td>
                                         <td>
                                             {isEditing ?
-                                                <input className="edit-input" value={editForm.nome} onChange={e => setEditForm({...editForm, nome: e.target.value})} />
+                                                <input className="edit-input" value={editForm.nome} onChange={e => setEditForm({...editForm, nome: e.target.value})} onClick={(e) => e.stopPropagation()} />
                                                 : row.nome}
                                         </td>
                                         <td>
@@ -326,23 +355,33 @@ function EditPage() {
                                                 <select className="edit-input" value={editForm.id_pessoa} onChange={e => setEditForm({...editForm, id_pessoa: Number(e.target.value)})}>
                                                     {auxPessoas.map(p => <option key={p.id_pessoa} value={p.id_pessoa}>{p.nome}</option>)}
                                                 </select>
-                                                : row.nome_pessoa}
+                                                : row.pessoa}
                                         </td>
                                         <td>
                                             {isEditing ?
                                                 <select className="edit-input" value={editForm.id_cargo} onChange={e => setEditForm({...editForm, id_cargo: Number(e.target.value)})}>
-                                                    {auxCargos.map(c => <option key={c.id_cargo} value={c.id_cargo}>{c.nome}</option>)}
+                                                    {auxCargos.map(c => <option key={c.id_cargo} value={c.id_cargo}>{`${c.nome} (${c.orgao})`}</option>)}
                                                 </select>
-                                                : row.nome_cargo}
+                                                : `${row.cargo} (${row.orgao})`}
                                         </td>
                                         <td>
                                             {isEditing ?
-                                                <input type="date" className="edit-input" value={editForm.data_inicio} onChange={e => setEditForm({...editForm, data_inicio: e.target.value})} />
+                                                <input type="date" className="edit-input" value={editForm.data_inicio} onChange={e => {
+                                                    const value = e.target.value;
+                                                    if(value === '' || value === "''")
+                                                        setEditForm({...editForm, data_inicio: null});
+                                                    else
+                                                        setEditForm({...editForm, data_inicio: e.target.value})}} />
                                                 : row.data_inicio}
                                         </td>
                                         <td>
                                             {isEditing ?
-                                                <input type="date" className="edit-input" value={editForm.data_fim || ''} onChange={e => setEditForm({...editForm, data_fim: e.target.value})} />
+                                                <input type="date" className="edit-input" value={editForm.data_fim || ''} onChange={e => {
+                                                    const value = e.target.value;
+                                                    if(value === '' || value === "''")
+                                                        setEditForm({...editForm, data_fim: null});
+                                                    else
+                                                    setEditForm({...editForm, data_fim: e.target.value})}} />
                                                 : (row.data_fim || '-')}
                                         </td>
                                     </>
@@ -351,14 +390,14 @@ function EditPage() {
                                 <td className="action-cell">
                                     {isEditing ? (
                                         <>
-                                            <button className="icon-btn save" onClick={saveEdit} title="Salvar"><IconSave/></button>
-                                            <button className="icon-btn cancel" onClick={() => setEditingId(null)} title="Cancelar"><IconCancel/></button>
+                                            <button className="icon-btn save" onClick={(e) => {e.stopPropagation(); saveEdit()}} title="Salvar"><IconSave/></button>
+                                            <button className="icon-btn cancel" onClick={(e) => {e.stopPropagation(); setEditingId(null)}} title="Cancelar"><IconCancel/></button>
                                         </>
                                     ) : (
                                         <>
-                                            <button className="icon-btn edit" onClick={() => startEdit(row)} title="Editar"><IconEdit/></button>
+                                            <button className="icon-btn edit" onClick={(e) => {e.stopPropagation(); startEdit(row)}} title="Editar"><IconEdit/></button>
                                             {activeTab === 'ocupacao' && !row.data_fim && (
-                                                <button className="icon-btn finish" onClick={() => openFinishModal(row)} title="Finalizar/Substituir">
+                                                <button className="icon-btn finish" onClick={(e) => {e.stopPropagation(); openFinishModal(row)}} title="Finalizar/Substituir">
                                                     <IconFinish/>
                                                 </button>
                                             )}
@@ -401,22 +440,103 @@ function EditPage() {
                             </select>
                         </div>
 
-                        <div className="button-group">
-                            <button className="btn btn-danger" onClick={deleteBatch} disabled={selectedIds.length === 0}>
-                                <IconTrash/> Excluir Selecionados ({selectedIds.length})
-                            </button>
-                        </div>
+                        {!deleting && (
+                            <div className="button-group">
+                                <button className="btn btn-danger" onClick={() => setDeleting(true)} disabled={deleting}>
+                                    <IconTrash/> Excluir Itens
+                                </button>
+                            </div>
+                        )}
+
+
+                        {deleting && (
+                            <>
+
+                            <div className="button-group">
+                                <button className="btn btn-secondary" onClick={() => {setDeleting(false); setSelectedIds([])}}>Cancelar Exclusão</button>
+                            </div>
+                            
+
+                            <div className="button-group">
+
+                            {
+                                selectedIds.length == filteredData.length ? (
+                                        <button className="btn btn-secondary" onClick={() => setSelectedIds([])}>
+                                            Desmarcar Todos ( {filteredData.length} )
+                                        </button>
+                                    ) : 
+                                    
+                                (
+                                <button className="btn btn-danger" onClick={() => setSelectedIds(filteredData.map(item => {
+                                    const idKey = activeTab === 'ocupacao' ? 'id_ocupacao' : `id_${activeTab}`;
+                                    return item[idKey];
+                                }))}>
+                                    Selecionar Todos ( {filteredData.length} )
+                                </button>
+                                )
+                            }
+
+                            </div>
+
+                            <div className="button-group">
+                                <button className="btn btn-danger" onClick={deleteBatch} disabled={selectedIds.length === 0}>
+                                    <IconTrash/> Excluir Selecionados ({selectedIds.length})
+                                </button>
+                            </div>
+
+
+
+                            </>
+                        )}
+
+
                     </div>
+
+                    {
+                    activeTab == 'ocupacao' && (
+                    <div className="filter-row">
+                        <div className="filter-group" style={{flex: 2, marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
+                            <label>Busca Complexa</label>
+                            <input
+                                className="filter-input"
+                                type="text"
+                                placeholder={`Buscar em ${activeTab}...`}
+                                value={filtroBuscaComplexa}
+                                onChange={e => setFiltroBuscaComplexa(e.target.value)}
+                            />
+                        </div>
+
+                        <div className="button-group">
+                            <button className="btn btn-secondary" onClick={() => {
+                                setFiltroBuscaComplexa("");
+                                fetchAux();
+                            }}>
+                                Limpar
+                            </button>
+                            <button className="btn btn-primary" onClick={() => fetchFilteredOcupacoes()}>
+                                Filtrar
+                            </button>
+
+                        </div>
+
+
+                    </div>
+  
+                )}
                 </div>
+
 
                 <div className="table-container">
                     {renderTable()}
                 </div>
 
                 {showModal && (
+
+                    console.log("Finish Data:", finishData),
                     <div className="modal-overlay">
                         <div className="modal-content">
                             <div className="modal-header">Finalizar Mandato</div>
+                            
                             
                             <div className="filter-group" style={{marginBottom: 15}}>
                                 <label>Fim do Mandato Atual</label>
