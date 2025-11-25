@@ -23,8 +23,11 @@ const LoginScreen = () => {
     e.preventDefault();
     try {
       const token = await loginRequest(usuario, senha);
-      await authLogin(token);
+      console.log("LoginScreen: received token:", token);
+      if(token)
+        await authLogin(token);
     } catch {
+      console.log("LoginScreen: login failed");
       alert("Usuário ou senha inválidos");
     }
   }

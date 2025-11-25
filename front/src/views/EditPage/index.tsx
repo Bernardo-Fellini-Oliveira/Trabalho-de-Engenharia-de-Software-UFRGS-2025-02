@@ -122,10 +122,11 @@ function EditPage() {
 
 
     useEffect(() => { fetchAux(); }, []);
-    useEffect(() => { if(auxCargos.length > 0) fetchData(); }, [activeTab, auxPessoas, auxOrgaos, auxCargos]);
+    useEffect(() => { fetchData(); }, [activeTab, auxPessoas, auxOrgaos, auxCargos]);
 
     console.log("Data:", data);
     const filteredData = data.filter(item => {
+        console.log("Filtering item:", item);
         if (!filtroBusca) return true;
         const term = filtroBusca.toLowerCase();
         
@@ -205,8 +206,6 @@ function EditPage() {
             data_inicio_sub: '',
             data_fim_sub: '',
             definitiva: false,
-            //pessoa_substituta: substituto?.pessoa || '',
-           // cargo_substituto: substituto?.cargo || '',
             orgao: row.orgao || ''
         });
         setShowModal(true);

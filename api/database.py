@@ -20,7 +20,7 @@ print(DATABASE_URL)
 
 
 # Cria o engine global (sem abrir conexão ainda)
-engine = create_engine(DATABASE_URL, echo=True)
+engine = create_engine(DATABASE_URL, echo=False)
 
 
 def get_session():
@@ -34,10 +34,10 @@ def init_db():
         # Verifica se já existe alguma tabela no schema público
     with engine.begin() as conn:
 
-     #   conn.execute(text("""
-     #                     DROP SCHEMA public CASCADE;
-     #                     CREATE SCHEMA public;
-     #                     """))
+    #    conn.execute(text("""
+    #                      DROP SCHEMA public CASCADE;
+    #                      CREATE SCHEMA public;
+    #                      """))
         
         tables_count = conn.scalar(text("""
             SELECT COUNT(*) 

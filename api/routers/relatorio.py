@@ -231,9 +231,6 @@ def export_pdf(req: ExportRequest, session: Session = Depends(get_session)):
         session=session
     )
 
-    print(f"Gerando PDF com {len(dados)} itens.")
-    print(dados)
-
     buffer = BytesIO()
     doc = SimpleDocTemplate(buffer, pagesize=A4)
     styles = getSampleStyleSheet()

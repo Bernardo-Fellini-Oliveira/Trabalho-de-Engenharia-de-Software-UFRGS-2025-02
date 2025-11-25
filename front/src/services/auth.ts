@@ -14,6 +14,8 @@ export async function loginRequest(username: string, password: string) {
     headers: { "Content-Type": "application/x-www-form-urlencoded" },
   });
 
+  console.log("loginRequest: received response:", resp.data);
+
   return resp.data.access_token as string;
 }
 

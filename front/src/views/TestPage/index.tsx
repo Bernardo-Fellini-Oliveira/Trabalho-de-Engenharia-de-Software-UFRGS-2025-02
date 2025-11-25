@@ -89,7 +89,6 @@ function InputPage() {
                 const validos = listaPessoas.filter(p => p.nome.trim() !== "");
                 if (validos.length === 0) throw new Error("Preencha os nomes.");
                 
-                // O backend de Pessoa não expôs rota /lote/, então fazemos um loop de requests
                 const requests = validos.map(p => api.post('/pessoa/', { 
                     nome: p.nome,
                     ativo: true 

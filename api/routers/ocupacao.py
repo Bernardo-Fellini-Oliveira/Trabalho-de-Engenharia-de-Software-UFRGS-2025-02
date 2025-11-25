@@ -157,7 +157,6 @@ def core_adicionar_ocupacao(
                 session.refresh(solicitacao)
             except Exception as e:
                 session.rollback()
-                print(f"Erro ao salvar notificação: {e}")
                 raise HTTPException(status_code=500, detail=f"Erro interno ao criar notificação: {str(e)}")
 
             raise HTTPException(
@@ -328,11 +327,6 @@ def reajustar_mandatos_com_remocao(session: Session, ocupacao_removida: Ocupacao
     previous_ocupation = _get_prev_occupacao(session, ocupacao_removida.id_cargo, ocupacao_removida.data_inicio or date.min, ocupacao_removida.id_ocupacao)
     next_ocupation = _get_next_occupacao(session, ocupacao_removida.id_cargo, ocupacao_removida.data_inicio or date.min, ocupacao_removida.id_ocupacao)
 
-    print("================================")
-    print("Previous:", previous_ocupation)
-    print("Next:", next_ocupation)
-    print("================================")
-
     # Identifica o PONTO DE MUDANÇA: Se a ocupação anterior e a próxima são da mesma pessoa.
     if previous_ocupation and next_ocupation and previous_ocupation.id_pessoa == next_ocupation.id_pessoa:
         
@@ -380,7 +374,6 @@ def core_remover_ocupacao(
          # Isso é um erro de integridade do BD, mas é bom checar
         raise HTTPException(500, "Cargo associado não encontrado.") 
 
-    print("TESTEE DE REMOÇÃO DA OCUPAÇÃO:", ocupacao_removida)
     # -----------------------------------------------------------------
     # 2. REMOÇÃO EM CASCATA DA CADEIA DE SUBSTITUIÇÃO (NOVO!)
     # -----------------------------------------------------------------
@@ -392,10 +385,8 @@ def core_remover_ocupacao(
         
         # 2a. Coleta todas as ocupações na cadeia abaixo (substitutos diretos e subsequentes)
         # Esta é a função CRÍTICA: deve retornar as IDs das Ocupações que dependem dela.
-        print("Coletando cadeia abaixo da ocupação:", ocupacao_removida)
         ids_ocupacoes_cadeia_abaixo = _get_chain_below_ocupacoes(session, ocupacao_removida)
 
-        print("IDs de ocupações na cadeia abaixo para remoção:", ids_ocupacoes_cadeia_abaixo)
         # 2b. Deleta as ocupações da cadeia abaixo (do final para o início, por segurança)
         for oid in ids_ocupacoes_cadeia_abaixo:
             ocupacao_a_deletar = session.get(Ocupacao, oid)
@@ -453,7 +444,6 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
         session.commit()
         session.refresh(nova_ocupacao)
 
-        print("Nova Ocupação Criada:", nova_ocupacao)
         return {
             "status": "success",
             "message": "Ocupação adicionada com sucesso",
@@ -598,7 +588,6 @@ def alterar_ocupacao(
             # Coleta a cadeia de substitutos que dependem desta ocupação
             # NOTA: Usamos a ocupação antiga (occupacao_antiga) como base para a checagem
             ids_ocupacoes_cadeia_abaixo = _get_chain_below_ocupacoes(session, ocupacao_antiga)
-            print("IDs de ocupações na cadeia abaixo:", ids_ocupacoes_cadeia_abaixo)
             if ids_ocupacoes_cadeia_abaixo:
                 # CONFLITO: Devolve a lista de IDs para o front-end resolver
                 raise HTTPException(

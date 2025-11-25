@@ -182,7 +182,6 @@ async def get_current_active_user(current_user: User = Depends(get_current_user)
     if not current_user.ativo:
         raise HTTPException(status_code=400, detail="Inactive user")
     
-    print(f"Usuário autenticado: {current_user.username}, Role: {current_user.role}")
     return current_user
 
 
@@ -242,8 +241,6 @@ async def refresh_access_token(
 
 @router.get("/users/me/", response_model=UserOut)
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
-    print("=========================")
-    print(f"Usuário atual: {current_user.username}, Role: {current_user.role}")
     return current_user
 
 @router.post("/register/", response_model=UserTable)

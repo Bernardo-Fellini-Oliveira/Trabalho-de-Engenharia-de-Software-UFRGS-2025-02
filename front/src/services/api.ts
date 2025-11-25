@@ -26,20 +26,26 @@ api.interceptors.response.use(
   async error => {
     const original = error.config;
 
-    // Se access expirou, tenta refresh
+    // Ignora 401 no login ou no refresh
+    if (original.url?.includes("/auth/token") || original.url?.includes("/auth/refresh")) {
+      return Promise.reject(error);
+    }
+
+    // Se for 401 em rota protegida e ainda não tentou, tenta o refresh
     if (error?.response?.status === 401 && !original._retry) {
       original._retry = true;
+
       try {
         const refresh = await api.post("/auth/refresh");
         const newToken = refresh.data.access_token;
 
         localStorage.setItem("token", newToken);
 
-        // atualiza o header da request original
         original.headers.Authorization = `Bearer ${newToken}`;
         return api(original);
+
       } catch {
-        // Refresh falhou → logout
+        // Se deu tudo errado, faz logout
         localStorage.removeItem("token");
         window.location.href = "/login";
       }

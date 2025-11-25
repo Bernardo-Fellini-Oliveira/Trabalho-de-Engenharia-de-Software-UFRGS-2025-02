@@ -123,12 +123,9 @@ def obter_chave_ordenacao(sort_by_order_str: str) -> Tuple[Callable[[Dict[str, A
 
 def aplicar_filtros(query, busca, ativo, mandato, tipo):
     filtro = parse_filtro(busca, tipo) if busca else None
-    print("Filtro parseado:", filtro)
     where_clause = traduzir_parsing_result(filtro) if filtro else None
 
-    print("Where clause traduzida:", where_clause)
     if where_clause is not None:
-        print("Aplicando where clause...")
         query = query.where(where_clause)
 
     if ativo == "ativos":
@@ -184,14 +181,11 @@ def core_busca_generica(
         results = session.exec(query).all()
 
         # 3. PRÉ-PROCESSAMENTO DA ORDENAÇÃO
-        print(f"Sort by recebido: '{sort_by}'")
         if sort_by:
-            print("Obtendo chave de ordenação...")
             sort_key, reverse_order = obter_chave_ordenacao(sort_by)
         else:
             sort_key, reverse_order = None, False
 
-        print(f"Sort key: {sort_key}, Reverse: {reverse_order}")
 
         agrupado = defaultdict(list)
         resultados_agrupados = []
@@ -243,7 +237,6 @@ def core_busca_generica(
         # 4. ORDENAÇÃO EM MEMÓRIA
 
         if sort_key is None:
-            print("Nenhuma ordenação aplicada.")
             return resultados_agrupados
         
         
@@ -252,9 +245,7 @@ def core_busca_generica(
             return resultados_agrupados
         
         if tipo == "flat":
-            print("Ordenando flat...")
             resultados_agrupados = sorted(resultados_agrupados, key= lambda x: safe_key(x[sort_key]), reverse=reverse_order)
-            print("Ordenação flat concluída.")
             return resultados_agrupados
         
         # Vamos ordenar em cada grupo
