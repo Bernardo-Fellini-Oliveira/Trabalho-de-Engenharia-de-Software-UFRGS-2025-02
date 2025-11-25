@@ -129,7 +129,8 @@ def register_user(db: Session, user_data: User):
         username=user_data.username,
         email=user_data.email,
         hashed_password=hashed_password,
-        ativo=True 
+        ativo=True,
+        role=user_data.role
     )
 
     # 4. Salvar no Banco de Dados (PostgreSQL)

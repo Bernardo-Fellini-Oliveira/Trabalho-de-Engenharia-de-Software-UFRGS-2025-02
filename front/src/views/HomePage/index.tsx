@@ -75,7 +75,7 @@ function HomePage() {
     };
 
     const {isAuthenticated, user} = useAuth(); 
-
+    console.log("HomePage: isAuthenticated =", isAuthenticated, "user =", user);
     return (
         <div className="home-page-wrapper">
             <h1 className="home-title">Gestão de Mandatos e Órgãos</h1>
@@ -93,10 +93,12 @@ function HomePage() {
                                     <div className="card-text">Consultar Dados</div>
                 </div>
 
+            { !isAuthenticated &&
                 <div className="menu-card" onClick={() => handleNavigation("/login")}>
                     <div className="card-icon"><IconLogin /></div>
                     <div className="card-text">Login</div>
                 </div>
+            }
             { isAuthenticated && user && 
                 <>
                 <div className="menu-card" onClick={() => handleNavigation("/insert")}>
@@ -111,24 +113,28 @@ function HomePage() {
                     <div className="card-text">Editar Dados</div>
                 </div>
         
-                <div className="menu-card" onClick={() => handleNavigation("/tickets")}>
-                    <div className="card-icon"><IconBell /></div>
-                    <div className="card-text">Notificações</div>
-                </div>
 
-                
-       
+
+            
                 <div className="menu-card" onClick={() => handleNavigation("/log")}>
                     <div className="card-icon"><IconHistory /></div>
                     <div className="card-text">Histórico de Modificações</div>
                 </div>
                 </>
             }
-            { isAuthenticated && user && user.role == 'superadmin' &&
+            { isAuthenticated && user && user.role == 'admin' &&
+
+                <>
                 <div className="menu-card" onClick={() => handleNavigation("/")}>
                     <div className="card-icon"><IconSignUp/></div>
                     <div className="card-text">Sign Up</div>
                 </div>
+
+                <div className="menu-card" onClick={() => handleNavigation("/tickets")}>
+                    <div className="card-icon"><IconBell /></div>
+                    <div className="card-text">Notificações</div>
+                </div>
+                </>
             }    
             </div>
             { isAuthenticated && user &&

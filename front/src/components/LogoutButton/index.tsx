@@ -7,7 +7,7 @@ export default function LogoutButton({logoutText}: {logoutText?: string}) {
 
   function handleLogout() {
     logout();
-    navigate("/login", { replace: true });
+    navigate("/", { replace: true });
   }
 
   return (
