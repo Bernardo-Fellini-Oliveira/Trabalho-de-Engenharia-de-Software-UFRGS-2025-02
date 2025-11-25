@@ -1,0 +1,563 @@
+import React, { useEffect, useState, useMemo, use } from 'react';
+import api from '../../services/api'; 
+import './SearchPage.css'; 
+import { useNavigate } from 'react-router';
+
+// === Ícones SVG Inline ===
+const IconPencil = () => (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
+        <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
+    </svg>
+);
+
+const IconSortUp = () => <span className="sort-icon">▲</span>;
+const IconSortDown = () => <span className="sort-icon">▼</span>;
+
+// === Tipos e Interfaces ===
+interface Ocupacao {
+    id_ocupacao: number;
+    cargo?: string;
+    orgao?: string;
+    pessoa?: string;
+    data_inicio: string;
+    data_fim?: string | null;
+    mandato: number;
+}
+
+interface Cargo {
+    id_cargo: number;
+    nome: string;
+    orgao: string;
+}
+
+// Estruturas agrupadas vindas do backend
+type PessoaAgrupada = { pessoa: string; cargos: Ocupacao[] };
+type CargoAgrupado = { cargo: string; orgao: string; ocupacoes: Ocupacao[] };
+type OrgaoAgrupado = { orgao: string; cargos: Ocupacao[] };
+
+type Modo = 'pessoa' | 'orgao' | 'cargo' | 'flat';
+type SortConfig = { key: string; direction: 'asc' | 'desc' } | null;
+
+function SearchPage() {
+
+    const navigate = useNavigate();
+    
+    // === Estados ===
+    const [loading, setLoading] = useState(true);
+    const [dados, setDados] = useState<any[]>([]);
+    const [cargosList, setCargosList] = useState<Cargo[]>([]);
+
+    // Filtros
+    const [modo, setModo] = useState<Modo>("pessoa");
+    const [filtroBusca, setFiltroBusca] = useState<string>("");
+    const [filtroBuscaComplexa, setFiltroBuscaComplexa] = useState<string>("");
+    const [filtroAtivo, setFiltroAtivo] = useState<"todos" | "ativos" | "inativos">("todos");
+    const [filtroVigencia, setFiltroVigencia] = useState<"todos" | "vigente" | "encerrado" | "futuro">("todos");
+    const [filtroCargo, setFiltroCargo] = useState<[string, string]>(["", ""]);
+
+    const [lastFetchParams, setLastFetchParams] = useState<{ modo: Modo; ativo: string; mandato: string; busca: string; vigencia: string }>({modo, ativo: filtroAtivo, mandato: filtroVigencia, busca: filtroBusca, vigencia: filtroVigencia});
+
+    // Configuração de Ordenação (Coluna e Direção)
+    const [sortConfig, setSortConfig] = useState<SortConfig>(null);
+
+    // === Busca de Dados (Backend) ===
+    const fetchData = async () => {
+        setLoading(true);
+        try {
+            const res = await api.get(`/busca?ativo=${filtroAtivo}&mandato=${filtroVigencia}&tipo=${modo}&busca=${filtroBuscaComplexa}`);
+            setDados(res.data);
+            setLastFetchParams({modo, ativo: filtroAtivo, mandato: filtroVigencia, busca: filtroBuscaComplexa, vigencia: filtroVigencia});
+            setSortConfig(null); // Reseta ordenação ao buscar novos dados
+        } catch (err) {
+            console.error(err);
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    useEffect(() => {
+        const fetchCargos = async () => {
+            try {
+                const res = await api.get('/cargo/');
+                setCargosList(res.data);
+            } catch (err) { console.error(err); }
+        };
+        fetchCargos();
+    }, []);
+
+    useEffect(() => {
+        fetchData();
+    }, [modo]); // Recarrega se mudar o tipo de visualização
+
+    // === Lógica Local: Ordenação e Filtragem ===
+    
+    // Função acionada ao clicar no cabeçalho da tabela
+    const requestSort = (key: string) => {
+        let direction: 'asc' | 'desc' = 'asc';
+        if (sortConfig && sortConfig.key === key && sortConfig.direction === 'asc') {
+            direction = 'desc';
+        }
+        setSortConfig({ key, direction });
+    };
+
+    // Processa os dados brutos (Filtro Texto Local + Ordenação Local)
+    const processedData = useMemo(() => {
+        let dataToSort = [...dados];
+
+        // 1. Filtro de Texto (Local)
+        if (filtroBusca) {
+            const lowerBusca = filtroBusca.toLowerCase();
+            dataToSort = dataToSort.filter(item => {
+                // Procura no campo principal do agrupamento
+                if (modo === 'pessoa') return (item as PessoaAgrupada).pessoa.toLowerCase().includes(lowerBusca);
+                if (modo === 'orgao') return (item as OrgaoAgrupado).orgao.toLowerCase().includes(lowerBusca);
+                if (modo === 'cargo') return (item as CargoAgrupado).cargo.toLowerCase().includes(lowerBusca);
+                if (modo === 'flat') {
+                    const i = item as Ocupacao;
+                    return (i.pessoa?.toLowerCase().includes(lowerBusca) || 
+                            i.cargo?.toLowerCase().includes(lowerBusca) || 
+                            i.orgao?.toLowerCase().includes(lowerBusca));
+                }
+                return true;
+            });
+        }
+
+        // 2. Ordenação Avançada (Grupos e Sub-itens)
+        if (sortConfig !== null) {
+            const { key, direction } = sortConfig;
+            const multiplier = direction === 'asc' ? 1 : -1;
+
+            // Função auxiliar de comparação
+            const compare = (a: any, b: any) => {
+                const valA = a[key] ?? ''; 
+                const valB = b[key] ?? '';
+                if (valA < valB) return -1 * multiplier;
+                if (valA > valB) return 1 * multiplier;
+                return 0;
+            };
+
+            if (modo === 'flat') {
+                // Ordenação simples
+                dataToSort.sort(compare);
+            } else {
+                // Modos Agrupados:
+                // Se a chave clicada for a chave do Grupo (ex: clicou em 'Pessoa'), ordena os grupos.
+                // Se clicou em outra coluna (ex: 'Início'), ordena os itens DENTRO de cada grupo.
+                
+                const groupKey = modo; // 'pessoa', 'orgao', 'cargo'
+                
+                if (key === groupKey) {
+                    // Ordena os Grupos Principais
+                    dataToSort.sort(compare);
+                } else {
+                    // Ordena os itens DENTRO de cada grupo
+                    dataToSort = dataToSort.map(group => {
+                        let innerKey = 'cargos'; 
+                        if (modo === 'cargo') innerKey = 'ocupacoes';
+                        
+                        if (group[innerKey] && Array.isArray(group[innerKey])) {
+                            // Cria uma cópia do array interno e ordena
+                            const sortedInner = [...group[innerKey]].sort(compare);
+                            return { ...group, [innerKey]: sortedInner };
+                        }
+                        return group;
+                    });
+                }
+            }
+        }
+        return dataToSort;
+    }, [dados, sortConfig, filtroBusca, modo]);
+
+
+    // === Ações dos Botões ===
+
+    const handleGoToEdit = () => {
+        // Placeholder: aqui você usaria navigate('/editar')
+        navigate('/edit');
+    };
+
+    const handleExportCSV = async () => {
+
+        if(sortConfig)
+            console.log(`${sortConfig.key},${sortConfig.direction}`);
+
+          const response = await api.post('relatorio/export/csv', 
+            {
+            tipo: lastFetchParams.modo,
+            ativo: lastFetchParams.ativo,
+            mandato: lastFetchParams.mandato,
+            busca: lastFetchParams.busca,
+            sort_by: sortConfig ? `${sortConfig.key},${sortConfig.direction}` : ""
+        }, {
+            responseType: 'blob',
+            headers: { 'Content-Type': 'application/json' }
+        }
+    );
+
+    try {
+
+    // 2. Tratar Erros HTTP
+        if (response.status !== 200) {
+            // Em caso de erro, o Axios/navegador pode tentar ler a resposta como JSON se for o caso
+            // Se for 4xx/5xx, o corpo pode ser um JSON de erro
+            console.error("Erro ao gerar CSV:", response.data);
+            alert("Falha ao gerar o relatório CSV. Código de status: " + response.status);
+            return;
+        }
+
+        // 3. Obter o Nome do Arquivo
+        const contentDisposition = response.headers['content-disposition'];
+        let filename = 'relatorio.csv'; // Nome padrão
+        
+        if (contentDisposition) {
+            // Regex para extrair o nome do arquivo do header Content-Disposition
+            const filenameMatch = contentDisposition.match(/filename=["']?([^"']+)["']?/i);
+            if (filenameMatch && filenameMatch[1]) {
+                filename = filenameMatch[1];
+            }
+        }
+
+        // 4. Criar um Link de Download e Disparar o Download
+        // response.data já é o Blob (devido ao responseType: 'blob')
+        const blob = response.data;
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        
+        document.body.appendChild(a);
+        a.click();
+        
+        // 5. Limpeza
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        console.log(`Download do relatório CSV (${filename}) iniciado.`);
+
+     
+    
+    }catch (error) {
+        // Erros de rede ou erros não HTTP (e.g., Axios timeout)
+        console.error("Erro no download:", error);
+        alert("Ocorreu um erro de rede ao tentar baixar o CSV.");
+    }
+
+    };
+
+    const handleExportPDF = async () => {
+        const response = await api.post('relatorio/export/pdf', 
+            {
+            tipo: lastFetchParams.modo,
+            ativo: lastFetchParams.ativo,
+            mandato: lastFetchParams.mandato,
+            busca: lastFetchParams.busca,
+            sort_by: sortConfig ? `${sortConfig.key},${sortConfig.direction}` : ""
+        }, {
+            responseType: 'blob',
+            headers: { 'Content-Type': 'application/json' }
+        }
+    );
+
+    try {
+
+    // 2. Tratar Erros HTTP
+        if (response.status !== 200) {
+            // Em caso de erro, o Axios/navegador pode tentar ler a resposta como JSON se for o caso
+            // Se for 4xx/5xx, o corpo pode ser um JSON de erro
+            console.error("Erro ao gerar PDF:", response.data);
+            alert("Falha ao gerar o relatório PDF. Código de status: " + response.status);
+            return;
+        }
+
+        // 3. Obter o Nome do Arquivo
+        const contentDisposition = response.headers['content-disposition'];
+        let filename = 'relatorio.pdf'; // Nome padrão
+        
+        if (contentDisposition) {
+            // Regex para extrair o nome do arquivo do header Content-Disposition
+            const filenameMatch = contentDisposition.match(/filename=["']?([^"']+)["']?/i);
+            if (filenameMatch && filenameMatch[1]) {
+                filename = filenameMatch[1];
+            }
+        }
+
+        // 4. Criar um Link de Download e Disparar o Download
+        // response.data já é o Blob (devido ao responseType: 'blob')
+        const blob = response.data;
+        
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url;
+        a.download = filename;
+        
+        document.body.appendChild(a);
+        a.click();
+        
+        // 5. Limpeza
+        window.URL.revokeObjectURL(url);
+        document.body.removeChild(a);
+
+        console.log(`Download do relatório PDF (${filename}) iniciado.`);
+
+     
+    
+    }catch (error) {
+        // Erros de rede ou erros não HTTP (e.g., Axios timeout)
+        console.error("Erro no download:", error);
+        alert("Ocorreu um erro de rede ao tentar baixar o PDF.");
+    }
+
+    };
+
+    // === Helper para renderizar TH com ícone de sort ===
+    const renderHeader = (label: string, sortKey: string) => (
+        <th onClick={() => requestSort(sortKey)} title="Clique para ordenar">
+            {label}
+            {sortConfig?.key === sortKey ? (sortConfig.direction === 'asc' ? <IconSortUp/> : <IconSortDown/>) : null}
+        </th>
+    );
+
+    // === Renderização ===
+    return (
+        <div className="search-page-wrapper">
+            <div className="search-container">
+                <h1 className="search-title">Consulta de Dados</h1>
+                <p className='search-description'>Consulta de dados</p>
+
+                {/* CARD DE FILTROS */}
+                <div className="filter-card">
+                    <div className="filter-row">
+                        
+                        {/* Busca Textual */}
+                        <div className="filter-group" style={{flex: 2}}>
+                            <label>Busca Textual</label>
+                            <input 
+                                className="filter-input"
+                                type="text" 
+                                placeholder="Nome, Cargo ou Órgão..." 
+                                value={filtroBusca} 
+                                onChange={(e) => setFiltroBusca(e.target.value)}
+                            />
+                        </div>
+
+                        {/* Modo de Visualização */}
+                        <div className="filter-group">
+                            <label>Agrupar por</label>
+                            <select className="filter-select" value={modo} onChange={(e) => setModo(e.target.value as Modo)}>
+                                <option value="pessoa">Pessoa</option>
+                                <option value="orgao">Órgão</option>
+                                <option value="cargo">Cargo</option>
+                                <option value="flat">Sem Agrupamento (Lista)</option>
+                            </select>
+                        </div>
+
+                        {/* Filtro Atividade */}
+                        <div className="filter-group">
+                            <label>Status</label>
+                            <select className="filter-select" onChange={(e) => setFiltroAtivo(e.target.value as any)}>
+                                <option value="todos">Todos</option>
+                                <option value="ativos">Ativos</option>
+                                <option value="inativos">Inativos</option>
+                            </select>
+                        </div>
+
+                        {/* Filtro Vigencia */}
+                        <div className="filter-group">
+                            <label>Vigência</label>
+                            <select className="filter-select" onChange={(e) => setFiltroVigencia(e.target.value as any)}>
+                                <option value="todos">Todos</option>
+                                <option value="vigente">Vigente</option>
+                                <option value="encerrado">Encerrado</option>
+                                <option value="futuro">Futuro</option>
+                            </select>
+                        </div>
+
+
+
+                        {/* Botões de Ação do Filtro */}
+                        <div className="button-group">
+                            <button className="btn btn-primary" onClick={() => fetchData()}>
+                                Filtrar
+                            </button>
+                            <button className="btn btn-secondary" onClick={() => {
+                                setFiltroBusca("");
+                                setFiltroAtivo("todos");
+                                fetchData();
+                            }}>
+                                Limpar
+                            </button>
+                        </div>
+                    </div>
+
+                    <div className="filter-row" style={{marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
+                        <div className="filter-group">
+                            <label>Pesquisa Complexa</label>
+                            <input 
+                                className="filter-input"
+                                type="text" 
+                                placeholder={"Ex: pessoa = \"João\" AND (cargo = \"Diretor\" OR orgao = \"INT\")..."}
+                                value={filtroBuscaComplexa} 
+                                onChange={(e) => setFiltroBuscaComplexa(e.target.value)}
+                            />
+                        </div>
+                    
+                    </div>
+
+                    {/* Filtro Extra Condicional (Cargo) */}
+                    {modo === 'pessoa' && (
+                        <div className="filter-row" style={{marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
+                            <div className="filter-group">
+                                <label>Elegível para Cargo Específico:</label>
+                                <select
+                                    className="filter-select"
+                                    value={filtroCargo.join("||")}
+                                    onChange={(e) => setFiltroCargo(e.target.value.split("||") as [string, string])}
+                                >
+                                    <option value={["", ""]}>Selecione um cargo...</option>
+                                    {cargosList.map((c) => (
+                                        <option key={c.id_cargo} value={`${c.nome}||${c.orgao}`}>
+                                            {c.nome} - {c.orgao}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                            <button 
+                                className="btn btn-outline3"
+                                disabled={!filtroCargo[0]}
+                                onClick={() => alert("Adicionar lógica de filtro complexo aqui...")}
+                                style={{alignSelf: 'flex-end'}}
+                            >
+                                + Adicionar Regra
+                            </button>
+                        </div>
+                    )}
+                </div>
+
+                {/* BARRA DE AÇÕES (Relatórios e Edição) */}
+                <div className="actions-bar">
+                    <button className="btn btn-warning-outline" onClick={handleGoToEdit}>
+                        <IconPencil /> Editar Dados
+                    </button>
+                    <button className="btn btn-outline1" onClick={handleExportCSV}>📄 Emitir CSV</button>
+                    <button className="btn btn-outline2" onClick={handleExportPDF}>🖨️ Emitir PDF</button>
+                </div>
+
+                {/* TABELA DE RESULTADOS */}
+                <div className="table-container">
+                    {loading ? (
+                        <div style={{padding: '30px', textAlign: 'center', color: '#6c757d'}}>Carregando dados...</div>
+                    ) : !processedData.length ? (
+                        <div style={{padding: '30px', textAlign: 'center', color: '#6c757d'}}>Nenhum dado encontrado.</div>
+                    ) : (
+                        <table className="data-table">
+                            <thead>
+                                {/* HEADERS DINÂMICOS BASEADOS NO MODO */}
+                                {modo === 'flat' && (
+                                    <tr>
+                                        {renderHeader("Pessoa", "pessoa")}
+                                        {renderHeader("Cargo", "cargo")}
+                                        {renderHeader("Órgão", "orgao")}
+                                        {renderHeader("Início", "data_inicio")}
+                                        {renderHeader("Fim", "data_fim")}
+                                        {renderHeader("Mandato", "mandato")}
+                                    </tr>
+                                )}
+                                {modo === 'pessoa' && (
+                                    <tr>
+                                        {renderHeader("Pessoa (Grupo)", "pessoa")}
+                                        {renderHeader("Cargo", "cargo")}
+                                        {renderHeader("Órgão", "orgao")}
+                                        {renderHeader("Início", "data_inicio")}
+                                        {renderHeader("Fim", "data_fim")}
+                                        {renderHeader("Mandato", "mandato")}
+                                    </tr>
+                                )}
+                                {modo === 'orgao' && (
+                                    <tr>
+                                        {renderHeader("Órgão (Grupo)", "orgao")}
+                                        {renderHeader("Cargo", "cargo")}
+                                        {renderHeader("Pessoa", "pessoa")}
+                                        {renderHeader("Início", "data_inicio")}
+                                        {renderHeader("Fim", "data_fim")}
+                                        {renderHeader("Mandato", "mandato")}
+                                    </tr>
+                                )}
+                                {modo === 'cargo' && (
+                                    <tr>
+                                        {renderHeader("Cargo (Grupo)", "cargo")}
+                                        {renderHeader("Órgão", "orgao")}
+                                        {renderHeader("Pessoa", "pessoa")}
+                                        {renderHeader("Início", "data_inicio")}
+                                        {renderHeader("Fim", "data_fim")}
+                                        {renderHeader("Mandato", "mandato")}
+                                    </tr>
+                                )}
+                            </thead>
+                            <tbody>
+                                {/* --- MODO FLAT (LISTA SIMPLES) --- */}
+                                {modo === 'flat' && (processedData as Ocupacao[]).map((row, i) => (
+                                    <tr key={i}>
+                                        <td>{row.pessoa}</td>
+                                        <td>{row.cargo}</td>
+                                        <td>{row.orgao}</td>
+                                        <td>{row.data_inicio}</td>
+                                        <td>{row.data_fim || '-'}</td>
+                                        <td>{row.mandato}</td>
+                                    </tr>
+                                ))}
+
+                                {/* --- MODO AGRUPADO POR PESSOA --- */}
+                                {modo === 'pessoa' && (processedData as PessoaAgrupada[]).map((group, i) => (
+                                    group.cargos?.map((subItem, j) => (
+                                        <tr key={`${i}-${j}`}>
+                                            <td style={{fontWeight: '600'}}>{group.pessoa}</td>
+                                            <td>{subItem.cargo}</td>
+                                            <td>{subItem.orgao}</td>
+                                            <td>{subItem.data_inicio}</td>
+                                            <td>{subItem.data_fim || '-'}</td>
+                                            <td>{subItem.mandato}</td>
+                                        </tr>
+                                    ))
+                                ))}
+
+                                {/* --- MODO AGRUPADO POR ORGÃO --- */}
+                                {modo === 'orgao' && (processedData as OrgaoAgrupado[]).map((group, i) => (
+                                    group.cargos?.map((subItem, j) => (
+                                        <tr key={`${i}-${j}`}>
+                                            <td style={{fontWeight: '600'}}>{group.orgao}</td>
+                                            <td>{subItem.cargo}</td>
+                                            <td>{subItem.pessoa}</td>
+                                            <td>{subItem.data_inicio}</td>
+                                            <td>{subItem.data_fim || '-'}</td>
+                                            <td>{subItem.mandato}</td>
+                                        </tr>
+                                    ))
+                                ))}
+
+                                {/* --- MODO AGRUPADO POR CARGO --- */}
+                                {modo === 'cargo' && (processedData as CargoAgrupado[]).map((group, i) => (
+                                    group.ocupacoes?.map((subItem, j) => (
+                                        <tr key={`${i}-${j}`}>
+                                            <td style={{fontWeight: '600'}}>{group.cargo}</td>
+                                            <td>{group.orgao}</td>
+                                            <td>{subItem.pessoa}</td>
+                                            <td>{subItem.data_inicio}</td>
+                                            <td>{subItem.data_fim || '-'}</td>
+                                            <td>{subItem.mandato}</td>
+                                        </tr>
+                                    ))
+                                ))}
+                            </tbody>
+                        </table>
+                    )}
+                </div>
+            </div>
+        </div>
+    );
+}
+
+export default SearchPage;
