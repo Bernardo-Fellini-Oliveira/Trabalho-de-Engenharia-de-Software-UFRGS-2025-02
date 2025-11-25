@@ -3,5 +3,12 @@ uvicorn
 psycopg2-binary
 python-dotenv
 pydantic
+pydantic[email]
 sqlmodel
 sqlalchemy
+python-multipart[standard]
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt==4.0.1
+lark
+reportlab

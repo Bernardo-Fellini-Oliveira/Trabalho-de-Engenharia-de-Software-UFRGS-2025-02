@@ -1,0 +1,231 @@
+/* --- WRAPPER: .edit-page-wrapper --- */
+
+/* Reutiliza estilos base do SearchPage para consistência */
+.edit-page-wrapper .search-container {
+    padding: 20px 40px;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: #f8f9fa;
+    min-height: 100vh;
+}
+
+.edit-page-wrapper .search-title {
+    font-family: 'Gilroy', 'Montserrat', sans-serif;
+    font-weight: 800;
+    font-size: 32px;
+    color: #9A0000;
+    text-align: center;
+    display: block;
+    width: fit-content;
+    margin: 20px auto;
+}
+
+.edit-page-wrapper .search-title::after {
+    content: "";
+    display: block;
+    height: 4px;
+    background-color: #D0D0D0;
+    border-radius: 2px;
+    width: 80%;
+    margin: 8px auto 0 auto;
+}
+
+.edit-page-wrapper .search-description
+{
+    font-family: Arial, sans-serif;
+    font-weight: bold;
+    /* Centralização */
+    text-align: center;
+    position: relative;
+    
+    /* O Segredo para centralizar mantendo o tamanho do texto */
+    display: block; 
+    width: fit-content; 
+    margin: 20px auto; /* auto nas laterais centraliza o bloco */
+}
+
+
+/* --- CARD DE FILTROS --- */
+.edit-page-wrapper .filter-card {
+    background-color: #ffffff;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    padding: 20px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+    margin-bottom: 20px;
+}
+
+.edit-page-wrapper .filter-row {
+    display: flex;
+    gap: 20px;
+    align-items: flex-end;
+    flex-wrap: wrap;
+}
+
+.edit-page-wrapper .filter-group {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    flex: 1;
+    min-width: 200px;
+}
+
+.edit-page-wrapper .filter-group label {
+    font-size: 14px;
+    color: black;
+    font-weight: 500;
+}
+
+/* Estilo dos inputs de filtro e de edição */
+.edit-page-wrapper .filter-input, 
+.edit-page-wrapper .filter-select, 
+.edit-page-wrapper .edit-input {
+    padding: 8px 12px;
+    border: 1px solid #ccc;                  
+    border-radius: 20px;           /* bordas arredondadas */
+    font-size: 14px;
+    width: 90%;
+    box-shadow: none;              /* remove sombras padrão */
+    outline: none;                 /* remove contorno azul ao clicar */
+    color: black;                   /* cor do texto */
+    padding: 5px 10px;            /* espaço interno */
+}
+
+/* --- BOTÕES --- */
+.edit-page-wrapper .button-group {
+    display: flex;
+    gap: 10px;
+}
+
+.edit-page-wrapper .btn {
+    padding: 8px 16px;
+    border: 2px solid #39BC2D;     /* mesma cor da borda */
+    border-radius: 10px;
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px; /* Espaço entre ícone e texto */
+    transition: all 0.3s ease;
+    color: white;
+    font-weight: bold;
+}
+
+.edit-page-wrapper .btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+}
+
+.edit-page-wrapper .btn-primary { background-color: #0d6efd; color: white; }
+.edit-page-wrapper .btn-primary:hover { background-color: #0b5ed7; }
+
+.edit-page-wrapper .btn-secondary { background-color: #6c757d; color: white; }
+.edit-page-wrapper .btn-secondary:hover { background-color: #5c636a; }
+
+.edit-page-wrapper .btn-danger 
+{
+    background-color: #9A0000;
+    border: 2px solid #9A0000;     /* mesma cor da borda */
+    color: white;
+}
+.edit-page-wrapper .btn-danger:hover 
+{
+    background-color: transparent; /* fundo transparente */
+    color: #9A0000;                /* texto azul */
+}
+
+/* --- TABELA --- */
+.edit-page-wrapper .table-container {
+    background-color: white;
+    border: 1px solid #dee2e6;
+    border-radius: 6px;
+    overflow-x: auto;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+}
+
+.edit-page-wrapper .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 14px;
+    color: #212529;
+}
+
+.edit-page-wrapper .data-table thead th {
+    background-color: #9A0000;
+    color: #ffffff;
+    font-weight: 700;
+    text-align: left;
+    padding: 12px 15px;
+    border-bottom: 1px solid #995E5E;
+    white-space: nowrap;
+}
+
+.edit-page-wrapper .data-table tbody td {
+    padding: 10px 15px;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: middle;
+}
+
+.edit-page-wrapper .data-table tbody tr:hover {
+    background-color: #f1f3f5;
+}
+
+/* Ações na Tabela */
+.edit-page-wrapper .action-cell {
+    display: flex;
+    gap: 5px;
+}
+
+.edit-page-wrapper .icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 5px;
+    border-radius: 4px;
+    transition: background 0.2s;
+}
+
+.edit-page-wrapper .icon-btn.edit { color: #ffc107; }
+.edit-page-wrapper .icon-btn.save { color: #28a745; }
+.edit-page-wrapper .icon-btn.cancel { color: #dc3545; }
+.edit-page-wrapper .icon-btn.finish { color: #0dcaf0; }
+
+.edit-page-wrapper .icon-btn:hover { background-color: rgba(0,0,0,0.1); }
+
+/* --- MODAL --- */
+/* Nota: Certifique-se que o modal está dentro do wrapper no HTML */
+.edit-page-wrapper .modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background-color: rgba(0,0,0,0.5);
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+}
+
+.edit-page-wrapper .modal-content {
+    background-color: white;
+    padding: 25px;
+    border-radius: 8px;
+    width: 500px;
+    max-width: 90%;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.2);
+}
+
+.edit-page-wrapper .modal-header {
+    font-size: 18px;
+    font-weight: bold;
+    margin-bottom: 15px;
+    border-bottom: 1px solid #dee2e6;
+    padding-bottom: 10px;
+}
+
+.edit-page-wrapper .modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 20px;
+}

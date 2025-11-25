@@ -18,8 +18,10 @@ UPGRADE_PATH = Path(__file__).parent / "upgrade.sql"
 
 print(DATABASE_URL)
 
+
 # Cria o engine global (sem abrir conexão ainda)
 engine = create_engine(DATABASE_URL, echo=False)
+
 
 def get_session():
     """Retorna uma sessão SQLModel (para ser usada no Depends do FastAPI)."""
@@ -28,12 +30,15 @@ def get_session():
 
 
 def init_db():
-    print("Apagando todas as tabelas...")
-
-
-    with engine.begin() as conn:
+    
         # Verifica se já existe alguma tabela no schema público
+    with engine.begin() as conn:
 
+    #    conn.execute(text("""
+    #                      DROP SCHEMA public CASCADE;
+    #                      CREATE SCHEMA public;
+    #                      """))
+        
         tables_count = conn.scalar(text("""
             SELECT COUNT(*) 
             FROM information_schema.tables 
@@ -46,7 +51,8 @@ def init_db():
             with open(SCHEMA_PATH, "r", encoding="utf-8") as f:
                 conn.execute(text(f.read()))
             conn.commit()
-            print("Banco inicializado com sucesso!")
+            print("Banco inicializado com sucesso!")        
+
         else:
             print("Banco já inicializado. Nenhuma ação necessária.")
 

@@ -1,10 +1,13 @@
 import importlib
 import pkgutil
+
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
 from contextlib import asynccontextmanager
 from database import init_db
 import routers  # importa o pacote raiz
-from fastapi.middleware.cors import CORSMiddleware
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -44,6 +47,9 @@ for _, module_name, _ in pkgutil.walk_packages(routers.__path__, routers.__name_
     if hasattr(module, "router"):
         app.include_router(module.router)
 
+
 @app.get("/api")
 def root():
     return {"message": "API funcionando!"}
+
+
