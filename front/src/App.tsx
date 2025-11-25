@@ -5,7 +5,7 @@ import EditPage from "./views/EditPage";
 import TicketsPage from "./views/TicketsPage";
 import LogPage from "./views/LogPage";
 import HomePage from "./views/HomePage";
-
+import EligibilityPage from "./views/EligibilityPage";
 
 function App() {
 
@@ -14,6 +14,7 @@ function App() {
       <BrowserRouter>
         <Routes>
           <Route path="/" element={<HomePage />} />
+          <Route path="/check" element={<EligibilityPage />} />
           <Route path="/insert" element={<TestPage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/edit" element={<EditPage />} />

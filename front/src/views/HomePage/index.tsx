@@ -62,7 +62,7 @@ function HomePage() {
 
             <div className="menu-grid">
                 
-                <div className="menu-card" onClick={() => handleNavigation("/elegivel")}>
+                <div className="menu-card" onClick={() => handleNavigation("/check")}>
                     <div className="card-icon"><IconCheck /></div>
                     <div className="card-text">Verificar Elegibilidade</div>
                 </div>
