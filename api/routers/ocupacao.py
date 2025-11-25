@@ -13,6 +13,12 @@ from models.orgao import Orgao
 from models.pessoa import Pessoa
 from database import get_session
 
+class FinalizarOcupacaoRequest(SQLModel):
+    definitiva: bool
+    data_fim: date
+    data_inicio_substitutos: Optional[date] = None
+    data_fim_substitutos: Optional[date] = None
+    
 router = APIRouter(prefix="/api/ocupacao", tags=["Ocupação"])
 
 
@@ -230,76 +236,6 @@ def core_adicionar_ocupacoes_lote(
             })
     return resultados
 
-
-# Criar ocupação
-@router.post("/")
-def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_session)):
-    try:
-        nova_ocupacao = core_adicionar_ocupacao(ocupacao, session)
-        
-        # Adicionar Log
-        cargo = session.get(Cargo, ocupacao.id_cargo)
-        pessoa = session.get(Pessoa, ocupacao.id_pessoa)
-        orgao = session.get(Orgao, cargo.id_orgao)
-        
-        add_to_log(
-            session=session,
-            tipo_operacao=TipoOperacao.ASSOCIACAO,
-            entidade_alvo=EntidadeAlvo.OCUPACAO,
-            operation=f"[ADD] Adicionada ocupação de {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
-        )
-        
-        session.commit()
-        session.refresh(nova_ocupacao)
-
-        print("Nova Ocupação Criada:", nova_ocupacao)
-        return {
-            "status": "success",
-            "message": "Ocupação adicionada com sucesso",
-            "id_ocupacao": nova_ocupacao.id_ocupacao
-        }
-    
-    except IntegrityError as e:
-        session.rollback()
-        # checa se foi violação de unicidade
-        error_code = getattr(e.orig, "pgcode", None)
-
-        if error_code == '23505':  # código de erro para violação de unicidade no PostgreSQL
-            raise HTTPException(
-                status_code=409,
-                detail="Já existe Ocupação com esses dados."
-            )
-        # outros erros de integridade
-        raise HTTPException(400, f"Erro de integridade: {e}")
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        session.rollback()
-        raise HTTPException(
-            status_code=500,
-            detail=f"Erro ao adicionar Ocupação. Verifique se os IDs de Pessoa, Cargo e Portaria existem: {e}"
-        )
-    
-@router.post("/lote/")
-def adicionar_ocupacoes_lote(ocupacoes: List[Ocupacao], session: Session = Depends(get_session)):
-    try:
-        resultados = core_adicionar_ocupacoes_lote(ocupacoes, session)
-        session.commit()
-        return {"results": resultados}
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Ocupações em lote: {e}")
-
-
-# Listar ocupações
-@router.get("/", response_model=List[Ocupacao])
-def carregar_ocupacao(session: Session = Depends(get_session)):
-    try:
-        return session.exec(select(Ocupacao)).all()
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Erro ao carregar Ocupações: {e}")
-
-
 def _get_chain_below_ocupacoes(session: Session, ocupacao_base: Ocupacao) -> Set[int]:
     """
     Retorna o conjunto (set) de IDs de Ocupações que estão na cadeia de substituição
@@ -469,6 +405,77 @@ def core_remover_ocupacao(
 
 
 
+# Criar ocupação
+@router.post("/")
+def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_session)):
+    try:
+        nova_ocupacao = core_adicionar_ocupacao(ocupacao, session)
+        
+        # Adicionar Log
+        cargo = session.get(Cargo, ocupacao.id_cargo)
+        pessoa = session.get(Pessoa, ocupacao.id_pessoa)
+        orgao = session.get(Orgao, cargo.id_orgao)
+        
+        add_to_log(
+            session=session,
+            tipo_operacao=TipoOperacao.ASSOCIACAO,
+            entidade_alvo=EntidadeAlvo.OCUPACAO,
+            operation=f"[ADD] Adicionada ocupação de {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
+        )
+        
+        session.commit()
+        session.refresh(nova_ocupacao)
+
+        print("Nova Ocupação Criada:", nova_ocupacao)
+        return {
+            "status": "success",
+            "message": "Ocupação adicionada com sucesso",
+            "id_ocupacao": nova_ocupacao.id_ocupacao
+        }
+    
+    except IntegrityError as e:
+        session.rollback()
+        # checa se foi violação de unicidade
+        error_code = getattr(e.orig, "pgcode", None)
+
+        if error_code == '23505':  # código de erro para violação de unicidade no PostgreSQL
+            raise HTTPException(
+                status_code=409,
+                detail="Já existe Ocupação com esses dados."
+            )
+        # outros erros de integridade
+        raise HTTPException(400, f"Erro de integridade: {e}")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        session.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao adicionar Ocupação. Verifique se os IDs de Pessoa, Cargo e Portaria existem: {e}"
+        )
+    
+@router.post("/lote/")
+def adicionar_ocupacoes_lote(ocupacoes: List[Ocupacao], session: Session = Depends(get_session)):
+    try:
+        resultados = core_adicionar_ocupacoes_lote(ocupacoes, session)
+        session.commit()
+        return {"results": resultados}
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao adicionar Ocupações em lote: {e}")
+
+
+# Listar ocupações
+@router.get("/", response_model=List[Ocupacao])
+def carregar_ocupacao(session: Session = Depends(get_session)):
+    try:
+        return session.exec(select(Ocupacao)).all()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao carregar Ocupações: {e}")
+
+
+
+
 # Remover ocupação
 @router.delete("/delete/{id_ocupacao}")
 def remover_ocupacao(id_ocupacao: int = Path(..., description="ID da Ocupação a ser removida"),
@@ -634,12 +641,7 @@ def alterar_ocupacao(
         raise HTTPException(status_code=500, detail=f"Erro ao alterar Ocupação: {e}")
 
 
-class FinalizarOcupacaoRequest(SQLModel):
-    definitiva: bool
-    data_fim: date
-    data_inicio_substitutos: Optional[date] = None
-    data_fim_substitutos: Optional[date] = None
-    
+
 
 @router.put("/finalizar/{id_ocupacao}")
 def finalizar_ocupacao(
