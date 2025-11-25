@@ -3,7 +3,7 @@ from fastapi import APIRouter, Depends, HTTPException, Path
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import SQLModel, Session, nulls_first, or_, select, and_
 from typing import List, Optional, Set
-from api.models.pessoa import Pessoa
+from models.pessoa import Pessoa
 from models.cargo import Cargo 
 from models.ocupacao import Ocupacao
 from database import get_session
