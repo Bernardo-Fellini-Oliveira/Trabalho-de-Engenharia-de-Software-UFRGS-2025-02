@@ -14,6 +14,10 @@ export default function PrivateRoute({ children, roles }: PrivateRouteProps) {
     return <div style={{width: "100%", height: "100%", display: "flex", alignItems: "center", justifyContent: "center"}}>Carregando...</div>;
   }
 
+  // Se não está autenticado, redireciona para a página de login
+  if (!isAuthenticated)
+    return <Navigate to="/login" replace />;
+
   // Se está autenticado mas não tem a role necessária, dá um alerta e redireciona para a home
   if (roles && !hasAnyRole(roles)){
     return <AccessDeniedRedirect />;
@@ -30,8 +34,6 @@ export default function PrivateRoute({ children, roles }: PrivateRouteProps) {
       }
     }, [notified]);
 
-    console.log("Redirecionando usuário sem permissão para a página inicial.");
-    console.log("Current path:", window.location.pathname);
     if (window.location.pathname !== "/")
       return <Navigate to="/" replace />;
     return null;
