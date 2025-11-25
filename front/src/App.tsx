@@ -27,7 +27,7 @@ function App() {
           <Route path="/check" element={<EligibilityPage />} />
 
           {/* PROTEGIDAS POR AUTENTICAÇÃO - NÍVEL ADMIN */}
-          <Route path="/" element={<PrivateRoute><HomePage /></PrivateRoute>} />
+          <Route path="/" element={<HomePage />} />
           <Route path="/insert" element={<PrivateRoute><TestPage /></PrivateRoute>} />
           <Route path="/edit" element={<PrivateRoute><EditPage /></PrivateRoute>} />
           <Route path="/log" element={<PrivateRoute><LogPage /></PrivateRoute>} />

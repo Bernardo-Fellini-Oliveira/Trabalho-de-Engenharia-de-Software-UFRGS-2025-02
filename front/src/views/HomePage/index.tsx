@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { use } from 'react';
 import './HomePage.css';
 import { useNavigate } from 'react-router';
 import LogoutButton from '../../components/LogoutButton';
+import { useAuth } from '../../context/auth_context';
 
 // === Ícones SVG Inline para ilustrar os botões ===
 const IconCheck = () => (
@@ -64,6 +65,8 @@ function HomePage() {
         navigate(pageName);
     };
 
+    const {isAuthenticated, user} = useAuth(); 
+
     return (
         <div className="home-page-wrapper">
             <h1 className="home-title">Gestão de Mandatos e Órgãos</h1>
@@ -76,39 +79,46 @@ function HomePage() {
                     <div className="card-text">Verificar Elegibilidade</div>
                 </div>
 
-                <div className="menu-card" onClick={() => handleNavigation("/insert")}>
-                    <div className="card-icon"><IconPlus /></div>
-                    <div className="card-text">Inserir Dados</div>
-                </div>
-
                 <div className="menu-card" onClick={() => handleNavigation("/search")}>
-                    <div className="card-icon"><IconSearch /></div>
-                    <div className="card-text">Consultar Dados</div>
-                </div>
-
-                <div className="menu-card" onClick={() => handleNavigation("/edit")}>
-                    <div className="card-icon"><IconEdit /></div>
-                    <div className="card-text">Editar Dados</div>
-                </div>
-
-                <div className="menu-card" onClick={() => handleNavigation("/tickets")}>
-                    <div className="card-icon"><IconBell /></div>
-                    <div className="card-text">Notificações</div>
+                                    <div className="card-icon"><IconSearch /></div>
+                                    <div className="card-text">Consultar Dados</div>
                 </div>
 
                 <div className="menu-card" onClick={() => handleNavigation("/login")}>
                     <div className="card-icon"><IconLogin /></div>
                     <div className="card-text">Login</div>
                 </div>
+            { isAuthenticated && user && 
+                <>
+                <div className="menu-card" onClick={() => handleNavigation("/insert")}>
+                    <div className="card-icon"><IconPlus /></div>
+                    <div className="card-text">Inserir Dados</div>
+                </div>
+        
+                
+       
+                <div className="menu-card" onClick={() => handleNavigation("/edit")}>
+                    <div className="card-icon"><IconEdit /></div>
+                    <div className="card-text">Editar Dados</div>
+                </div>
+        
+                <div className="menu-card" onClick={() => handleNavigation("/tickets")}>
+                    <div className="card-icon"><IconBell /></div>
+                    <div className="card-text">Notificações</div>
+                </div>
 
+                
+       
                 <div className="menu-card" onClick={() => handleNavigation("/log")}>
                     <div className="card-icon"><IconHistory /></div>
                     <div className="card-text">Histórico de Modificações</div>
                 </div>
-
+                </>
+            }
             </div>
-
+            { user && 
             <LogoutButton logoutText="Sair" />
+            }
         </div>
     );
 }
