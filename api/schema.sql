@@ -8,6 +8,7 @@ DROP SEQUENCE IF EXISTS Portaria_id_portaria_seq CASCADE;
 DROP SEQUENCE IF EXISTS Ocupacao_id_ocupacao_seq CASCADE;
 DROP SEQUENCE IF EXISTS Usuario_id_user_seq CASCADE;
 
+
 CREATE TABLE IF NOT EXISTS Pessoa (
     id_pessoa SERIAL PRIMARY KEY, 
     nome TEXT NOT NULL,
@@ -71,9 +72,33 @@ CREATE TABLE IF NOT EXISTS Usuario (
     email VARCHAR(100),
     hashed_password VARCHAR(255) NOT NULL,
     ativo BOOLEAN DEFAULT true,
+    role VARCHAR(20) NOT NULL,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
+
+CREATE TABLE IF NOT EXISTS Historico (
+    id SERIAL PRIMARY KEY,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    tipo_operacao TEXT NOT NULL,
+    entidade_alvo TEXT NOT NULL,
+    operation TEXT NOT NULL
+);
+
+CREATE TABLE IF NOT EXISTS Notificacoes (
+    id SERIAL PRIMARY KEY,
+    data_solicitacao TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    operation TEXT NOT NULL,
+    dados_payload JSON NOT NULL,
+    tipo_operacao TEXT NOT NULL,
+    entidade_alvo TEXT NOT NULL,
+    status_aprovacao TEXT NOT NULL DEFAULT 'Pendente',
+    data_aprovacao TIMESTAMP,
+    aprovador_id INTEGER,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
 
 CREATE OR REPLACE FUNCTION atualizar_timestamp()
 RETURNS TRIGGER AS $$
@@ -125,3 +150,16 @@ FOR EACH ROW
 EXECUTE FUNCTION atualizar_timestamp();
 
 -----------------------
+
+CREATE TRIGGER update_historico_timestamp
+BEFORE UPDATE ON Historico
+FOR EACH ROW
+EXECUTE FUNCTION atualizar_timestamp();
+
+-----------------------
+
+CREATE TRIGGER update_notificacoes_timestamp
+BEFORE UPDATE ON Notificacoes
+FOR EACH ROW
+EXECUTE FUNCTION atualizar_timestamp();
+

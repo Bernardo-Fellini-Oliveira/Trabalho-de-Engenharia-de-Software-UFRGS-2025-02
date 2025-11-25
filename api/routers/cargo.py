@@ -2,15 +2,15 @@ from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy import update
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import SQLModel, Session, delete, select
-from typing import List
-from models.ocupacao import Ocupacao
-from models.orgao import Orgao
-from models.cargo import Cargo 
-from models.pessoa import Pessoa
-from database import get_session
-
-from typing import Optional
+from typing import List, Optional
 from datetime import datetime
+
+from utils.history_log import add_to_log
+from models.cargo import Cargo
+from models.orgao import Orgao
+from models.ocupacao import Ocupacao
+from utils.enums import TipoOperacao, EntidadeAlvo
+from database import get_session
 
 
 router = APIRouter(prefix="/api/cargo", tags=["Cargo"])
@@ -48,9 +48,7 @@ def core_adicionar_cargo(
     # ------------------------------------------
     if novo.substituto_para is None:
         session.add(novo)
-        session.commit()
-        session.refresh(novo)
-        session.expunge(novo)  # evita flush/lazy load no retorno
+        session.flush() # Flush para gerar ID e validar constraints, commit é feito fora
         return novo
     
     else:
@@ -123,6 +121,14 @@ def core_adicionar_cargos_lote(
     for cargo in cargos:
         try:
             novo = core_adicionar_cargo(cargo, session)
+            # Log individual para lote é opcional, mas recomendado se o volume não for gigante
+            orgao = session.get(Orgao, novo.id_orgao)
+            add_to_log(
+                session=session,
+                tipo_operacao=TipoOperacao.ADICAO,
+                entidade_alvo=EntidadeAlvo.CARGO,
+                operation=f"[ADD] O cargo {novo.nome}, do órgão {orgao.nome}, foi adicionado(a)",
+            )
             resultados.append({"status": "success", "cargo": novo})
         except HTTPException as he:
             resultados.append({"status": "error", "detail": he.detail})
@@ -133,7 +139,18 @@ def adicionar_cargo(cargo: CargoCreate, session: Session = Depends(get_session))
 
     try:
         novo = core_adicionar_cargo(cargo, session)
+        
+        # Adicionar Log
+        orgao = session.get(Orgao, novo.id_orgao)
+        add_to_log(
+            session=session,
+            tipo_operacao=TipoOperacao.ADICAO,
+            entidade_alvo=EntidadeAlvo.CARGO,
+            operation=f"[ADD] O cargo {novo.nome}, do órgão {orgao.nome}, foi adicionado(a)",
+        ) 
+        
         session.commit()
+        session.refresh(novo)
         return CargoRead.model_validate(novo)
 
     except IntegrityError as e:
@@ -252,7 +269,15 @@ def remover_cargo(
         # marca todos como inativos
         for c in afetados:
             if c.ativo:
+                orgao = session.get(Orgao, c.id_orgao)
                 c.ativo = False
+                # Log para cada inativação
+                add_to_log(
+                    session=session,
+                    tipo_operacao=TipoOperacao.REMOCAO,
+                    entidade_alvo=EntidadeAlvo.CARGO,
+                    operation=f"[DELETE/SOFT] O cargo {c.nome}, do órgão {orgao.nome}, foi inativado(a)"
+                )
 
         # ajustar ponteiro do 'acima' para não apontar para cargo removido
         if acima:
@@ -293,7 +318,16 @@ def remover_cargo(
         # agora remover os cargos (do final para o início por segurança)
         # remover em ordem reversa evita FK problems (mas aqui substituto/substituto_para referenciam na mesma tabela)
         for c in reversed(afetados):
+            orgao = session.get(Orgao, c.id_orgao)
             session.delete(c)
+            
+            # Log para cada deleção
+            add_to_log(
+                session=session,
+                tipo_operacao=TipoOperacao.REMOCAO,
+                entidade_alvo=EntidadeAlvo.CARGO,
+                operation=f"[DELETE/HARD] O cargo {c.nome}, do órgão {orgao.nome}, foi deletado(a)"
+            )
             session.flush()
 
         return {"status": "success", "message": "Hard delete realizado na cadeia.", "ids": ids_afetados}
@@ -368,13 +402,31 @@ def reativar_cargo(
         if cargo_acima.ativo == False:
             cargo_acima.ativo = True
             afetados.append(cargo_acima.id_cargo)
+            
+            # Log para reativação recursiva
+            orgao_acima = session.get(Orgao, cargo_acima.id_orgao)
+            add_to_log(
+                session=session,
+                tipo_operacao=TipoOperacao.ALTERACAO, # Usando ALTERACAO pois REACTIVATE não estava no enum original
+                entidade_alvo=EntidadeAlvo.CARGO,
+                operation=f"[REACTIVATE] O cargo {cargo_acima.nome}, do órgão {orgao_acima.nome}, foi reativado(a)"
+            )
+            
             id_acima = cargo_acima.substituto_para
         else: 
             break
 
 
     cargo.ativo = True
-    return {"status": "success", "message": "Cargo reativado com sucesso.", "ids": afetados}
+    orgao = session.get(Orgao, cargo.id_orgao)
+    add_to_log(
+        session=session,
+        tipo_operacao=TipoOperacao.ALTERACAO, 
+        entidade_alvo=EntidadeAlvo.CARGO,
+        operation=f"[REACTIVATE] O cargo {cargo.nome}, do órgão {orgao.nome}, foi reativado(a)"
+    )
+    
+    return {"status": "success", "message": "Cargo reativado com sucesso.", "ids": afetados} 
  
 
 
@@ -468,6 +520,14 @@ def alterar_cargo(
         # A função core faz a validação de unicidade e aplica as alterações no objeto.
         cargo_atualizado = core_alterar_cargo(id_cargo, payload, session)
         
+        # Log de alteração
+        add_to_log(
+            session=session,
+            tipo_operacao=TipoOperacao.ALTERACAO,
+            entidade_alvo=EntidadeAlvo.CARGO,
+            operation=f"[UPDATE] O cargo {cargo_atualizado.nome} (ID: {id_cargo}) foi atualizado."
+        )
+
         # A transação finaliza aqui, persistindo o UPDATE no objeto 'cargo_atualizado'.
         session.commit()
         session.refresh(cargo_atualizado)

@@ -3,6 +3,8 @@ from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 from models.pessoa import Pessoa
 from database import get_session
+from utils.history_log import add_to_log
+from utils.enums import TipoOperacao, EntidadeAlvo
 
 router = APIRouter(prefix="/api/pessoa", tags=["Pessoa"])
 
@@ -22,6 +24,14 @@ def adicionar_pessoa(pessoa: Pessoa, session: Session = Depends(get_session)):
     
     pessoa.ativo = True  # força ativo=1 na criação
     session.add(pessoa)
+
+    # Adiciona entrada no log de histórico
+    add_to_log(
+        session=session,
+        tipo_operacao=TipoOperacao.ADICAO,
+        entidade_alvo=EntidadeAlvo.PESSOA,
+        operation=f"[ADD] A pessoa {pessoa.nome} foi adicionado(a)"
+    ) 
 
     return {
         "status": "success",
@@ -47,6 +57,7 @@ def adicionar_pessoa_endpoint(pessoa: Pessoa, session: Session = Depends(get_ses
         retorno = adicionar_pessoa(pessoa, session)
         session.commit()
         session.refresh(pessoa)
+
         return retorno
     
     except IntegrityError as e:
@@ -60,7 +71,6 @@ def adicionar_pessoa_endpoint(pessoa: Pessoa, session: Session = Depends(get_ses
             )
         # outros erros de integridade
         raise HTTPException(400, f"Erro de integridade: {e}")
-
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao adicionar Pessoa: {e}")
 
@@ -78,15 +88,28 @@ def remover_pessoa(
         if not pessoa.ativo:
             raise HTTPException(status_code=400, detail="Pessoa já está inativa.")
         pessoa.ativo = False
+        add_to_log(
+            session=session,
+            tipo_operacao=TipoOperacao.INATIVACAO,
+            entidade_alvo=EntidadeAlvo.PESSOA,
+            operation=f"[DELETE] A pessoa {pessoa.nome} foi inativado(a)"
+        )   
     else:
         try:
             session.delete(pessoa)
+            add_to_log(
+                session=session,
+                tipo_operacao=TipoOperacao.REMOCAO,
+                entidade_alvo=EntidadeAlvo.PESSOA,
+                operation=f"[DELETE] A pessoa {pessoa.nome} foi deletado(a)",
+            ) 
         except Exception as e:
             # caso haja vínculos (FK em Ocupação, por exemplo)
             raise HTTPException(
                 status_code=400,
                 detail=f"Não é possível remover esta pessoa pois há vínculos (Ocupações) ativos. {e}"
             )
+          
 
     return {
         "status": "success",
@@ -146,6 +169,12 @@ def reativar_pessoa(
         raise HTTPException(status_code=400, detail="Pessoa já está ativa.")
 
     pessoa.ativo = True
+    add_to_log(
+        session=session,
+        tipo_operacao=TipoOperacao.REATIVACAO,
+        entidade_alvo=EntidadeAlvo.PESSOA,
+        operation=f"[REACTIVATE] A pessoa {pessoa.nome} foi reativado(a)"
+    )
     return {
         "status": "success",
         "message": "Pessoa reativada com sucesso."

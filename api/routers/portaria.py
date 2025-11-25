@@ -2,16 +2,16 @@ from datetime import date
 from fastapi import APIRouter, HTTPException, Path, Query, Depends
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import Field, SQLModel, Session, select
+from utils.history_log import add_to_log
 from database import get_session  # função que deve retornar Session()
 from typing import Optional, List
 from models.portaria import Portaria
+from utils.enums import TipoOperacao, EntidadeAlvo
 
 router = APIRouter(
     prefix="/api/portaria",
     tags=["Portaria"]
 )
-
-
 
 @router.get("/", response_model=List[Portaria])
 def carregar_portarias(session: Session = Depends(get_session)):
@@ -28,8 +28,15 @@ def adicionar_portaria(portaria: Portaria, session: Session = Depends(get_sessio
     """Adiciona uma nova portaria ao banco de dados."""
     try:
         session.add(portaria)
+        add_to_log(
+            session=session,
+            tipo_operacao=TipoOperacao.ADICAO,
+            entidade_alvo=EntidadeAlvo.PORTARIA,
+            operation=f"[ADD] Adicionada portaria de número {portaria.numero}"
+        )
         session.commit()
         session.refresh(portaria)
+        
         return portaria
     
     except IntegrityError as e:
@@ -65,8 +72,20 @@ def remover_portaria(
                 raise HTTPException(status_code=404, detail=f"Portaria com ID {id_portaria} já está inativa.")
             portaria.ativo = False
             session.add(portaria)
+            add_to_log(
+                session=session,
+                tipo_operacao=TipoOperacao.INATIVACAO,
+                entidade_alvo=EntidadeAlvo.PORTARIA,
+                operation=f"[DELETE] Portaria de número {portaria.numero} foi inativada"
+            )
         else:
             session.delete(portaria)
+            add_to_log(
+                session=session,
+                tipo_operacao=TipoOperacao.REMOCAO,
+                entidade_alvo=EntidadeAlvo.PORTARIA,
+                operation=f"[DELETE] Portaria de número {portaria.numero} foi deletada"
+            )
 
         session.commit()
         return {"status": "success", "message": f"Portaria com ID {id_portaria} {'inativada' if soft else 'removida'} com sucesso."}
@@ -92,7 +111,14 @@ def reativar_portaria(
 
         portaria.ativo = True
         session.add(portaria)
+        add_to_log(
+            session=session,
+            tipo_operacao=TipoOperacao.REATIVACAO,
+            entidade_alvo=EntidadeAlvo.PORTARIA,
+            operation=f"[REACTIVATE] Portaria de número {portaria.numero} foi reativada"
+        )
         session.commit()
+        
         return {"status": "success", "message": f"Portaria com ID {id_portaria} reativada com sucesso."}
 
     except HTTPException:

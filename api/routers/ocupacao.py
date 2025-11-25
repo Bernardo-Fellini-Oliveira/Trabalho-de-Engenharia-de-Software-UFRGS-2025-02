@@ -1,11 +1,16 @@
 from datetime import date
-from fastapi import APIRouter, Depends, HTTPException, Path
+from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.exc import IntegrityError
 from sqlmodel import SQLModel, Session, nulls_first, or_, select, and_
 from typing import List, Optional, Set
-from models.pessoa import Pessoa
+
+from models.notificacoes import Notificacoes
+from utils.history_log import add_to_log
+from utils.enums import EntidadeAlvo, TipoOperacao
 from models.cargo import Cargo 
 from models.ocupacao import Ocupacao
+from models.orgao import Orgao
+from models.pessoa import Pessoa
 from database import get_session
 
 router = APIRouter(prefix="/api/ocupacao", tags=["Ocupação"])
@@ -42,11 +47,14 @@ def _get_next_occupacao(session: Session, id_cargo: int, data_inicio, id_ocupaca
     return session.exec(stmt).first()
 
 
-
 def core_adicionar_ocupacao(
     ocupacao: Ocupacao,
     session: Session
 ):
+        # Carregar objetos para logs e notificações
+        cargo = session.get(Cargo, ocupacao.id_cargo)
+        pessoa = session.get(Pessoa, ocupacao.id_pessoa)
+
         # === Regra 0: data_inicio não pode ser posterior a data_fim ===
         if ocupacao.data_inicio and ocupacao.data_fim:
             if ocupacao.data_inicio > ocupacao.data_fim:
@@ -56,7 +64,7 @@ def core_adicionar_ocupacao(
                 )
             
         # === Regra 1: impedir ocupação de cargo exclusivo com sobreposição ===
-        cargo = session.get(Cargo, ocupacao.id_cargo)
+        # cargo já carregado acima
         if cargo and cargo.exclusivo:
             data_inicio_nova = ocupacao.data_inicio or date.min
             data_fim_nova = ocupacao.data_fim or date(9999, 12, 31)
@@ -92,24 +100,52 @@ def core_adicionar_ocupacao(
         
         contador = num_mandatos_seguidos
         atual = next_ocupation
+        
+        # Simula a contagem futura
         while atual and atual.id_pessoa == ocupacao.id_pessoa:
-            atual.mandato = contador + 1
             contador += 1
-            session.flush()
             atual = _get_next_occupacao(session, atual.id_cargo, atual.data_inicio or date.min, atual.id_ocupacao)
 
-
         if contador > 2:
+            # Se ultrapassar 2 mandatos, cria notificação em vez de apenas bloquear
             session.rollback()
+            try:
+                dadospayload = ocupacao.model_dump(mode='json')
+                
+                solicitacao = Notificacoes(
+                    operation=f"As últimas duas ocupações do cargo {cargo.nome} já foram de {pessoa.nome}. Criada uma solicitação de aprovação para esta ocupação.",
+                    tipo_operacao=TipoOperacao.ASSOCIACAO,
+                    entidade_alvo=EntidadeAlvo.OCUPACAO,
+                    dados_payload=dadospayload   
+                )
+
+                session.add(solicitacao)
+                session.commit()
+                session.refresh(solicitacao)
+            except Exception as e:
+                session.rollback()
+                print(f"Erro ao salvar notificação: {e}")
+                raise HTTPException(status_code=500, detail=f"Erro interno ao criar notificação: {str(e)}")
+
             raise HTTPException(
-                400,
-                "Não é possível criar a ocupação: a pessoa já possui 2 mandatos seguidos neste cargo."
+                status_code=400,
+                detail="As últimas duas ocupações do cargo já foram dessa mesma pessoa. Criada uma solicitação de aprovação para esta ocupação."
             )
+        
+        # Se não ultrapassou, aplica a atualização dos mandatos seguintes
+        atual = next_ocupation
+        contador_update = num_mandatos_seguidos
+        while atual and atual.id_pessoa == ocupacao.id_pessoa:
+            atual.mandato = contador_update + 1
+            contador_update += 1
+            session.add(atual) # Garante update na sessão
+            # session.flush() # Removido flush excessivo, o commit final resolve
+            atual = _get_next_occupacao(session, atual.id_cargo, atual.data_inicio or date.min, atual.id_ocupacao)
         
         # Checa pela quebra de uma sequência de mandatos
         if previous_ocupation and next_ocupation and previous_ocupation.id_pessoa == next_ocupation.id_pessoa != ocupacao.id_pessoa:
             next_ocupation.mandato = next_ocupation.mandato - 1
-            session.flush()
+            session.add(next_ocupation) # Garante update
 
             
         nova_ocupacao = Ocupacao(
@@ -122,8 +158,7 @@ def core_adicionar_ocupacao(
             observacoes=ocupacao.observacoes,
         )
 
-        # Regra 3: Se o cargo é substituto de outro, deve existir uma ocupação com o cargo principal com período de início anterior ou igual ao 
-        # início da nova ocupação (ou nulo) e período de fim posterior ou igual ao início da nova ocupação (ou nulo)
+        # Regra 3: Se o cargo é substituto de outro, deve existir uma ocupação com o cargo principal
         if cargo and cargo.substituto_para is not None:
             
             if nova_ocupacao.data_inicio is None:
@@ -201,11 +236,23 @@ def core_adicionar_ocupacoes_lote(
 def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_session)):
     try:
         nova_ocupacao = core_adicionar_ocupacao(ocupacao, session)
+        
+        # Adicionar Log
+        cargo = session.get(Cargo, ocupacao.id_cargo)
+        pessoa = session.get(Pessoa, ocupacao.id_pessoa)
+        orgao = session.get(Orgao, cargo.id_orgao)
+        
+        add_to_log(
+            session=session,
+            tipo_operacao=TipoOperacao.ASSOCIACAO,
+            entidade_alvo=EntidadeAlvo.OCUPACAO,
+            operation=f"[ADD] Adicionada ocupação de {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
+        )
+        
         session.commit()
         session.refresh(nova_ocupacao)
 
-        print("Nova Ocupação Criada:")
-        print(nova_ocupacao)
+        print("Nova Ocupação Criada:", nova_ocupacao)
         return {
             "status": "success",
             "message": "Ocupação adicionada com sucesso",
@@ -248,12 +295,9 @@ def adicionar_ocupacoes_lote(ocupacoes: List[Ocupacao], session: Session = Depen
 @router.get("/", response_model=List[Ocupacao])
 def carregar_ocupacao(session: Session = Depends(get_session)):
     try:
-        # Puxa as ocupações e também o nome dos substitutos (se houver)
-        return session.exec(select(Ocupacao, Cargo.nome, Pessoa.nome )).all()
+        return session.exec(select(Ocupacao)).all()
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao carregar Ocupações: {e}")
-
-
 
 
 def _get_chain_below_ocupacoes(session: Session, ocupacao_base: Ocupacao) -> Set[int]:
@@ -262,7 +306,7 @@ def _get_chain_below_ocupacoes(session: Session, ocupacao_base: Ocupacao) -> Set
     abaixo da ocupação base. NÃO inclui a ocupação base.
     """
     ids_ocupacoes_substitutas = set()
-    print("sdkdsncvjskdcnjk")
+    
     # 1. Obter o cargo que a ocupação base está ocupando
     cargo_pai = session.get(Cargo, ocupacao_base.id_cargo)
 
@@ -270,7 +314,6 @@ def _get_chain_below_ocupacoes(session: Session, ocupacao_base: Ocupacao) -> Set
     cargo_atual_id = cargo_pai.substituto # Cargo que substitui o cargo pai
     
     # Define as datas de referência da ocupação superior
-    print(ocupacao_base)
     data_inicio_base = ocupacao_base.data_inicio or date.min
     data_fim_base = ocupacao_base.data_fim or date(9999, 12, 31)
 
@@ -432,9 +475,22 @@ def remover_ocupacao(id_ocupacao: int = Path(..., description="ID da Ocupação 
                      session: Session = Depends(get_session)):
     
     try:
-        resultado = core_remover_ocupacao(id_ocupacao, session)
+        # Busca dados para log antes de remover
+        ocupacao = session.get(Ocupacao, id_ocupacao)
+        if ocupacao:
+            pessoa = session.get(Pessoa, ocupacao.id_pessoa)
+            cargo = session.get(Cargo, ocupacao.id_cargo)
+            orgao = session.get(Orgao, cargo.id_orgao)
+            
+            # Log
+            add_to_log(
+                session=session,
+                tipo_operacao=TipoOperacao.REMOCAO,
+                entidade_alvo=EntidadeAlvo.OCUPACAO,
+                operation=f"[DELETE] Removida a ocupação de {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
+            )
 
-        print("Resultado da remoção:", resultado)
+        resultado = core_remover_ocupacao(id_ocupacao, session)
 
         session.commit()
         return resultado
@@ -455,7 +511,19 @@ def remover_ocupacoes(id_ocupacoes: List[int],
             raise HTTPException(status_code=404, detail="Nenhuma Ocupação encontrada para os IDs fornecidos.")
 
         for ocupacao in ocupacoes:
+            # Log
+            pessoa = session.get(Pessoa, ocupacao.id_pessoa)
+            cargo = session.get(Cargo, ocupacao.id_cargo)
+            orgao = session.get(Orgao, cargo.id_orgao)
+            add_to_log(
+                session=session,
+                tipo_operacao=TipoOperacao.REMOCAO,
+                entidade_alvo=EntidadeAlvo.OCUPACAO,
+                operation=f"[DELETE] Removida a ocupação de {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
+            )
+            
             core_remover_ocupacao(ocupacao.id_ocupacao, session)
+            
         session.commit()
 
         return {"status": "success", "message": f"{len(ocupacoes)} Ocupações removidas com sucesso."}
@@ -566,16 +634,11 @@ def alterar_ocupacao(
         raise HTTPException(status_code=500, detail=f"Erro ao alterar Ocupação: {e}")
 
 
-
-
-
 class FinalizarOcupacaoRequest(SQLModel):
     definitiva: bool
     data_fim: date
     data_inicio_substitutos: Optional[date] = None
     data_fim_substitutos: Optional[date] = None
-
-
     
 
 @router.put("/finalizar/{id_ocupacao}")
@@ -591,6 +654,10 @@ def finalizar_ocupacao(
     ocupacao = session.get(Ocupacao, id_ocupacao)
     if not ocupacao:
         raise HTTPException(404, "Ocupação não encontrada.")
+    
+    pessoa = session.get(Pessoa, ocupacao.id_pessoa)
+    cargo = session.get(Cargo, ocupacao.id_cargo)
+    orgao = session.get(Orgao, cargo.id_orgao)
 
     ocupacao.data_fim = payload.data_fim
     cargo_atual = session.get(Cargo, ocupacao.id_cargo)
@@ -661,6 +728,12 @@ def finalizar_ocupacao(
     # CASO 1 — FINALIZAÇÃO DEFINITIVA
     # ------------------------------------------
     if payload.definitiva:
+        add_to_log(
+            session=session,
+            tipo_operacao=TipoOperacao.FINALIZACAO,
+            entidade_alvo=EntidadeAlvo.OCUPACAO,
+            operation=f"[END] Finalizada ocupação de {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}."
+        )
         session.commit()
         return {
             "status": "success",
@@ -702,6 +775,13 @@ def finalizar_ocupacao(
 
         session.add(nova)
         novos_ids.append(nova.id_ocupacao)
+    
+    add_to_log(
+        session=session,
+        tipo_operacao=TipoOperacao.FINALIZACAO,
+        entidade_alvo=EntidadeAlvo.OCUPACAO,
+        operation=f"[END] Finalizada ocupação de {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}. Substitutos assumiram."
+    )
 
     session.commit()
 

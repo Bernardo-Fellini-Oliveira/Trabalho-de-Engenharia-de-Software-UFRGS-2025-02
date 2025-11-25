@@ -8,6 +8,7 @@ import os
 from sqlmodel import Session, select
 from models.user import UserTable, UserCreate as User # (Seu modelo de tabela, ex: UserTable)
 from database import get_session
+from models.role import UserRole
 
 
 router = APIRouter(
@@ -135,6 +136,16 @@ def register_user(db: Session, user_data: User):
     # automaticamente ignorando o 'hashed_password'.
     return db_user
 
+def role_required(required_role: str):
+    def role_decorator(user: UserTable = Depends(get_current_user)):
+        if user.role != required_role:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Operation not permitted"
+            )
+        return user
+    return role_decorator
+
 async def get_current_user(token: str = Depends(oauth_2_scheme), db: Session = Depends(get_session)):
     credential_exception = HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, 
                                          detail="Could not validate credentials", headers={"WWW-Authenticate": "Bearer"})
@@ -182,3 +193,7 @@ async def read_users_me(current_user: User = Depends(get_current_active_user)):
 async def register_new_user(user: User, db: Session = Depends(get_session)):
     db_user = register_user(db, user)
     return db_user
+
+@router.get("/only_admin", dependencies=[Depends(role_required(UserRole.ADMIN))])
+async def get_only_admin():
+    return True
