@@ -65,18 +65,29 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
         ).all()
 
         if len(ultimas) >= 2 and all(pid == ocupacao.id_pessoa for pid in ultimas) and cargo and cargo.exclusivo:
-            dadospayload = ocupacao.model_dump()
-            solicitacao = Notificacoes(
-                operation=f"As últimas duas ocupações do cargo {cargo.nome} já foram de {pessoa.nome}. Criada uma solicitação de aprovação para esta ocupação.",
-                tipo_operacao=TipoOperacao.ASSOCIACAO,
-                entidade_alvo=EntidadeAlvo.OCUPACAO,
-                dados_payload=dadospayload   
-            )
+            try:
+                # CORREÇÃO 1: mode='json' para converter datas em strings
+                dadospayload = ocupacao.model_dump(mode='json')
+                
+                solicitacao = Notificacoes(
+                    operation=f"As últimas duas ocupações do cargo {cargo.nome} já foram de {pessoa.nome}. Criada uma solicitação de aprovação para esta ocupação.",
+                    tipo_operacao=TipoOperacao.ASSOCIACAO,
+                    entidade_alvo=EntidadeAlvo.OCUPACAO,
+                    dados_payload=dadospayload   
+                )
 
-            session.add(solicitacao)
-            session.commit()
-            session.refresh(solicitacao)
+                session.add(solicitacao)
+                session.commit() # Tenta salvar no banco
+                session.refresh(solicitacao) # Confirma que salvou e pega o ID gerado
+                
+            except Exception as e:
+                # Se der erro aqui (ex: erro de JSON), faz rollback e avisa no log
+                session.rollback()
+                print(f"Erro ao salvar notificação: {e}")
+                # Opcional: Decidir se lança erro 500 ou continua o fluxo
+                raise HTTPException(status_code=500, detail=f"Erro interno ao criar notificação: {str(e)}")
 
+            # Se chegou aqui, a notificação foi salva. Agora lançamos o 400 para o front.
             raise HTTPException(
                 status_code=400,
                 detail="As últimas duas ocupações do cargo já foram dessa mesma pessoa. Criada uma solicitação de aprovação para esta ocupação."
