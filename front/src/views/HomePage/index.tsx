@@ -1,6 +1,7 @@
 import React from 'react';
 import './HomePage.css';
 import { useNavigate } from 'react-router';
+import LogoutButton from '../../components/LogoutButton';
 
 // === Ícones SVG Inline para ilustrar os botões ===
 const IconCheck = () => (
@@ -93,6 +94,8 @@ function HomePage() {
                 </div>
 
             </div>
+
+            <LogoutButton logoutText="Sair" />
         </div>
     );
 }

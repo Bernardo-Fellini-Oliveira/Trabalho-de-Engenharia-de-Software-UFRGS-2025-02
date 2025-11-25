@@ -6,21 +6,39 @@ import TicketsPage from "./views/TicketsPage";
 import LogPage from "./views/LogPage";
 import HomePage from "./views/HomePage";
 import EligibilityPage from "./views/EligibilityPage";
+import RegisterScreen from "./views/TeladeRegistro";
+import LoginScreen from "./views/TeladeLogin";
+import { AuthProvider } from "./context/auth_context";
+import PrivateRoute from "./components/PrivateRoute";
+
 
 function App() {
 
   return (
     <>
       <BrowserRouter>
+
+      <AuthProvider>
         <Routes>
-          <Route path="/" element={<HomePage />} />
-          <Route path="/check" element={<EligibilityPage />} />
-          <Route path="/insert" element={<TestPage />} />
+
+          {/* ROTAS PÚBLICAS */}
           <Route path="/search" element={<SearchPage />} />
-          <Route path="/edit" element={<EditPage />} />
-          <Route path="/tickets" element={<TicketsPage />} />
-          <Route path="/log" element={<LogPage />} />
+          <Route path="/login" element={<LoginScreen />} />
+          <Route path="/check" element={<EligibilityPage />} />
+
+          {/* PROTEGIDAS POR AUTENTICAÇÃO - NÍVEL ADMIN */}
+          <Route path="/" element={<PrivateRoute><HomePage /></PrivateRoute>} />
+          <Route path="/insert" element={<PrivateRoute><TestPage /></PrivateRoute>} />
+          <Route path="/edit" element={<PrivateRoute><EditPage /></PrivateRoute>} />
+          <Route path="/log" element={<PrivateRoute><LogPage /></PrivateRoute>} />
+
+          {/* PROTEGIDAS POR AUTENTICAÇÃO - NÍVEL SUPER ADMIN */}
+          <Route path="/tickets" element={<PrivateRoute roles={["admin"]}><TicketsPage /></PrivateRoute>} />
+
+
         </Routes>
+
+      </AuthProvider>
       </BrowserRouter>
 
     </>

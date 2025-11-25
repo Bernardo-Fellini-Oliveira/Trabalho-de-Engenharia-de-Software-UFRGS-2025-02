@@ -9,8 +9,6 @@ from database import init_db
 import routers  # importa o pacote raiz
 
 
-
-
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     # Executa antes de a aplicação iniciar

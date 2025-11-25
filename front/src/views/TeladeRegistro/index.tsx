@@ -1,12 +1,12 @@
 import React, { useState } from 'react';
-import './RegisterScreen.css'; // Importa os estilos específicos para esta tela
+import './TeladeRegistro.css'; // Importa os estilos específicos para esta tela
 
 const RegisterScreen = () => {
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmaSenha, setConfirmaSenha] = useState('');
 
-  const handleRegister = (e) => {
+  const handleRegister = (e: { preventDefault: () => void; }) => {
     e.preventDefault(); // Impede o recarregamento da página
 
     if (senha !== confirmaSenha) {

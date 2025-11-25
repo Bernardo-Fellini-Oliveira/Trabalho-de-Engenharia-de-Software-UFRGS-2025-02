@@ -3,7 +3,7 @@ from passlib.context import CryptContext
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from jose import JWTError, jwt
 from datetime import datetime, timedelta, timezone
-from fastapi import Depends, HTTPException, status, APIRouter
+from fastapi import Cookie, Depends, HTTPException, status, APIRouter
 import os
 from sqlmodel import Session, select
 from models.user import UserTable, UserCreate as User # (Seu modelo de tabela, ex: UserTable)
@@ -12,7 +12,7 @@ from models.role import UserRole
 
 
 router = APIRouter(
-    prefix="/auth",
+    prefix="/api/auth",
     tags=["auth"],
     responses={404: {"description": "router problem"}},
 )
@@ -23,9 +23,9 @@ router = APIRouter(
 SECRET_KEY = os.getenv("SECRET_KEY")
 ALGORITHM = os.getenv("ALGORITHM", "HS256")
 try:
-    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACESS_TOKEN_EXPIRE_MINUTES", "30"))
+    ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1"))
 except ValueError:
-    ACCESS_TOKEN_EXPIRE_MINUTES = 30
+    ACCESS_TOKEN_EXPIRE_MINUTES = 1 
  
 if not SECRET_KEY:
     raise RuntimeError("SECRET KEY não encontrada.")
@@ -39,10 +39,15 @@ class Token(BaseModel):
 class TokenData(BaseModel):
     username: str | None = None
 
+class UserOut(BaseModel):
+    username: str
+    role: UserRole
+
+    class Config:
+        orm_mode = True
+
+
 # Example of setting a proper hashed password
-
-
-
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth_2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token") 
 
@@ -95,6 +100,14 @@ def create_access_token(data: dict, expires_delta: timedelta | None = None):
     to_encode.update({"exp": int(expire.timestamp())})
     encoded_jwt = jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
     return encoded_jwt
+
+def create_refresh_token(data: dict):
+    expire = datetime.now(timezone.utc) + timedelta(days=7)
+    to_encode = data.copy()
+    to_encode.update({"exp": int(expire.timestamp())})
+    return jwt.encode(to_encode, SECRET_KEY, algorithm=ALGORITHM)
+
+
 
 def register_user(db: Session, user_data: User):
     existing_user = db.exec(
@@ -165,28 +178,71 @@ async def get_current_user(token: str = Depends(oauth_2_scheme), db: Session = D
     return user
 
 async def get_current_active_user(current_user: User = Depends(get_current_user)):
-    if current_user.ativo:
+    if not current_user.ativo:
         raise HTTPException(status_code=400, detail="Inactive user")
+    
+    print(f"Usuário autenticado: {current_user.username}, Role: {current_user.role}")
     return current_user
 
 
-@router.post("/token", response_model=Token)
-async def login_for_access_token(from_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_session)):
-    user = authenticate_user(db, from_data.username, from_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
-    )
-    return {"access_token": access_token, "token_type": "bearer"}
+from fastapi.responses import JSONResponse
 
-@router.get("/users/me/", response_model=User)
+@router.post("/token", response_model=Token)
+async def login_for_access_token(
+    form_data: OAuth2PasswordRequestForm = Depends(),
+    db: Session = Depends(get_session)
+):
+    user = authenticate_user(db, form_data.username, form_data.password)
+    if not user:
+        raise HTTPException(status_code=401, detail="Incorrect username or password")
+
+    access_token = create_access_token({"sub": user.username})
+    refresh_token = create_refresh_token({"sub": user.username})
+
+    response = JSONResponse(content={
+        "access_token": access_token,
+        "token_type": "bearer"
+    })
+
+    response.set_cookie(
+        key="refresh_token",
+        value=refresh_token,
+        httponly=True,
+        secure=True,
+        samesite="strict",
+        path="/api/auth/refresh"
+    )
+
+    return response
+
+
+@router.post("/refresh")
+async def refresh_access_token(
+    refresh_token: str | None = Cookie(default=None),
+    db: Session = Depends(get_session)
+):
+
+    if refresh_token is None:
+        raise HTTPException(status_code=401, detail="Refresh token missing")
+
+    try:
+        payload = jwt.decode(refresh_token, SECRET_KEY, algorithms=[ALGORITHM])
+        username = payload.get("sub")
+    except JWTError:
+        raise HTTPException(status_code=401, detail="Invalid refresh token")
+
+    user = get_user(db, username=username)
+    if not user:
+        raise HTTPException(status_code=401, detail="User not found")
+
+    new_access = create_access_token({"sub": username})
+
+    return {"access_token": new_access, "token_type": "bearer"}
+
+@router.get("/users/me/", response_model=UserOut)
 async def read_users_me(current_user: User = Depends(get_current_active_user)):
+    print("=========================")
+    print(f"Usuário atual: {current_user.username}, Role: {current_user.role}")
     return current_user
 
 @router.post("/register/", response_model=UserTable)
