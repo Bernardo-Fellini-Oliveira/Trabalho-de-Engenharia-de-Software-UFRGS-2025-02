@@ -1,98 +1,143 @@
-.page {
-min-height: 100vh;
-width: 100%;
-background: #c9c4c4;
-display: flex;
-flex-direction: column;
-align-items: center;
-padding: 40px;
-font-family: sans-serif;
+/* HistoricoAlteracoes.css */
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: #c9c5c5 !important; /* mesmo fundo do .hist-root */
+  height: 100%;
+}
+
+/* ===== APLICAR PADDING NAS BORDAS DO CONTEÚDO ===== */
+.hist-root {
+  padding: 20px 25px 90px;  /* bottom maior por causa da paginação fixa */
+  min-height: 100vh;
+  box-sizing: border-box;
+  font-family:Arial, sans-serif;
+}
+
+.hist-header{
+text-align:center;
+font-size:32px;
+font-weight:bold;
+position:relative;
+margin-bottom:20px;
 }
 
 
-.header-row {
-width: 100%;
-max-width: 1200px;
-display: flex;
-align-items: center;
-gap: 16px;
-margin-bottom: 20px;
+.back-btn{
+position:absolute;
+left:20px;
+top:0;
+width:45px;
+height:45px;
+border-radius:50%;
+background:white;
+border:2px solid #ddd;
+font-size:22px;
+cursor:pointer;
 }
 
 
-.back-button {
-width: 48px;
-height: 48px;
-border-radius: 50%;
-border: none;
-background: white;
-font-size: 22px;
-cursor: pointer;
-box-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+.filter-bar{
+background:#8b0000;
+padding:20px;
+border-radius:12px;
+color:white;
+display:flex;
+justify-content:space-evenly;
+align-items:center;
+flex-wrap:wrap;
+margin-bottom:20px;
 }
 
 
-.title {
-flex: 1;
-text-align: center;
-font-size: 42px;
-font-weight: bold;
+.filter-title{
+font-size:32px;
+font-weight:bold;
+margin-right:4px;
 }
 
 
-.filter-box {
-width: 100%;
-max-width: 1200px;
-background: #8a0000;
-color: white;
-padding: 28px;
-border-radius: 14px;
-box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+.filter-groups{
+display:flex;
+flex-wrap:wrap;
+gap:18px;
+font-size:18px;
 }
 
 
-.filter-title {
-text-align: center;
-font-size: 24px;
-font-weight: 600;
-margin-bottom: 18px;
+.search-area{
+display:flex;
+flex-direction:column;
+font-size:18px;
+gap:6px;
 }
 
 
-.filter-grid {
-display: grid;
-grid-template-columns: repeat(3, 1fr);
-gap: 12px 0;
-font-size: 18px;
+.search-area input{
+padding:8px;
+border-radius:8px;
+border:0;
+width:220px;
+font-size:18px;
 }
 
 
-.search-row {
-display: flex;
-justify-content: flex-end;
-margin-top: 20px;
+.rows-area{
+width:100%;
+display:flex;
+flex-direction:column;
+gap:10px;
 }
 
 
-.search-input {
-width: 300px;
-padding: 10px 14px;
-border-radius: 6px;
-border: 1px solid #ccc;
-font-size: 16px;
+.row{
+background:white;
+padding:12px;
+border-radius:10px;
+font-size:18px;
+display:flex;
+justify-content:center;
 }
 
-
-.log-list {
-width: 100%;
-max-width: 1200px;
-margin-top: 24px;
-display: flex;
-flex-direction: column;
-gap: 12px;
+/* ===== PAGINAÇÃO FIXA NO FUNDO ===== */
+.pagination {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  width: 100%;
+  background: #c9c5c5;       /* mesmo fundo da página */
+  padding: 12px 0;
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  box-shadow: 0 -3px 8px rgba(0,0,0,0.15);
+  z-index: 1000;
 }
 
+.page-btn {
+  background: white;
+  border: 1px solid #ccc;
+  padding: 8px 14px;
+  border-radius: 10px;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.2s;
+  min-width: 38px;
+}
 
-.log-item {
-width: 100%;
-background: white;
+.page-btn:hover {
+  background: #e7e7e7;
+}
+
+.page-btn.active {
+  background: #dcdcdc;
+  font-weight: bold;
+  cursor: default;
+  border-color: #aaa;
+}
+
+.page-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
