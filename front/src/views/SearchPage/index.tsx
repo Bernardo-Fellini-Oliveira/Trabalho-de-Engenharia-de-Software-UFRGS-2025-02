@@ -111,23 +111,50 @@ function SearchPage() {
     };
 
     // Processa os dados brutos (Filtro Texto Local + Ordenação Local)
-    const processedData = useMemo(() => {
+const processedData = useMemo(() => {
         let dataToSort = [...dados];
 
         // 1. Filtro de Texto (Local)
         if (filtroBusca) {
             const lowerBusca = filtroBusca.toLowerCase();
+            
             dataToSort = dataToSort.filter(item => {
-                // Procura no campo principal do agrupamento
-                if (modo === 'pessoa') return (item as PessoaAgrupada).pessoa.toLowerCase().includes(lowerBusca);
-                if (modo === 'orgao') return (item as OrgaoAgrupado).orgao.toLowerCase().includes(lowerBusca);
-                if (modo === 'cargo') return (item as CargoAgrupado).cargo.toLowerCase().includes(lowerBusca);
+                // Helper para verificar se ALGUM sub-item corresponde à busca
+                const checkSubItems = (lista: Ocupacao[]) => {
+                    if (!lista) return false;
+                    return lista.some(sub => 
+                        sub.cargo?.toLowerCase().includes(lowerBusca) ||
+                        sub.orgao?.toLowerCase().includes(lowerBusca) ||
+                        sub.pessoa?.toLowerCase().includes(lowerBusca) ||
+                        sub.observacoes?.toLowerCase().includes(lowerBusca) // Opcional: buscar na obs também
+                    );
+                };
+
+                // Lógica por Modo
+                if (modo === 'pessoa') {
+                    const i = item as PessoaAgrupada;
+                    // Retorna TRUE se: Nome da Pessoa der match OU algum dos cargos dela der match
+                    return i.pessoa.toLowerCase().includes(lowerBusca) || checkSubItems(i.cargos);
+                }
+                
+                if (modo === 'orgao') {
+                    const i = item as OrgaoAgrupado;
+                    // Retorna TRUE se: Nome do Órgão der match OU algum dos cargos lá dentro der match
+                    return i.orgao.toLowerCase().includes(lowerBusca) || checkSubItems(i.cargos);
+                }
+                
+                if (modo === 'cargo') {
+                    const i = item as CargoAgrupado;
+                    return i.cargo.toLowerCase().includes(lowerBusca) || checkSubItems(i.ocupacoes);
+                }
+                
                 if (modo === 'flat') {
                     const i = item as Ocupacao;
                     return (i.pessoa?.toLowerCase().includes(lowerBusca) || 
                             i.cargo?.toLowerCase().includes(lowerBusca) || 
                             i.orgao?.toLowerCase().includes(lowerBusca));
                 }
+                
                 return true;
             });
         }
@@ -330,6 +357,25 @@ function SearchPage() {
         </th>
     );
 
+    const handleAddRule = () => {
+        const [cargo, orgao] = filtroCargo;
+
+        if (!cargo) return;
+
+        const novaRegra = `ELECTABLE TO "${cargo}" FROM "${orgao}"`;
+
+        setFiltroBuscaComplexa(prev => {
+            // Se já tiver texto, adiciona " AND " antes
+            if (prev && prev.trim() !== "") {
+                return `${prev} AND ${novaRegra}`;
+            }
+
+            return novaRegra;
+        });
+
+        setFiltroCargo(["", ""]);
+    };
+
     // === Renderização ===
     return (
         <div className="search-page">
@@ -440,7 +486,7 @@ function SearchPage() {
                             <button 
                                 className="botao"
                                 disabled={!filtroCargo[0]}
-                                onClick={() => alert("Adicionar lógica de filtro complexo aqui...")}
+                                onClick={handleAddRule}
                                 style={{alignSelf: 'flex-end'}}
                             >
                                 + Adicionar Regra

@@ -109,13 +109,13 @@ function InputPage() {
                 const validos = listaOrgaos.filter(o => o.nome.trim() !== "");
                 if (validos.length === 0) throw new Error("Preencha os órgãos.");
                 
-                // Backend tem rota /lote/ para órgãos
-                const payload = validos.map(o => ({ 
+                const requests = validos.map(o => api.post('/orgao/', { 
                     nome: o.nome, 
                     ativo: true 
                 }));
                 
-                await api.post('/orgao/lote/', payload);
+                await Promise.all(requests);
+
                 alert('Órgãos inseridos com sucesso!');
                 setListaOrgaos([{ id_temp: Date.now(), nome: '' }]);
             }
