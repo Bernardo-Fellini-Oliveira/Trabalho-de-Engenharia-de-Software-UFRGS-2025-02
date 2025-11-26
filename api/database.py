@@ -16,8 +16,6 @@ DATABASE_URL = (
 SCHEMA_PATH = Path(__file__).parent / "schema.sql"
 UPGRADE_PATH = Path(__file__).parent / "upgrade.sql"
 
-print(DATABASE_URL)
-
 
 # Cria o engine global (sem abrir conexão ainda)
 engine = create_engine(DATABASE_URL, echo=False)
@@ -45,7 +43,6 @@ def init_db():
             WHERE table_schema = 'public';
         """))
 
-        print(tables_count)
 
         if tables_count == 0:
             with open(SCHEMA_PATH, "r", encoding="utf-8") as f:

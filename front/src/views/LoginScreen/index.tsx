@@ -9,8 +9,6 @@ const LoginScreen = () => {
 
   const { login: authLogin, user, loading } = useAuth();
   const navigate = useNavigate();
-    console.log("LoginScreen: user changed:", user);
-    console.log("LoginScreen: loading state:", loading);
     
   useEffect(() => {
 
@@ -23,11 +21,9 @@ const LoginScreen = () => {
     e.preventDefault();
     try {
       const token = await loginRequest(usuario, senha);
-      console.log("LoginScreen: received token:", token);
       if(token)
         await authLogin(token);
     } catch {
-      console.log("LoginScreen: login failed");
       alert("Usuário ou senha inválidos");
     }
   }

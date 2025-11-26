@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Field, UniqueConstraint
 from typing import Optional
-from datetime import date, datetime
+from datetime import datetime
 
 print("Definindo modelo Cargo")
 

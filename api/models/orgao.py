@@ -1,6 +1,6 @@
 from sqlmodel import SQLModel, Field
 from typing import Optional
-from datetime import date, datetime
+from datetime import datetime
 
 class Orgao(SQLModel, table=True):
     id_orgao: Optional[int] = Field(default=None, primary_key=True)

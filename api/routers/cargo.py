@@ -80,16 +80,7 @@ def core_adicionar_cargo(
     # 3. O cargo acima já possui substituto?
     # ------------------------------------------
 
-    print("==============================")
-    print("Cargo acima:")
-    print(acima)
-
-    if acima.substituto:
-        print("Já possui substituto:", acima.substituto)
-
-
     if acima.substituto is not None:
-        print("Erro: já possui substituto.")
         raise HTTPException(
             400,
             f"O cargo {acima.id_cargo} já possui um substituto definido."
@@ -210,12 +201,8 @@ def remover_cargo(
 
     ids_afetados = [c.id_cargo for c in afetados]
 
-    print("=============================")
-    print("Cargos afetados na operação:", ids_afetados)
     if soft:
         # marca todos como inativos
-        print(afetados)
-
         for c in afetados:
             if c.ativo:
                 orgao = session.get(Orgao, c.id_orgao)
@@ -386,8 +373,6 @@ def core_alterar_cargo(
     if payload.exclusivo is not None:
         cargo.exclusivo = payload.exclusivo
 
-    print(cargo)
-    print("Chegou aqui!!!")
     return cargo 
 
 @router.post("/", response_model=CargoRead)
@@ -468,7 +453,6 @@ def remover_cargo_and_commit(
 ):
 
     try:
-        print("Iniciando remoção/inativação de cargo...")
         resultado = remover_cargo(id_cargo=id_cargo, soft=soft, force=force, session=session, em_lote=False)
         
         session.commit()

@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useMemo, use } from 'react';
+import React, { useEffect, useState, useMemo } from 'react';
 import api from '../../services/api';
 import '../../../styles.css' 
 import './SearchPage.css'; 
@@ -54,7 +54,6 @@ function SearchPage() {
     const [dados, setDados] = useState<any[]>([]);
     const [cargosList, setCargosList] = useState<Cargo[]>([]);
 
-    console.log("Dados atuais:", dados);
     // Filtros
     const [modo, setModo] = useState<Modo>("pessoa");
     const [filtroBusca, setFiltroBusca] = useState<string>("");
@@ -217,9 +216,6 @@ const processedData = useMemo(() => {
 
     const handleExportCSV = async () => {
 
-        if(sortConfig)
-            console.log(`${sortConfig.key},${sortConfig.direction}`);
-
           const response = await api.post('relatorio/export/csv', 
             {
             tipo: lastFetchParams.modo,
@@ -273,9 +269,6 @@ const processedData = useMemo(() => {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
 
-        console.log(`Download do relatório CSV (${filename}) iniciado.`);
-
-     
     
     }catch (error) {
         // Erros de rede ou erros não HTTP (e.g., Axios timeout)
@@ -339,9 +332,6 @@ const processedData = useMemo(() => {
         window.URL.revokeObjectURL(url);
         document.body.removeChild(a);
 
-        console.log(`Download do relatório PDF (${filename}) iniciado.`);
-
-     
     
     }catch (error) {
         // Erros de rede ou erros não HTTP (e.g., Axios timeout)

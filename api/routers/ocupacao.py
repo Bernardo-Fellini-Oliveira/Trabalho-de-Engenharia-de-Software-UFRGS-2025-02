@@ -243,7 +243,6 @@ def core_adicionar_ocupacoes_lote(
     for ocupacao in ocupacoes:
         try:
             nova_ocupacao = core_adicionar_ocupacao(ocupacao, session)
-            print(nova_ocupacao)
             resultados.append({
                 "status": "success",
                 "message": "Ocupação adicionada com sucesso",
@@ -387,12 +386,8 @@ def core_remover_ocupacao(
     # -----------------------------------------------------------------
     # 1. VALIDAÇÃO E CARREGAMENTO
     # -----------------------------------------------------------------
-
-    print(f"Removendo ocupação {id_ocupacao}...")
-
     
     ocupacao_removida = session.get(Ocupacao, id_ocupacao)
-    print(ocupacao_removida)
     if not ocupacao_removida:
         return {"status": "failure", "message": "Ocupação não encontrada."}
     
@@ -574,10 +569,8 @@ def remover_ocupacao(id_ocupacao: int = Path(..., description="ID da Ocupação 
 def remover_ocupacoes(id_ocupacoes: List[int],
                         session: Session = Depends(get_session)):
     
-    print(id_ocupacoes)
     try:
         ocupacoes = session.exec(select(Ocupacao).where(Ocupacao.id_ocupacao.in_(id_ocupacoes))).all()
-        print(ocupacoes)
         if not ocupacoes:
             raise HTTPException(status_code=404, detail="Nenhuma Ocupação encontrada para os IDs fornecidos.")
 

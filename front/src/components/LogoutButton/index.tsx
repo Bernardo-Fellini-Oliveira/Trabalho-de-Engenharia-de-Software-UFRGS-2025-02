@@ -13,7 +13,7 @@ export default function LogoutButton({logoutText}: {logoutText?: string}) {
   return (
     <button
       onClick={handleLogout}
-      style={{backgroundColor: "rgb(154, 0, 0)", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", cursor: "pointer", marginTop: "20px"}}
+      style={{backgroundColor: "rgb(154, 0, 0)", color: "white", border: "none", padding: "8px 16px", borderRadius: "4px", cursor: "pointer", marginTop: "20px", width: "200px"}}
     >
         {logoutText || "Sair"}
     </button>

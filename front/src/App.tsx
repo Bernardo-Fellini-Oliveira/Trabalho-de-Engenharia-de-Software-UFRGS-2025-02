@@ -1,5 +1,5 @@
 import { BrowserRouter, Route, Routes } from "react-router-dom";
-import TestPage from "./views/TestPage";
+import TestPage from "./views/InputPage";
 import SearchPage from "./views/SearchPage";
 import EditPage from "./views/EditPage";
 import TicketsPage from "./views/TicketsPage";

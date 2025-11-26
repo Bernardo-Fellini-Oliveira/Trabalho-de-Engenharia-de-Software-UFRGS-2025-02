@@ -111,7 +111,6 @@ function EditPage() {
                 });
                 setData(enriched);
 
-                console.log("Ocupações carregadas:", enriched);
             } else {
                 setData(res.data);
             }
@@ -129,9 +128,7 @@ function EditPage() {
     useEffect(() => { fetchAux(); }, []);
     useEffect(() => { fetchData(); }, [activeTab, auxPessoas, auxOrgaos, auxCargos]);
 
-    console.log("Data:", data);
     const filteredData = data.filter(item => {
-        console.log("Filtering item:", item);
         if (!filtroBusca) return true;
         const term = filtroBusca.toLowerCase();
         
@@ -147,7 +144,6 @@ function EditPage() {
 
     // === HANDLERS ===
     const handleClickRow = (id: number) => {
-        console.log("Clicou na linha:", id, "Deletando?", deleting);
         if (deleting) {
             toggleSelect(id);
         }
@@ -179,7 +175,6 @@ function EditPage() {
             if (activeTab == 'cargo' && editForm.ativo !== undefined) {
                 if(editForm.ativo === 1 || editForm.ativo === true){
                     editForm.ativo = true;
-                    console.log("Reativando item:", editingId);
                     try {
                         await api.put(`cargo/reativar/${editingId}`);
                     }
@@ -190,7 +185,6 @@ function EditPage() {
                 }
                 else{
                     editForm.ativo = false;
-                    console.log("Desativando item:", editingId);
                     try {
                         await api.delete(`${activeTab}/delete/${editingId}?soft=true&force=false`);
                     }
@@ -245,7 +239,6 @@ function EditPage() {
 
         try {
             const resp = await api.get(`/ocupacao/substituto_proximo/${idOcupacao}`);
-            console.log("Substituto próximo:", resp.data);
             
             if (resp.data) {
                 setFinishData(prev => ({
@@ -301,7 +294,6 @@ function EditPage() {
         try {
             const res = await api.get(`/busca?tipo=flat&busca=${filtroBuscaComplexa}`);
             setData(res.data);
-            console.log(res.data);
         } catch (err) {
             console.error(err);
             alert("Erro ao carregar dados.");
@@ -309,8 +301,6 @@ function EditPage() {
             setLoading(false);
         }
     };
-
-    console.log("Filtered Data:", filteredData);
 
 
 // === RENDER TABLE ===

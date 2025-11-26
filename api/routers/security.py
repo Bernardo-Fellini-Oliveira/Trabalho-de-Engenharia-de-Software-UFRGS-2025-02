@@ -74,11 +74,9 @@ def get_user(db: Session, username: str) -> UserTable | None:
         return user_table_obj 
         
     except Exception as e:
-        print(f"Erro ao buscar usuário com SQLModel: {e}")
         return None
         
     except Exception as e:
-        print(f"Erro ao buscar usuário com SQLModel: {e}")
         return None # Trate erros de DB
 
 

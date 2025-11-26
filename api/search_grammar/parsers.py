@@ -63,11 +63,8 @@ def traduzir_parsing_result(parse_result):
         op = parse_result["op"]
         valor = parse_result["valor"]
 
-        print("TRADUZINDO FILTRO:")
-        print(campo, op, valor)
         if campo == "pessoa":
             coluna = Pessoa.nome
-            print("Entrou em pessoa")
         elif campo == "cargo":
             coluna = Cargo.nome
         elif campo == "orgao":
@@ -83,7 +80,6 @@ def traduzir_parsing_result(parse_result):
 
         match op:
             case "=":
-                print(valor)
                 return coluna == valor
             
             case "LIKE":
@@ -91,13 +87,11 @@ def traduzir_parsing_result(parse_result):
                 if not isinstance(valor, str):
                     raise TypeError("O operador 'LIKE' só pode ser usado com valores de string.")
                 
-                print("AAAAAAAAA")
                 return coluna.ilike(f"%{valor}%")
             
             case "<":
                 return coluna < valor
             case ">":
-                print("KSDJNKJFNSKN")
                 return coluna > valor
             case _:
                 raise ValueError(f"Operador inválido: {op}")
@@ -105,5 +99,4 @@ def traduzir_parsing_result(parse_result):
 
 def traduzir_filtro_para_sql(filtro_str, categoria_atual="Pessoa"):
     parse_result = parse_filtro(filtro_str, categoria_atual=categoria_atual)
-    print(parse_result)
     return traduzir_parsing_result(parse_result)

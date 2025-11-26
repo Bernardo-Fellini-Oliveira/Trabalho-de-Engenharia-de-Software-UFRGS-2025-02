@@ -26,7 +26,7 @@ const Header = ({ role }: HeaderProps) => {
                     {role === 'admin' &&
                     <>
                     <li><a href="/tickets">NOTIFICAÇÕES</a></li>
-                    <li><a href="/register">SIGN UP</a></li>
+                    <li><a href="/signup">SIGN UP</a></li>
                     </>
                     }
                 </ul>

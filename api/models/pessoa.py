@@ -1,6 +1,5 @@
 from sqlmodel import SQLModel, Field, UniqueConstraint
-from typing import Optional
-from datetime import date, datetime
+from datetime import datetime
 
 class Pessoa(SQLModel, table=True):
     id_pessoa: int | None = Field(default=None, primary_key=True)

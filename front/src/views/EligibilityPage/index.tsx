@@ -86,8 +86,6 @@ const EligibilityPage: React.FC = () => {
 
         setLoading(false);
 
-        console.log("Payload de Verificação:", payload);
-
     };
 
     return (

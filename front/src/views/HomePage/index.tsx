@@ -17,7 +17,6 @@ function HomePage() {
     };
 
     const {isAuthenticated, user} = useAuth(); 
-    console.log("HomePage: isAuthenticated =", isAuthenticated, "user =", user);
     return (
         <div className="home-page">
             <div className='topo'>
