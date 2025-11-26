@@ -86,6 +86,26 @@
     gap: 20px;
 }
 
+.botao
+{
+    background-color: #0C4F82;     /* fundo azul claro */
+    color: white;                  /* texto branco */
+    font-weight: bold;
+    border: 2px solid #0C4F82;     /* mesma cor da borda */
+    border-radius: 10px;
+    padding: 10px 20px;
+    font-size: 10px;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    margin-top: 10px;
+}
+
+.botao:hover 
+{
+    background-color: transparent; /* fundo transparente */
+    color: #0C4F82;                /* texto azul */
+}
+
 .botao-adicionar 
 {
     background-color: #9A0000;     /* fundo azul claro */
@@ -104,26 +124,6 @@
 {
     background-color: transparent; /* fundo transparente */
     color: #9A0000;                /* texto azul */
-}
-
-.botao-obj 
-{
-    background-color: #0C4F82;     /* fundo azul claro */
-    color: white;                  /* texto branco */
-    font-weight: bold;
-    border: 2px solid #0C4F82;     /* mesma cor da borda */
-    border-radius: 10px;
-    padding: 10px 20px;
-    font-size: 10px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin-top: 10px;
-}
-
-.botao-obj:hover 
-{
-    background-color: transparent; /* fundo transparente */
-    color: #0C4F82;                /* texto azul */
 }
 
 .numero-item
@@ -154,20 +154,12 @@
 .botao-confirmar 
 {
     background-color: #39BC2D;     /* fundo azul claro */
-    color: white;                  /* texto branco */
-    font-weight: bold;
     border: 2px solid #39BC2D;     /* mesma cor da borda */
-    border-radius: 10px;
-    padding: 10px 20px;
     font-size: 20px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin-top: 10px;
 }
 
 .botao-confirmar:hover 
 {
-    background-color: transparent; /* fundo transparente */
     color: #39BC2D;                /* texto azul */
 }
 

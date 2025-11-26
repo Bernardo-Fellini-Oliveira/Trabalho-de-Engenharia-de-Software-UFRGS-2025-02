@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../services/api'; 
-import './styles.css'; 
+import '../../../styles.css'; 
 import { Form } from 'react-router-dom';
 import { useAuth } from '../../context/auth_context';
 import Header from '../../components/Header';
@@ -232,6 +232,7 @@ function InputPage() {
                                                 type="text" 
                                                 value={item.nome}
                                                 onChange={(e) => handleChange('pessoa', item.id_temp, 'nome', e.target.value)}
+                                                placeholder= "Crie uma pessoa..."
                                                 required 
                                             />
                                             {listaPessoas.length > 1 && (
@@ -242,9 +243,9 @@ function InputPage() {
                                 </div>
                             ))}
                         </div>
-                        <button type='button' className='botao-obj' onClick={() => handleAdd('pessoa')}>+ Pessoa</button>
+                        <button type='button' className='botao' onClick={() => handleAdd('pessoa')}>+ Pessoa</button>
                         <br /><br />
-                        <button onClick={() => enviar('pessoas')} className="botao-confirmar" disabled={loading}>Inserir Pessoas</button>
+                        <button onClick={() => enviar('pessoas')} className="botao botao-confirmar" disabled={loading}>Inserir Pessoas</button>
                     </div>
 
                     {/* === ORGÃOS === */}
@@ -260,6 +261,7 @@ function InputPage() {
                                                 type="text" 
                                                 value={item.nome}
                                                 onChange={(e) => handleChange('orgao', item.id_temp, 'nome', e.target.value)}
+                                                placeholder= "Digite um órgão..."
                                                 required 
                                             />
                                             {listaOrgaos.length > 1 && (
@@ -270,9 +272,9 @@ function InputPage() {
                                 </div>
                             ))}
                         </div>
-                        <button type='button' className='botao-obj' onClick={() => handleAdd('orgao')}>+ Orgão</button>
+                        <button type='button' className='botao' onClick={() => handleAdd('orgao')}>+ Orgão</button>
                         <br /><br />
-                        <button onClick={() => enviar('orgaos')} className="botao-confirmar" disabled={loading}>Inserir Órgãos</button>
+                        <button onClick={() => enviar('orgaos')} className="botao botao-confirmar" disabled={loading}>Inserir Órgãos</button>
                     </div>
 
                     {/* === CARGOS === */}
@@ -347,9 +349,9 @@ function InputPage() {
                                 </div>
                             ))}
                         </div>
-                        <button type='button' className='botao-obj' onClick={() => handleAdd('cargo')}>+ Cargo</button>
+                        <button type='button' className='botao' onClick={() => handleAdd('cargo')}>+ Cargo</button>
                         <br /><br />
-                        <button onClick={() => enviar('cargos')} className="botao-confirmar" disabled={loading}>Inserir Cargos</button>
+                        <button onClick={() => enviar('cargos')} className="botao botao-confirmar" disabled={loading}>Inserir Cargos</button>
                     </div>
 
                     {/* === VINCULAR === */}
@@ -428,9 +430,9 @@ function InputPage() {
                                 </div>
                             ))}
                         </div>
-                        <button type='button' className='botao-obj' onClick={() => handleAdd('vinculo')}>+ Vinculação</button>
+                        <button type='button' className='botao' onClick={() => handleAdd('vinculo')}>+ Vinculação</button>
                         <br /><br />
-                        <button onClick={() => enviar('vinculados')} className="botao-confirmar" disabled={loading}>Inserir Vinculações</button>
+                        <button onClick={() => enviar('vinculados')} className="botao botao-confirmar" disabled={loading}>Inserir Vinculações</button>
                     </div>
 
                 </div>
