@@ -387,9 +387,14 @@ def core_remover_ocupacao(
     # -----------------------------------------------------------------
     # 1. VALIDAÇÃO E CARREGAMENTO
     # -----------------------------------------------------------------
+
+    print(f"Removendo ocupação {id_ocupacao}...")
+
+    
     ocupacao_removida = session.get(Ocupacao, id_ocupacao)
+    print(ocupacao_removida)
     if not ocupacao_removida:
-        raise HTTPException(status_code=404, detail="Ocupação não encontrada.")
+        return {"status": "failure", "message": "Ocupação não encontrada."}
     
     # Carrega o cargo associado para checar a cadeia de substituição
     cargo_removido = session.get(Cargo, ocupacao_removida.id_cargo)
@@ -568,8 +573,11 @@ def remover_ocupacao(id_ocupacao: int = Path(..., description="ID da Ocupação 
 @router.delete("/delete_list/")
 def remover_ocupacoes(id_ocupacoes: List[int],
                         session: Session = Depends(get_session)):
+    
+    print(id_ocupacoes)
     try:
         ocupacoes = session.exec(select(Ocupacao).where(Ocupacao.id_ocupacao.in_(id_ocupacoes))).all()
+        print(ocupacoes)
         if not ocupacoes:
             raise HTTPException(status_code=404, detail="Nenhuma Ocupação encontrada para os IDs fornecidos.")
 
