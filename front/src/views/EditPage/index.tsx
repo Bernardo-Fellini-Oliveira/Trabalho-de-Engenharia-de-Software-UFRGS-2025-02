@@ -337,7 +337,7 @@ function EditPage() {
                                         <td>
                                             {isEditing ?
                                                 // Alterado para input-edicao
-                                                <input className="input-edicao" value={editForm.nome} onChange={e => setEditForm({...editForm, nome: e.target.value})} onClick={(e) => e.stopPropagation()} />
+                                                <input className="input-edicao" value={editForm.nome ?? ''} onChange={e => setEditForm({...editForm, nome: e.target.value})} onClick={(e) => e.stopPropagation()} />
                                                 : row.nome}
                                         </td>
                                         <td>
@@ -356,7 +356,7 @@ function EditPage() {
                                         <td>{row.id_orgao}</td>
                                         <td>
                                             {isEditing ?
-                                                <input className="input-edicao" value={editForm.nome} onChange={e => setEditForm({...editForm, nome: e.target.value})} />
+                                                <input className="input-edicao" value={editForm.nome ?? ''} onChange={e => setEditForm({...editForm, nome: e.target.value})} />
                                                 : row.nome}
                                         </td>
                                         <td>
@@ -375,7 +375,7 @@ function EditPage() {
                                         <td>{row.id_cargo}</td>
                                         <td>
                                             {isEditing ?
-                                                <input className="input-edicao" value={editForm.nome} onChange={e => setEditForm({...editForm, nome: e.target.value})} />
+                                                <input className="input-edicao" value={editForm.nome ?? ''} onChange={e => setEditForm({...editForm, nome: e.target.value})} />
                                                 : row.nome}
                                         </td>
                                         <td>
@@ -424,7 +424,7 @@ function EditPage() {
                                         </td>
                                         <td>
                                             {isEditing ?
-                                                <input type="date" className="input-edicao" value={editForm.data_inicio} onChange={e => {
+                                                <input type="date" className="input-edicao" value={editForm.data_inicio ?? ''} onChange={e => {
                                                     const value = e.target.value;
                                                     if(value === '' || value === "''")
                                                         setEditForm({...editForm, data_inicio: null});
@@ -444,7 +444,7 @@ function EditPage() {
                                         </td>
                                         <td>
                                             {isEditing ?
-                                                <input className="input-edicao" value={editForm.observacoes} onChange={e => setEditForm({...editForm, observacoes: e.target.value})} />
+                                                <input className="input-edicao" value={editForm.observacoes ?? ''} onChange={e => setEditForm({...editForm, observacoes: e.target.value})} />
                                                 : row.observacoes}
                                         </td>
                                     </>

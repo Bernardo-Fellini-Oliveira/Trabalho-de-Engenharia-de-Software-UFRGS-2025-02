@@ -70,6 +70,7 @@ function SearchPage() {
 
     const {user} = useAuth();
 
+    console.log("Renderizando SearchPage com dados:", dados);
     
     // === Busca de Dados (Backend) ===
     const fetchData = async () => {
@@ -563,10 +564,10 @@ const processedData = useMemo(() => {
                                         <td>{row.cargo}</td>
                                         <td>{row.orgao}</td>
                                         <td>{row.data_inicio}</td>
-                                        <td>{row.data_fim || row.id_ocupacao? '-' : ''}</td>
-                                        <td>{row.exclusivo? row.mandato : row.id_ocupacao? '-' : ''}</td>
-                                        <td>{row.substituto_para || row.id_ocupacao? '-' : ''}</td>
-                                        <td>{row.observacoes || row.id_ocupacao? '-' : ''}</td>
+                                        <td>{row.data_fim ?? (row.id_ocupacao ? '-' : '')}</td>
+                                        <td>{row.exclusivo ? row.mandato : (row.id_ocupacao ? '-' : '')}</td>
+                                        <td>{row.substituto_para ?? (row.id_ocupacao ? '-' : '')}</td>
+                                        <td>{row.observacoes ?? (row.id_ocupacao ? '-' : '')}</td>
                                     </tr>
                                 ))}
                                 
@@ -578,10 +579,10 @@ const processedData = useMemo(() => {
                                             <td>{subItem.cargo}</td>
                                             <td>{subItem.orgao}</td>
                                             <td>{subItem.data_inicio}</td>
-                                            <td>{subItem.data_fim || subItem.id_ocupacao? '-' : ''}</td>
-                                            <td>{subItem.exclusivo? subItem.mandato : subItem.id_ocupacao? '-' : ''}</td>
-                                            <td>{subItem.substituto_para || subItem.id_ocupacao? '-' : ''}</td>
-                                            <td>{subItem.observacoes || subItem.id_ocupacao? '-' : ''}</td>
+                                            <td>{subItem.data_fim ?? (subItem.id_ocupacao ? '-' : '')}</td>
+                                            <td>{subItem.exclusivo ? subItem.mandato : (subItem.id_ocupacao ? '-' : '')}</td>
+                                            <td>{subItem.substituto_para ?? (subItem.id_ocupacao ? '-' : '')}</td>
+                                            <td>{subItem.observacoes ?? (subItem.id_ocupacao ? '-' : '')}</td>
                                         </tr>
                                     ))
                                 ))}
@@ -594,10 +595,10 @@ const processedData = useMemo(() => {
                                             <td>{subItem.cargo}</td>
                                             <td>{subItem.pessoa}</td>
                                             <td>{subItem.data_inicio}</td>
-                                            <td>{subItem.data_fim || subItem.id_ocupacao? '-' : ''}</td>
-                                            <td>{subItem.exclusivo? subItem.mandato : subItem.id_ocupacao? '-' : ''}</td>
-                                            <td>{subItem.substituto_para || subItem.id_ocupacao? '-' : ''}</td>
-                                            <td>{subItem.observacoes || subItem.id_ocupacao? '-' : ''}</td>
+                                            <td>{subItem.data_fim ?? (subItem.id_ocupacao ? '-' : '')}</td>
+                                            <td>{subItem.exclusivo ? subItem.mandato : (subItem.id_ocupacao ? '-' : '')}</td>
+                                            <td>{subItem.substituto_para ?? (subItem.id_ocupacao ? '-' : '')}</td>
+                                            <td>{subItem.observacoes ?? (subItem.id_ocupacao ? '-' : '')}</td>
                                         </tr>
                                     ))
                                 ))}
@@ -610,10 +611,10 @@ const processedData = useMemo(() => {
                                             <td>{group.orgao}</td>
                                             <td>{subItem.pessoa}</td>
                                             <td>{subItem.data_inicio}</td>
-                                            <td>{subItem.data_fim || subItem.id_ocupacao? '-' : ''}</td>
-                                            <td>{subItem.exclusivo? subItem.mandato : subItem.id_ocupacao? '-' : ''}</td>
-                                            <td>{subItem.substituto_para || subItem.id_ocupacao? '-' : ''}</td>
-                                            <td>{subItem.observacoes || subItem.id_ocupacao? '-' : ''}</td>
+                                            <td>{subItem.data_fim ?? (subItem.id_ocupacao ? '-' : '')}</td>
+                                            <td>{subItem.exclusivo ? subItem.mandato : (subItem.id_ocupacao ? '-' : '')}</td>
+                                            <td>{subItem.substituto_para ?? (subItem.id_ocupacao ? '-' : '')}</td>
+                                            <td>{subItem.observacoes ?? (subItem.id_ocupacao ? '-' : '')}</td>
                                         </tr>
                                     ))
                                 ))}
