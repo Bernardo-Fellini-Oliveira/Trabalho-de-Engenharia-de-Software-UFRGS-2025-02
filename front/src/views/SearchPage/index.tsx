@@ -2,6 +2,8 @@ import React, { useEffect, useState, useMemo, use } from 'react';
 import api from '../../services/api'; 
 import './SearchPage.css'; 
 import { useNavigate } from 'react-router';
+import { useAuth } from '../../context/auth_context';
+import Header from '../../components/Header';
 
 // === Ícones SVG Inline ===
 const IconPencil = () => (
@@ -63,6 +65,10 @@ function SearchPage() {
     // Configuração de Ordenação (Coluna e Direção)
     const [sortConfig, setSortConfig] = useState<SortConfig>(null);
 
+
+    const {user} = useAuth();
+
+    
     // === Busca de Dados (Backend) ===
     const fetchData = async () => {
         setLoading(true);
@@ -326,22 +332,7 @@ function SearchPage() {
     // === Renderização ===
     return (
         <div className="search-page-wrapper">
-            <header>
-                <div id="header-container">
-                    <nav>
-                        <ul>
-                            <li><a href="/">MENU PRINCIPAL</a></li>
-                            <li><a href="/check">VERIFICAR ELEGIBILIDADE</a></li>
-                            <li><a href="/search">CONSULTAR</a></li>
-                            <li><a href="/insert">INSERIR</a></li>
-                            <li><a href="/edit">EDITAR</a></li>
-                            <li><a href="/log">HISTÓRICO</a></li>
-                            <li><a href="/tickets">NOTIFICAÇÕES</a></li>
-                        </ul>
-                    </nav>
-                </div>
-                <div id="header-line"></div>
-            </header>
+            <Header role={user?.role} />
             <div className="search-container">
                 <h1 className="search-title">Consulta de Dados</h1>
                 <p className='search-description'>Consulta de dados</p>

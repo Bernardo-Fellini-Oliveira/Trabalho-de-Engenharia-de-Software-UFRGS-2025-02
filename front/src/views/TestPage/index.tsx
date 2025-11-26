@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import api from '../../services/api'; 
 import './styles.css'; 
 import { Form } from 'react-router-dom';
+import { useAuth } from '../../context/auth_context';
+import Header from '../../components/Header';
 
 // === Interfaces de Tipagem ===
 interface PessoaDB { id_pessoa: number; nome: string; ativo: boolean; }
@@ -29,6 +31,9 @@ function InputPage() {
 
     const [loading, setLoading] = useState(false);
 
+    const {user} = useAuth();
+
+    
     // === 1. Carregar dados ===
     const loadData = async () => {
         try {
@@ -191,22 +196,8 @@ function InputPage() {
 
         
         <div>
-            <header>
-                <div id="header-container">
-                    <nav>
-                        <ul>
-                            <li><a href="/">MENU PRINCIPAL</a></li>
-                            <li><a href="/check">VERIFICAR ELEGIBILIDADE</a></li>
-                            <li><a href="/search">CONSULTAR</a></li>
-                            <li><a href="/insert">INSERIR</a></li>
-                            <li><a href="/edit">EDITAR</a></li>
-                            <li><a href="/log">HISTÓRICO</a></li>
-                            <li><a href="/tickets">NOTIFICAÇÕES</a></li>
-                        </ul>
-                    </nav>
-                </div>
-                <div id="header-line"></div>
-            </header>
+            <Header role={user?.role} />
+            
             {/* Datalists */}
             <datalist id="dl-orgaos">
                 {dbOrgaos.map(o => o.ativo && <option key={o.id_orgao} value={`${o.id_orgao} - ${o.nome}`} />)}

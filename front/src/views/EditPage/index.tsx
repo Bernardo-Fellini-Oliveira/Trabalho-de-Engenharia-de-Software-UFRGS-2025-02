@@ -1,6 +1,8 @@
 import React, { use, useEffect, useState } from 'react';
 import api from '../../services/api';
 import './EditPage.css';
+import Header from '../../components/Header';
+import { useAuth } from '../../context/auth_context';
 
 // === Ícones SVG Inline ===
 const IconEdit = () => <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>;
@@ -66,6 +68,7 @@ function EditPage() {
     const [showModal, setShowModal] = useState(false);
     const [finishData, setFinishData] = useState({nome_substituto: '', id_ocupacao: 0, data_fim: '', data_inicio_sub: '', data_fim_sub: '', definitiva: true})//pessoa_substituta: '', cargo_substituto: '',  });
 
+    const {user} = useAuth();
 
 
     // === FETCH DATA ===
@@ -459,22 +462,9 @@ function EditPage() {
 
     return (
         <div className="edit-page-wrapper">
-            <header>
-                <div id="header-container">
-                    <nav>
-                        <ul>
-                            <li><a href="/">MENU PRINCIPAL</a></li>
-                            <li><a href="/check">VERIFICAR ELEGIBILIDADE</a></li>
-                            <li><a href="/search">CONSULTAR</a></li>
-                            <li><a href="/insert">INSERIR</a></li>
-                            <li><a href="/edit">EDITAR</a></li>
-                            <li><a href="/log">HISTÓRICO</a></li>
-                            <li><a href="/tickets">NOTIFICAÇÕES</a></li>
-                        </ul>
-                    </nav>
-                </div>
-                <div id="header-line"></div>
-            </header>
+
+            <Header role={user?.role} />
+
             <div className="search-container">
                 <h1 className="search-title">Edição de Dados</h1>
                 <p className='search-description'>Editando os dados</p>

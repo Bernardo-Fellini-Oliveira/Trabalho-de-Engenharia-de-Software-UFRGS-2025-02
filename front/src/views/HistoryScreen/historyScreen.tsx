@@ -2,6 +2,8 @@ import React, { useState, useMemo } from 'react';
 import api from '../../services/api'; 
 import axios from 'axios';
 import 'styles-historico.css';
+import { useAuth } from '../../context/auth_context';
+import Header from '../../components/Header';
 
 export default function HistoricoAlteracoes() {
 
@@ -12,6 +14,9 @@ export default function HistoricoAlteracoes() {
     ...Array.from({ length: 40 }, (_, i) => `Log adicional número ${i + 1}`)
   ];
 
+
+  const {user} = useAuth();
+  
   // -------------------- PAGINAÇÃO --------------------
   const pageSize = 10;
   const [page, setPage] = React.useState(1);
@@ -34,10 +39,11 @@ export default function HistoricoAlteracoes() {
 
   return (
     <div className="hist-root">
-      <header className="hist-header">
-        <button className="back-btn">↩</button>
-        <h1>Histórico de Alterações</h1>
-      </header>
+      
+      <Header role={user?.role} />
+
+      <h1>Histórico de Alterações</h1>
+
 
       <section className="filter-bar">
         <div className="filter-title">Mostrar:</div>
