@@ -57,23 +57,6 @@
     margin-top: 5px;
 }
 */
-.eligibility-wrapper .botao-confirmar {
-    background-color: #39BC2D;     /* fundo azul claro */
-    color: white;                  /* texto branco */
-    font-weight: bold;
-    border: 2px solid #39BC2D;     /* mesma cor da borda */
-    border-radius: 10px;
-    padding: 10px 20px;
-    font-size: 20px;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    margin-top: 10px;
-}
-
-.eligibility-wrapper .botao-confirmar:hover {
-    background-color: transparent;
-    color: #39BC2D;
-}
 
 header
 {

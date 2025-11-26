@@ -1,78 +1,33 @@
-/* --- WRAPPER: .search-page-wrapper --- */
+/* --- WRAPPER: .search-page --- */
 
 /* --- CONTAINER PRINCIPAL --- */
-search-page-wrapper
+search-page
 {
     background-color: white;
 }
-.search-page-wrapper .search-container {
+.search-page .search-container {
     padding: 20px 40px;
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    background-color: white; /* Fundo cinza bem claro */
+    background-color: white;
     min-height: 100vh;
 }
 
-/* Título */
-.search-page-wrapper .search-title {
-    /* Fontes */
-    font-family: 'Gilroy', 'Montserrat', sans-serif;
-    font-weight: 800;
-    font-size: 32px;
-    color: #9A0000;
-    
-    /* Centralização */
-    text-align: center;
-    position: relative;
-    
-    /* O Segredo para centralizar mantendo o tamanho do texto */
-    display: block; 
-    width: fit-content; 
-    margin: 20px auto; /* auto nas laterais centraliza o bloco */
-}
-
-.search-page-wrapper .search-title::after
-{
-    content: "";
-    display: block;
-    height: 4px;
-    background-color: #D0D0D0;
-    border-radius: 2px;
-    width: 80%; /* ou 100% para linha do tamanho completo */
-    margin: 8px auto 0 auto;
-}
-
-.search-page-wrapper .search-description
-{
-    font-family: Arial, sans-serif;
-    font-weight: bold;
-    /* Centralização */
-    text-align: center;
-    position: relative;
-    
-    /* O Segredo para centralizar mantendo o tamanho do texto */
-    display: block; 
-    width: fit-content; 
-    margin: 20px auto; /* auto nas laterais centraliza o bloco */
-}
-
-/* --- CARD DE FILTROS --- */
-.search-page-wrapper .filter-card {
+.search-page .filtro-container {
     background-color: #ffffff;
     border: 1px solid #dee2e6;
     border-radius: 6px;
     padding: 20px;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
     margin-bottom: 20px;
 }
 
-.search-page-wrapper .filter-row {
+.search-page .filtro-linha {
     display: flex;
     gap: 20px;
-    align-items: flex-end; /* Alinha inputs e botões na base */
+    align-items: flex-end;
     flex-wrap: wrap;
 }
 
-.search-page-wrapper .filter-group {
+.search-page .filtro-grupo {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -80,238 +35,95 @@ search-page-wrapper
     min-width: 200px;
 }
 
-.search-page-wrapper .filter-group label {
+.search-page .filtro-grupo label {
     font-size: 14px;
     color: black;
     font-weight: 500;
 }
 
-.search-page-wrapper .filter-input, 
-.search-page-wrapper .filter-select {
+.search-page .filtro-input, 
+.search-page .filtro-select {
     padding: 8px 12px;
     border: 1px solid #ccc;                  
-    border-radius: 20px;           /* bordas arredondadas */
+    border-radius: 20px;
     font-size: 14px;
     width: 90%;
-    box-shadow: none;              /* remove sombras padrão */
-    outline: none;                 /* remove contorno azul ao clicar */
-    color: #333;                   /* cor do texto */
-    padding: 5px 10px;            /* espaço interno */
+    outline: none;
+    color: #333;
+    padding: 5px 10px;
 }
 
 /* --- BOTÕES GERAIS --- */
-.search-page-wrapper .button-group {
+.search-page .botao-group {
     display: flex;
     gap: 10px;
 }
 
-.search-page-wrapper .btn {
-    padding: 8px 16px;
-    border: 2px solid #39BC2D;     /* mesma cor da borda */
-    border-radius: 10px;
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    gap: 8px; /* Espaço entre ícone e texto */
-    transition: all 0.3s ease;
-    color: white;
-    font-weight: bold;
-}
-
-/* Botão Azul (Filtrar) */
-.search-page-wrapper .btn-primary 
+.search-page .botao
 {
-    background-color: #0C4F82;
-    border: 2px solid #0C4F82;     /* mesma cor da borda */
-    color: white;
-}
-.search-page-wrapper .btn-primary:hover 
-{
-    background-color: transparent; /* fundo transparente */
-    color: #0C4F82;                /* texto azul */
+    font-size: 14px; 
 }
 
-/* Botão Cinza (Limpar) */
-.search-page-wrapper .btn-secondary {
-    background-color: #6c757d;
-    border: 2px solid #6c757d;     /* mesma cor da borda */
-    color: white;
-}
-.search-page-wrapper .btn-secondary:hover 
-{
-    background-color: transparent; /* fundo transparente */
-    color: #6c757d;                /* texto azul */
-}
 
-/* Botões de Ação (Outline - Exportação) */
-.search-page-wrapper .btn-outline1 {
-    background-color: #39BC2D;
-    border: 2px solid #39BC2D;     /* mesma cor da borda */
-    color: white;
-}
-.search-page-wrapper .btn-outline1:hover {
-    background-color: transparent; /* fundo transparente */
-    color: #39BC2D;                /* texto azul */
-}
-
-/* Botões de Ação (Outline - Exportação) */
-.search-page-wrapper .btn-outline2 {
-    background-color: #9A0000;
-    border: 2px solid #9A0000;     /* mesma cor da borda */
-    color: white;
-}
-.search-page-wrapper .btn-outline2:hover {
-    background-color: transparent; /* fundo transparente */
-    color: #9A0000;                /* texto azul */
-}
-
-/* Botões de Ação (Outline - Exportação) */
-.search-page-wrapper .btn-outline3 {
-    background-color: #0C4F82;
-    border: 2px solid #0C4F82;     /* mesma cor da borda */
-    color: white;
-}
-.search-page-wrapper .btn-outline3:hover {
-    background-color: transparent; /* fundo transparente */
-    color: #0C4F82;                /* texto azul */
-}
-
-/* Botão de Edição (Laranja/Amarelo) na barra superior */
-.search-page-wrapper .btn-warning-outline {
-    background-color: #ffc107;
-    border: 2px solid #ffc107;     /* mesma cor da borda */
-    color: white;
-}
-.search-page-wrapper .btn-warning-outline:hover {
-    background-color: transparent; /* fundo transparente */
-    color: #ffc107;                /* texto azul */
-}
-
-/* --- ÁREA DE AÇÕES (DIREITA) --- */
-.search-page-wrapper .actions-bar {
+.search-page .acoes-container {
     display: flex;
-    justify-content: flex-end; /* Joga para a direita */
+    justify-content: flex-end;
     gap: 10px;
     margin-bottom: 15px;
 }
 
-/* --- TABELA --- */
-.search-page-wrapper .table-container {
+
+.search-page .tabela-container {
     background-color: white;
     border: 1px solid #dee2e6;
     border-radius: 6px;
     overflow-x: auto;
-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
 }
 
-.search-page-wrapper .data-table {
+.search-page .dado-tabela {
     width: 100%;
     border-collapse: collapse;
     font-size: 14px;
     color: #212529;
 }
 
-/* Cabeçalho da Tabela (Azul Claro) */
-.search-page-wrapper .data-table thead th {
-    background-color: #9A0000; /* Cor parecida com a imagem */
+
+.search-page .dado-tabela thead th {
+    background-color: #9A0000;
     color: #ffffff;
     font-weight: 700;
     text-align: left;
     padding: 12px 15px;
     border-bottom: 1px solid #995E5E;
-    cursor: pointer; /* Mãozinha para indicar clique/ordenação */
+    cursor: pointer;
     user-select: none;
     white-space: nowrap;
     position: relative;
 }
 
-.search-page-wrapper .data-table thead th:hover {
+.search-page .dado-tabela thead th:hover {
     background-color: #995E5E;
 }
 
-/* Células */
-.search-page-wrapper .data-table tbody td {
+
+.search-page .dado-tabela tbody td {
     padding: 10px 15px;
     border-bottom: 1px solid #dee2e6;
     vertical-align: middle;
 }
 
-/* Zebra Striping (Linhas pares com fundo cinza) */
-.search-page-wrapper .data-table tbody tr:nth-child(even) {
+
+.search-page .dado-tabela tbody tr:nth-child(even) {
     background-color: #f8f9fa;
 }
 
-.search-page-wrapper .data-table tbody tr:hover {
-    background-color: #e9ecef; /* Hover na linha */
+.search-page .dado-tabela tbody tr:hover {
+    background-color: #e9ecef;
 }
 
 /* --- ÍCONES --- */
-.search-page-wrapper .sort-icon {
+.search-page .sort-icon {
     margin-left: 6px;
     font-size: 10px;
     opacity: 0.6;
-}
-
-header
-{
-    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
-    font-weight: bold;
-    max-width: 1200px;
-/* Adicione estas duas linhas para centralizar */
-    margin-left: auto;
-    margin-right: auto;
-    
-    /* Opcional: para centralizar o texto dentro do header */
-    text-align: center;
-}
-
-#header-container
-{
-    display: flex;
-}
-
-header ul
-{
-    display: flex;
-    list-style-type: none;
-    justify-content: center;
-    align-items: center;
-    height: 80px;
-    margin-bottom: 0px;
-}
-
-header li a
-{
-    font-size: 15px;
-    text-transform: uppercase;
-    color: #868686;
-    text-decoration: none;
-    padding: 14px 25px;
-}
-
-header li a:hover
-{
-    background-color: #9A0000;
-    border-radius: 5px;
-    color: white;
-}
-
-#header-line
-{
-    width: 98%; /* Largura da linha */
-    height: 4px;  /* Espessura da linha */
-    background-color: #D0D0D0; /* Cor da linha */
-
-    /* Arredondando as pontas */
-    border-radius: 5px;
-
-    /* Centralizando a div */
-    margin: 5px auto 0 auto; /* 5px de espaço no topo, centralizada, 0 embaixo */
-
-    /* Bônus: a sombra */
-    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
 }

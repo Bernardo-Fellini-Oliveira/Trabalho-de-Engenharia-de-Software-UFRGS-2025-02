@@ -332,7 +332,7 @@ function SearchPage() {
 
     // === Renderização ===
     return (
-        <div className="search-page-wrapper">
+        <div className="search-page">
             <Header role={user?.role} />
             <div className="search-container">
                 <div className='topo'>
@@ -341,14 +341,14 @@ function SearchPage() {
                 </div>
 
                 {/* CARD DE FILTROS */}
-                <div className="filter-card">
-                    <div className="filter-row">
+                <div className="filtro-container">
+                    <div className="filtro-linha">
                         
                         {/* Busca Textual */}
-                        <div className="filter-group" style={{flex: 2}}>
+                        <div className="filtro-grupo" style={{flex: 2}}>
                             <label>Busca Textual</label>
                             <input 
-                                className="filter-input"
+                                className="filtro-input"
                                 type="text" 
                                 placeholder="Nome, Cargo ou Órgão..." 
                                 value={filtroBusca} 
@@ -357,9 +357,9 @@ function SearchPage() {
                         </div>
 
                         {/* Modo de Visualização */}
-                        <div className="filter-group">
+                        <div className="filtro-grupo">
                             <label>Agrupar por</label>
-                            <select className="filter-select" value={modo} onChange={(e) => setModo(e.target.value as Modo)}>
+                            <select className="filtro-select" value={modo} onChange={(e) => setModo(e.target.value as Modo)}>
                                 <option value="pessoa">Pessoa</option>
                                 <option value="orgao">Órgão</option>
                                 <option value="cargo">Cargo</option>
@@ -368,9 +368,9 @@ function SearchPage() {
                         </div>
 
                         {/* Filtro Atividade */}
-                        <div className="filter-group">
+                        <div className="filtro-grupo">
                             <label>Status</label>
-                            <select className="filter-select" onChange={(e) => setFiltroAtivo(e.target.value as any)}>
+                            <select className="filtro-select" onChange={(e) => setFiltroAtivo(e.target.value as any)}>
                                 <option value="todos">Todos</option>
                                 <option value="ativos">Ativos</option>
                                 <option value="inativos">Inativos</option>
@@ -378,9 +378,9 @@ function SearchPage() {
                         </div>
 
                         {/* Filtro Vigencia */}
-                        <div className="filter-group">
+                        <div className="filtro-grupo">
                             <label>Vigência</label>
-                            <select className="filter-select" onChange={(e) => setFiltroVigencia(e.target.value as any)}>
+                            <select className="filtro-select" onChange={(e) => setFiltroVigencia(e.target.value as any)}>
                                 <option value="todos">Todos</option>
                                 <option value="vigente">Vigente</option>
                                 <option value="encerrado">Encerrado</option>
@@ -391,11 +391,11 @@ function SearchPage() {
 
 
                         {/* Botões de Ação do Filtro */}
-                        <div className="button-group">
-                            <button className="btn btn-primary" onClick={() => fetchData()}>
+                        <div className="botao-grupo">
+                            <button className="botao" onClick={() => fetchData()}>
                                 Filtrar
                             </button>
-                            <button className="btn btn-secondary" onClick={() => {
+                            <button className="botao botao-cinza" onClick={() => {
                                 setFiltroBusca("");
                                 setFiltroAtivo("todos");
                                 fetchData();
@@ -405,11 +405,11 @@ function SearchPage() {
                         </div>
                     </div>
 
-                    <div className="filter-row" style={{marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
-                        <div className="filter-group">
+                    <div className="filtro-linha" style={{marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
+                        <div className="filtro-grupo">
                             <label>Pesquisa Complexa</label>
                             <input 
-                                className="filter-input"
+                                className="filtro-input"
                                 type="text" 
                                 placeholder={"Ex: pessoa = \"João\" AND (cargo = \"Diretor\" OR orgao = \"INT\")..."}
                                 value={filtroBuscaComplexa} 
@@ -421,11 +421,11 @@ function SearchPage() {
 
                     {/* Filtro Extra Condicional (Cargo) */}
                     {modo === 'pessoa' && (
-                        <div className="filter-row" style={{marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
-                            <div className="filter-group">
+                        <div className="filtro-linha" style={{marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
+                            <div className="filtro-grupo">
                                 <label>Elegível para Cargo Específico:</label>
                                 <select
-                                    className="filter-select"
+                                    className="filtro-select"
                                     value={filtroCargo.join("||")}
                                     onChange={(e) => setFiltroCargo(e.target.value.split("||") as [string, string])}
                                 >
@@ -438,7 +438,7 @@ function SearchPage() {
                                 </select>
                             </div>
                             <button 
-                                className="btn btn-outline3"
+                                className="botao"
                                 disabled={!filtroCargo[0]}
                                 onClick={() => alert("Adicionar lógica de filtro complexo aqui...")}
                                 style={{alignSelf: 'flex-end'}}
@@ -450,22 +450,22 @@ function SearchPage() {
                 </div>
 
                 {/* BARRA DE AÇÕES (Relatórios e Edição) */}
-                <div className="actions-bar">
-                    <button className="btn btn-warning-outline" onClick={handleGoToEdit}>
+                <div className="acoes-container">
+                    <button className="botao botao-amarelo" onClick={handleGoToEdit}>
                         <IconPencil /> Editar Dados
                     </button>
-                    <button className="btn btn-outline1" onClick={handleExportCSV}>📄 Emitir CSV</button>
-                    <button className="btn btn-outline2" onClick={handleExportPDF}>🖨️ Emitir PDF</button>
+                    <button className="botao botao-verde" onClick={handleExportCSV}>📄 Emitir CSV</button>
+                    <button className="botao botao-vermelho" onClick={handleExportPDF}>🖨️ Emitir PDF</button>
                 </div>
 
                 {/* TABELA DE RESULTADOS */}
-                <div className="table-container">
+                <div className="tabela-container">
                     {loading ? (
                         <div style={{padding: '30px', textAlign: 'center', color: '#6c757d'}}>Carregando dados...</div>
                     ) : !processedData.length ? (
                         <div style={{padding: '30px', textAlign: 'center', color: '#6c757d'}}>Nenhum dado encontrado.</div>
                     ) : (
-                        <table className="data-table">
+                        <table className="dado-tabela">
                             <thead>
                                 {/* HEADERS DINÂMICOS BASEADOS NO MODO */}
                                 {modo === 'flat' && (

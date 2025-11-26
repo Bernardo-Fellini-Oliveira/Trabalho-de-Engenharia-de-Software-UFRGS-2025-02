@@ -166,7 +166,7 @@ const EligibilityPage: React.FC = () => {
 
                     <button 
                         onClick={handleVerify} 
-                        className="botao-confirmar"
+                        className="botao botao-confirmar"
                         disabled={loading}
                     >
                         {loading ? 'Verificando...' : 'Verificar'}

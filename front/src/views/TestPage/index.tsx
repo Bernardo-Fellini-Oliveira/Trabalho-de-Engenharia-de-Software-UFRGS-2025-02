@@ -261,7 +261,7 @@ function InputPage() {
                                                 type="text" 
                                                 value={item.nome}
                                                 onChange={(e) => handleChange('orgao', item.id_temp, 'nome', e.target.value)}
-                                                placeholder= "Digite um órgão..."
+                                                placeholder= "Crie um órgão..."
                                                 required 
                                             />
                                             {listaOrgaos.length > 1 && (
@@ -290,6 +290,7 @@ function InputPage() {
                                                 type="text" 
                                                 value={item.nome}
                                                 onChange={(e) => handleChange('cargo', item.id_temp, 'nome', e.target.value)}
+                                                placeholder='Crie um cargo...'
                                                 required 
                                             />
                                         </div>
@@ -420,6 +421,7 @@ function InputPage() {
                                                 value={item.observacoes}
                                                 onChange={(e) => handleChange('vinculo', item.id_temp, 'observacoes', e.target.value.substring(0, MAX_OBSERVACOES_LENGTH))}
                                                 rows={3}
+                                                placeholder='Digite uma observação...'
                                             />
 
                                             <br />

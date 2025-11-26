@@ -105,6 +105,8 @@
     color: #0C4F82;                /* texto azul */
 }
 
+
+
 .botao-adicionar 
 {
     background-color: #9A0000;     /* fundo azul claro */
@@ -152,14 +154,58 @@
 
 .botao-confirmar 
 {
-    background-color: #39BC2D;     /* fundo azul claro */
-    border: 2px solid #39BC2D;     /* mesma cor da borda */
+    background-color: #39BC2D;
+    border: 2px solid #39BC2D;
     font-size: 20px;
 }
 
 .botao-confirmar:hover 
 {
-    color: #39BC2D;                /* texto azul */
+    color: #39BC2D;
+}
+
+.botao-vermelho 
+{
+    background-color: #9A0000;
+    border: 2px solid #9A0000;
+}
+
+.botao-vermelho:hover 
+{
+    color: #9A0000;
+}
+
+.botao-verde 
+{
+    background-color: #39BC2D;
+    border: 2px solid #39BC2D;
+}
+
+.botao-verde:hover 
+{
+    color: #39BC2D;
+}
+
+.botao-amarelo
+{
+    background-color: #ffc107;
+    border: 2px solid #ffc107;
+}
+
+.botao-amarelo:hover 
+{
+    color: #ffc107;
+}
+
+.botao-cinza
+{
+    background-color: #6c757d;
+    border: 2px solid #6c757d;
+}
+
+.botao-cinza:hover 
+{
+    color: #6c757d;
 }
 
 .botao-remover
