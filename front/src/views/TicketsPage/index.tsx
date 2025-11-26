@@ -1,9 +1,11 @@
 import React, { useEffect, useState } from 'react';
-import api from '../../services/api'; // Ajuste o caminho conforme sua estrutura
-import '../../../styles.css'
+import api from '../../services/api'; 
+import '../../../styles.css';
+import '../SearchPage/SearchPage.css';
 import './TicketsPage.css';
+import Header from '../../components/Header';
+import { useAuth } from '../../context/auth_context';
 
-// === Ícones SVG ===
 const IconCheck = () => (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
         <polyline points="20 6 9 17 4 12"></polyline>
@@ -17,7 +19,6 @@ const IconX = () => (
     </svg>
 );
 
-// === Interfaces ===
 interface Notificacao {
     id: number;
     data_solicitacao: string;
@@ -26,19 +27,17 @@ interface Notificacao {
     data_aprovacao: string | null;
     tipo_operacao: string;
     entidade_alvo: string;
-    // dados_payload existe no backend mas não precisamos exibir na tabela principal
 }
 
 const NotificationsPage: React.FC = () => {
     const [notificacoes, setNotificacoes] = useState<Notificacao[]>([]);
     const [loading, setLoading] = useState<boolean>(false);
+    const { user } = useAuth();
 
-    // Carregar notificações ao montar o componente
     const fetchNotificacoes = async () => {
         setLoading(true);
         try {
             const response = await api.get('/notificacoes/');
-            // Ordenar: Pendentes primeiro, depois por data mais recente
             const sorted = response.data.sort((a: Notificacao, b: Notificacao) => {
                 if (a.status_aprovacao === 'Pendente' && b.status_aprovacao !== 'Pendente') return -1;
                 if (a.status_aprovacao !== 'Pendente' && b.status_aprovacao === 'Pendente') return 1;
@@ -57,43 +56,28 @@ const NotificationsPage: React.FC = () => {
         fetchNotificacoes();
     }, []);
 
-    // Função para formatar data e hora
     const formatDateTime = (isoString: string | null) => {
         if (!isoString) return '-';
         const date = new Date(isoString);
         return date.toLocaleString('pt-BR');
     };
 
-    // Handler para Aprovar
     const handleApprove = async (id: number) => {
         if (!confirm('Deseja realmente APROVAR esta solicitação? Isso criará os dados no banco.')) return;
 
         try {
-            // Chama o endpoint POST definido em notificacoes.py
             await api.post(`/notificacoes/aprovar/${id}?approve=true`);
             alert('Solicitação aprovada com sucesso!');
-            fetchNotificacoes(); // Recarrega a lista
+            fetchNotificacoes(); 
         } catch (error: any) {
             console.error('Erro ao aprovar:', error);
             alert('Erro ao aprovar: ' + (error.response?.data?.detail || error.message));
         }
     };
 
-    // Handler para Deletar (Excluir do banco)
     const handleDelete = async (id: number) => {
         if (!confirm('Deseja realmente EXCLUIR esta notificação do banco de dados?')) return;
-
-        // VERIFICAÇÃO: O backend fornecido NÃO possui um endpoint DELETE.
-        // Conforme solicitado, emitimos um alerta.
         alert(`Funcionalidade de exclusão não implementada no backend (Endpoint DELETE /api/notificacoes/${id} não encontrado).`);
-        
-        /* // CÓDIGO FUTURO (Quando o backend tiver o endpoint):
-        try {
-            await api.delete(`/notificacoes/${id}`);
-            alert('Notificação removida!');
-            fetchNotificacoes();
-        } catch (error) { ... }
-        */
     };
 
     const getStatusClass = (status: string) => {
@@ -105,36 +89,23 @@ const NotificationsPage: React.FC = () => {
     };
 
     return (
-        <div className="notifications-page-wrapper">
-            <header>
-                <div id="header-container">
-                    <nav>
-                        <ul>
-                            <li><a href="/">MENU PRINCIPAL</a></li>
-                            <li><a href="/check">VERIFICAR ELEGIBILIDADE</a></li>
-                            <li><a href="/search">CONSULTAR</a></li>
-                            <li><a href="/insert">INSERIR</a></li>
-                            <li><a href="/edit">EDITAR</a></li>
-                            <li><a href="/log">HISTÓRICO</a></li>
-                            <li><a href="/tickets">NOTIFICAÇÕES</a></li>
-                        </ul>
-                    </nav>
-                </div>
-                <div id="header-line"></div>
-            </header>
+        <div className="search-page">
+            
+            <Header role={user?.role} />
+
             <div className="search-container">
                 <div className='topo'>
                     <h1>Central de Notificações</h1>
                     <p>Gerenciamento de solicitações e tickets pendentes</p>
                 </div>
 
-                <div className="table-container">
+                <div className="tabela-container">
                     {loading ? (
                         <p style={{ textAlign: 'center', padding: '20px' }}>Carregando notificações...</p>
                     ) : notificacoes.length === 0 ? (
                         <p style={{ textAlign: 'center', padding: '20px' }}>Nenhuma notificação encontrada.</p>
                     ) : (
-                        <table className="data-table">
+                        <table className="dado-tabela">
                             <thead>
                                 <tr>
                                     <th style={{width: '50px'}}>ID</th>
@@ -152,24 +123,23 @@ const NotificationsPage: React.FC = () => {
                                         <td>{formatDateTime(notif.data_solicitacao)}</td>
                                         <td>{notif.operation}</td>
                                         <td>
-                                            <span className={`status-badge ${getStatusClass(notif.status_aprovacao)}`}>
+                                            <span className={`badge-status ${getStatusClass(notif.status_aprovacao)}`}>
                                                 {notif.status_aprovacao}
                                             </span>
                                         </td>
                                         <td>{formatDateTime(notif.data_aprovacao)}</td>
                                         <td style={{ textAlign: 'center' }}>
-                                            {/* Só exibe botões se estiver Pendente (ou conforme regra de negócio) */}
                                             {notif.status_aprovacao === 'Pendente' ? (
                                                 <>
                                                     <button 
-                                                        className="action-btn btn-approve" 
+                                                        className="botao-acao botao-aprovar" 
                                                         onClick={() => handleApprove(notif.id)} 
                                                         title="Aprovar Solicitação"
                                                     >
                                                         <IconCheck />
                                                     </button>
                                                     <button 
-                                                        className="action-btn btn-delete" 
+                                                        className="botao-acao botao-excluir" 
                                                         onClick={() => handleDelete(notif.id)} 
                                                         title="Excluir Notificação"
                                                     >

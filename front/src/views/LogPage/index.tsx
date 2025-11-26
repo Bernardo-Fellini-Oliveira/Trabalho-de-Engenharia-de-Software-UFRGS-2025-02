@@ -1,11 +1,11 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../services/api'; 
 import '../../../styles.css'
+import '../SearchPage/SearchPage.css'
 import './LogPage.css';
 import Header from '../../components/Header';
 import { useAuth } from '../../context/auth_context';
 
-// === Interfaces ===
 interface HistoricoEntry {
     id: number;
     created_at: string;
@@ -27,12 +27,9 @@ const LogPage: React.FC = () => {
 
     const {user} = useAuth();
 
-    
-    // Carregar histórico
     const fetchHistorico = async () => {
         setLoading(true);
         try {
-            // Solicitamos 50 itens para preencher bem a tabela
             const response = await api.get<HistoricoResponse>('/historico/?limite=50');
             setLogs(response.data.historico);
         } catch (error: any) {
@@ -47,14 +44,12 @@ const LogPage: React.FC = () => {
         fetchHistorico();
     }, []);
 
-    // Formatação de data
     const formatDateTime = (isoString: string) => {
         if (!isoString) return '-';
         const date = new Date(isoString);
         return date.toLocaleString('pt-BR');
     };
 
-    // Helper simples para cor da badge (opcional, baseado no texto)
     const getBadgeClass = (tipo: string) => {
         const t = tipo?.toLowerCase() || '';
         if (t.includes('associacao') || t.includes('associação')) return 'op-associacao';
@@ -65,7 +60,7 @@ const LogPage: React.FC = () => {
     };
 
     return (
-        <div className="log-page-wrapper">
+        <div className="search-page">
 
             <Header role={user?.role} />
 
@@ -75,13 +70,13 @@ const LogPage: React.FC = () => {
                     <p>Registro de atividades e auditoria do sistema</p>
                 </div>
 
-                <div className="table-container">
+                <div className="tabela-container">
                     {loading ? (
                         <p style={{ textAlign: 'center', padding: '20px' }}>Carregando histórico...</p>
                     ) : logs.length === 0 ? (
                         <p style={{ textAlign: 'center', padding: '20px' }}>Nenhum registro encontrado.</p>
                     ) : (
-                        <table className="data-table">
+                        <table className="dado-tabela">
                             <thead>
                                 <tr>
                                     <th style={{width: '50px'}}>ID</th>
@@ -92,12 +87,12 @@ const LogPage: React.FC = () => {
                                 </tr>
                             </thead>
                             <tbody>
-                                {logs.map((log) => (
+                                {logs.map((log: any) => (
                                     <tr key={log.id}>
                                         <td>{log.id}</td>
                                         <td>{formatDateTime(log.created_at)}</td>
                                         <td>
-                                            <span className={`log-badge ${getBadgeClass(log.tipo_operacao)}`}>
+                                            <span className={`badge-log ${getBadgeClass(log.tipo_operacao)}`}>
                                                 {log.tipo_operacao}
                                             </span>
                                         </td>

@@ -391,7 +391,7 @@ function SearchPage() {
 
 
                         {/* Botões de Ação do Filtro */}
-                        <div className="botao-grupo">
+                        <div className="botao-container">
                             <button className="botao" onClick={() => fetchData()}>
                                 Filtrar
                             </button>

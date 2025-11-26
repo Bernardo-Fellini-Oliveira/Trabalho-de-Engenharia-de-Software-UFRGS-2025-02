@@ -1,7 +1,8 @@
 import React, { use, useEffect, useState } from 'react';
 import api from '../../services/api';
-import './EditPage.css';
 import '../../../styles.css'
+import '../SearchPage/SearchPage.css'
+import './EditPage.css';
 import Header from '../../components/Header';
 import { useAuth } from '../../context/auth_context';
 
@@ -282,19 +283,18 @@ function EditPage() {
     console.log("Filtered Data:", filteredData);
 
 
-    // === RENDER TABLE ===
+// === RENDER TABLE ===
     const renderTable = () => {
         if (loading) return <p style={{textAlign:'center', padding: 20}}>Carregando...</p>;
         if (!filteredData.length) return <p style={{textAlign:'center', padding: 20}}>Sem dados.</p>;
 
         return (
-            <table className="data-table">
+            // Classe reutilizada de SearchPage.css
+            <table className="dado-tabela">
                 <thead>
                     <tr>
-
                         {activeTab === 'pessoa' && <><th>ID</th><th>Nome</th><th>Ativo</th></>}
                         {activeTab === 'orgao' && <><th>ID</th><th>Nome</th><th>Ativo</th></>}
-                        {/* CORREÇÃO 3: Adicionada coluna Exclusivo */}
                         {activeTab === 'cargo' && <><th>ID</th><th>Nome</th><th>Órgão</th><th>Ativo</th><th>Exclusivo</th><th>Substituto Para</th></>}
                         {activeTab === 'ocupacao' && <><th>Pessoa</th><th>Cargo</th><th>Início</th><th>Fim</th><th>Observações</th></>}
                         
@@ -316,12 +316,13 @@ function EditPage() {
                                         <td>{row.id_pessoa}</td>
                                         <td>
                                             {isEditing ?
-                                                <input className="edit-input" value={editForm.nome} onChange={e => setEditForm({...editForm, nome: e.target.value})} onClick={(e) => e.stopPropagation()} />
+                                                // Alterado para input-edicao
+                                                <input className="input-edicao" value={editForm.nome} onChange={e => setEditForm({...editForm, nome: e.target.value})} onClick={(e) => e.stopPropagation()} />
                                                 : row.nome}
                                         </td>
                                         <td>
                                             {isEditing ?
-                                                <select className="edit-input" value={editForm.ativo ? 1 : 0} onChange={e => setEditForm({...editForm, ativo: parseInt(e.target.value)})}>
+                                                <select className="input-edicao" value={editForm.ativo ? 1 : 0} onChange={e => setEditForm({...editForm, ativo: parseInt(e.target.value)})}>
                                                     <option value={1}>Sim</option><option value={0}>Não</option>
                                                 </select>
                                                 : (row.ativo ? 'Sim' : 'Não')}
@@ -335,12 +336,12 @@ function EditPage() {
                                         <td>{row.id_orgao}</td>
                                         <td>
                                             {isEditing ?
-                                                <input className="edit-input" value={editForm.nome} onChange={e => setEditForm({...editForm, nome: e.target.value})} />
+                                                <input className="input-edicao" value={editForm.nome} onChange={e => setEditForm({...editForm, nome: e.target.value})} />
                                                 : row.nome}
                                         </td>
                                         <td>
                                             {isEditing ?
-                                                <select className="edit-input" value={editForm.ativo ? 1 : 0} onChange={e => setEditForm({...editForm, ativo: parseInt(e.target.value)})}>
+                                                <select className="input-edicao" value={editForm.ativo ? 1 : 0} onChange={e => setEditForm({...editForm, ativo: parseInt(e.target.value)})}>
                                                     <option value={1}>Sim</option><option value={0}>Não</option>
                                                 </select>
                                                 : (row.ativo ? 'Sim' : 'Não')}
@@ -354,35 +355,33 @@ function EditPage() {
                                         <td>{row.id_cargo}</td>
                                         <td>
                                             {isEditing ?
-                                                <input className="edit-input" value={editForm.nome} onChange={e => setEditForm({...editForm, nome: e.target.value})} />
+                                                <input className="input-edicao" value={editForm.nome} onChange={e => setEditForm({...editForm, nome: e.target.value})} />
                                                 : row.nome}
                                         </td>
                                         <td>
                                             {isEditing ?
-                                                <select className="edit-input" value={editForm.id_orgao} onChange={e => setEditForm({...editForm, id_orgao: Number(e.target.value)})}>
+                                                <select className="input-edicao" value={editForm.id_orgao} onChange={e => setEditForm({...editForm, id_orgao: Number(e.target.value)})}>
                                                     {auxOrgaos.map(o => <option key={o.id_orgao} value={o.id_orgao}>{o.nome}</option>)}
                                                 </select>
                                                 : row.orgao || auxOrgaos.find((o:any) => o.id_orgao === row.id_orgao)?.nome}
                                         </td>
-                                        {/* CORREÇÃO 2: Conversão explícita para Inteiro (1 ou 0) ao editar Ativo */}
                                         <td>
                                             {isEditing ?
-                                                <select className="edit-input" value={editForm.ativo ? 1 : 0} onChange={e => setEditForm({...editForm, ativo: parseInt(e.target.value)})}>
+                                                <select className="input-edicao" value={editForm.ativo ? 1 : 0} onChange={e => setEditForm({...editForm, ativo: parseInt(e.target.value)})}>
                                                     <option value={1}>Sim</option><option value={0}>Não</option>
                                                 </select>
                                                 : (row.ativo ? 'Sim' : 'Não')}
                                         </td>
-                                        {/* CORREÇÃO 3: Célula para editar/visualizar Exclusivo */}
                                         <td>
                                             {isEditing ?
-                                                <select className="edit-input" value={editForm.exclusivo ? 1 : 0} onChange={e => setEditForm({...editForm, exclusivo: parseInt(e.target.value)})}>
+                                                <select className="input-edicao" value={editForm.exclusivo ? 1 : 0} onChange={e => setEditForm({...editForm, exclusivo: parseInt(e.target.value)})}>
                                                     <option value={1}>Sim</option><option value={0}>Não</option>
                                                 </select>
                                                 : (row.exclusivo ? 'Sim' : 'Não')}
                                         </td>
                                         <td>
                                             {isEditing ?
-                                                <select className="edit-input" value={editForm.substituto_para || ''} onChange={e => setEditForm({...editForm, substituto_para: e.target.value ? Number(e.target.value) : null})}>
+                                                <select className="input-edicao" value={editForm.substituto_para || ''} onChange={e => setEditForm({...editForm, substituto_para: e.target.value ? Number(e.target.value) : null})}>
                                                     <option value="">-</option>
                                                     {auxCargos.filter(c => c.id_cargo !== editForm.id_cargo).map(c => (<option key={c.id_cargo} value={c.id_cargo}>{c.nome}</option>))}
                                                 </select>
@@ -396,21 +395,21 @@ function EditPage() {
                                     <>
                                         <td>
                                             {isEditing ?
-                                                <select className="edit-input" value={editForm.id_pessoa} onChange={e => setEditForm({...editForm, id_pessoa: Number(e.target.value)})}>
+                                                <select className="input-edicao" value={editForm.id_pessoa} onChange={e => setEditForm({...editForm, id_pessoa: Number(e.target.value)})}>
                                                     {auxPessoas.map(p => <option key={p.id_pessoa} value={p.id_pessoa}>{p.nome}</option>)}
                                                 </select>
                                                 : row.pessoa}
                                         </td>
                                         <td>
                                             {isEditing ?
-                                                <select className="edit-input" value={editForm.id_cargo} onChange={e => setEditForm({...editForm, id_cargo: Number(e.target.value)})}>
+                                                <select className="input-edicao" value={editForm.id_cargo} onChange={e => setEditForm({...editForm, id_cargo: Number(e.target.value)})}>
                                                     {auxCargos.map(c => <option key={c.id_cargo} value={c.id_cargo}>{`${c.nome} (${c.orgao})`}</option>)}
                                                 </select>
                                                 : `${row.cargo} (${row.orgao})`}
                                         </td>
                                         <td>
                                             {isEditing ?
-                                                <input type="date" className="edit-input" value={editForm.data_inicio} onChange={e => {
+                                                <input type="date" className="input-edicao" value={editForm.data_inicio} onChange={e => {
                                                     const value = e.target.value;
                                                     if(value === '' || value === "''")
                                                         setEditForm({...editForm, data_inicio: null});
@@ -420,33 +419,35 @@ function EditPage() {
                                         </td>
                                         <td>
                                             {isEditing ?
-                                                <input type="date" className="edit-input" value={editForm.data_fim || ''} onChange={e => {
+                                                <input type="date" className="input-edicao" value={editForm.data_fim || ''} onChange={e => {
                                                     const value = e.target.value;
                                                     if(value === '' || value === "''")
                                                         setEditForm({...editForm, data_fim: null});
                                                     else
-                                                    setEditForm({...editForm, data_fim: e.target.value})}} />
+                                                        setEditForm({...editForm, data_fim: e.target.value})}} />
                                                 : (row.data_fim || '-')}
                                         </td>
                                         <td>
                                             {isEditing ?
-                                                <input className="edit-input" value={editForm.observacoes} onChange={e => setEditForm({...editForm, observacoes: e.target.value})} />
+                                                <input className="input-edicao" value={editForm.observacoes} onChange={e => setEditForm({...editForm, observacoes: e.target.value})} />
                                                 : row.observacoes}
                                         </td>
                                     </>
                                 )}
 
-                                <td className="action-cell">
+                                {/* Alterado para celula-acao */}
+                                <td className="celula-acao">
                                     {isEditing ? (
                                         <>
-                                            <button className="icon-btn save" onClick={(e) => {e.stopPropagation(); saveEdit()}} title="Salvar"><IconSave/></button>
-                                            <button className="icon-btn cancel" onClick={(e) => {e.stopPropagation(); setEditingId(null)}} title="Cancelar"><IconCancel/></button>
+                                            {/* Alterado para classes em pt-br */}
+                                            <button className="botao-icone salvar" onClick={(e) => {e.stopPropagation(); saveEdit()}} title="Salvar"><IconSave/></button>
+                                            <button className="botao-icone cancelar" onClick={(e) => {e.stopPropagation(); setEditingId(null)}} title="Cancelar"><IconCancel/></button>
                                         </>
                                     ) : (
                                         <>
-                                            <button className="icon-btn edit" onClick={(e) => {e.stopPropagation(); startEdit(row)}} title="Editar"><IconEdit/></button>
+                                            <button className="botao-icone editar" onClick={(e) => {e.stopPropagation(); startEdit(row)}} title="Editar"><IconEdit/></button>
                                             {activeTab === 'ocupacao' && !row.data_fim && (
-                                                <button className="icon-btn finish" onClick={(e) => {e.stopPropagation(); openFinishModal(row.id_ocupacao)}} title="Finalizar/Substituir">
+                                                <button className="botao-icone finalizar" onClick={(e) => {e.stopPropagation(); openFinishModal(row.id_ocupacao)}} title="Finalizar/Substituir">
                                                     <IconFinish/>
                                                 </button>
                                             )}
@@ -462,7 +463,8 @@ function EditPage() {
     };
 
     return (
-        <div className="edit-page-wrapper">
+        // Alterado Wrapper para 'search-page' para herdar estilos globais
+        <div className="search-page">
 
             <Header role={user?.role} />
 
@@ -471,12 +473,14 @@ function EditPage() {
                     <h1>Edição de Dados</h1>
                     <p>Editando os dados</p>
                 </div>
-                <div className="filter-card">
-                    <div className="filter-row">
-                        <div className="filter-group" style={{flex: 2}}>
+                
+                {/* Reutiliza filtro-container, filtro-linha e filtro-select do SearchPage.css */}
+                <div className="filtro-container">
+                    <div className="filtro-linha">
+                        <div className="filtro-grupo" style={{flex: 2}}>
                             <label>Busca Textual</label>
                             <input
-                                className="filter-input"
+                                className="filtro-input"
                                 type="text"
                                 placeholder={`Buscar em ${activeTab}...`}
                                 value={filtroBusca}
@@ -484,9 +488,9 @@ function EditPage() {
                             />
                         </div>
 
-                        <div className="filter-group">
+                        <div className="filtro-grupo">
                             <label>Tabela (Tipo de Dado)</label>
-                            <select className="filter-select" value={activeTab} onChange={(e) => setActiveTab(e.target.value as Tab)}>
+                            <select className="filtro-select" value={activeTab} onChange={(e) => setActiveTab(e.target.value as Tab)}>
                                 <option value="pessoa">Pessoas</option>
                                 <option value="orgao">Órgãos</option>
                                 <option value="cargo">Cargos</option>
@@ -495,64 +499,54 @@ function EditPage() {
                         </div>
 
                         {!deleting && (
-                            <div className="button-group">
-                                <button className="btn btn-danger" onClick={() => setDeleting(true)} disabled={deleting}>
+                            <div className="botao-container">
+                                {/* Botão adaptado para classes pt-br */}
+                                <button className="botao botao-vermelho" onClick={() => setDeleting(true)} disabled={deleting}>
                                     <IconTrash/> Excluir Itens
                                 </button>
                             </div>
                         )}
 
-
                         {deleting && (
                             <>
-
-                            <div className="button-group">
-                                <button className="btn btn-secondary" onClick={() => {setDeleting(false); setSelectedIds([])}}>Cancelar Exclusão</button>
+                            <div className="botao-container">
+                                <button className="botao botao-cinza-escuro" onClick={() => {setDeleting(false); setSelectedIds([])}}>Cancelar Exclusão</button>
                             </div>
                             
-
-                            <div className="button-group">
-
+                            <div className="botao-container">
                             {
                                 selectedIds.length == filteredData.length ? (
-                                        <button className="btn btn-secondary" onClick={() => setSelectedIds([])}>
+                                        <button className="botao botao-cinza-escuro" onClick={() => setSelectedIds([])}>
                                             Desmarcar Todos ( {filteredData.length} )
                                         </button>
                                     ) : 
-                                    
-                                (
-                                <button className="btn btn-danger" onClick={() => setSelectedIds(filteredData.map(item => {
-                                    const idKey = activeTab === 'ocupacao' ? 'id_ocupacao' : `id_${activeTab}`;
-                                    return item[idKey];
-                                }))}>
-                                    Selecionar Todos ( {filteredData.length} )
-                                </button>
-                                )
+                                    (
+                                    <button className="botao botao-vermelho" onClick={() => setSelectedIds(filteredData.map(item => {
+                                        const idKey = activeTab === 'ocupacao' ? 'id_ocupacao' : `id_${activeTab}`;
+                                        return item[idKey];
+                                    }))}>
+                                        Selecionar Todos ( {filteredData.length} )
+                                    </button>
+                                    )
                             }
-
                             </div>
 
-                            <div className="button-group">
-                                <button className="btn btn-danger" onClick={deleteBatch} disabled={selectedIds.length === 0}>
+                            <div className="botao-container">
+                                <button className="botao botao-vermelho" onClick={deleteBatch} disabled={selectedIds.length === 0}>
                                     <IconTrash/> Excluir Selecionados ({selectedIds.length})
                                 </button>
                             </div>
-
-
-
                             </>
                         )}
-
-
                     </div>
 
                     {
                     activeTab == 'ocupacao' && (
-                    <div className="filter-row">
-                        <div className="filter-group" style={{flex: 2, marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
+                    <div className="filtro-linha" style={{marginTop: '15px', borderTop: '1px solid #eee', paddingTop: '15px'}}>
+                        <div className="filtro-grupo" style={{flex: 2}}>
                             <label>Busca Complexa</label>
                             <input
-                                className="filter-input"
+                                className="filtro-input"
                                 type="text"
                                 placeholder={`Buscar em ${activeTab}...`}
                                 value={filtroBuscaComplexa}
@@ -560,41 +554,38 @@ function EditPage() {
                             />
                         </div>
 
-                        <div className="button-group">
-                            <button className="btn btn-secondary" onClick={() => {
+                        <div className="botao-container">
+                            <button className="botao botao-cinza-escuro" onClick={() => {
                                 setFiltroBuscaComplexa("");
                                 fetchAux();
                             }}>
                                 Limpar
                             </button>
-                            <button className="btn btn-primary" onClick={() => fetchFilteredOcupacoes()}>
+                            <button className="botao botao-azul" onClick={() => fetchFilteredOcupacoes()}>
                                 Filtrar
                             </button>
-
                         </div>
-
-
                     </div>
-  
-                )}
+                    )}
                 </div>
 
-
-                <div className="table-container">
+                {/* Reutiliza tabela-container */}
+                <div className="tabela-container">
                     {renderTable()}
                 </div>
 
             {showModal && (
-                <div className="modal-overlay">
-                    <div className="modal-content">
-                        <div className="modal-header">Finalizar Mandato</div>
+                // Classes alteradas para pt-br
+                <div className="modal-fundo">
+                    <div className="modal-conteudo">
+                        <div className="modal-cabecalho">Finalizar Mandato</div>
 
-                        {/* DATA FIM */}
-                        <div className="filter-group" style={{ marginBottom: 15 }}>
+                        {/* DATA FIM - Reutiliza container de filtro */}
+                        <div className="filtro-grupo" style={{ marginBottom: 15 }}>
                             <label>Fim do Mandato Atual</label>
                             <input
                                 type="date"
-                                className="edit-input"
+                                className="input-edicao"
                                 value={finishData.data_fim}
                                 onChange={e =>
                                     setFinishData({ ...finishData, data_fim: e.target.value })
@@ -608,9 +599,9 @@ function EditPage() {
                             gap: "15px",
                             marginBottom: "20px"
                         }}>
-                            {/* CARD - SAÍDA DEFINITIVA */}
+                            {/* Classes card-opcao e selecionado em pt-br */}
                             <div
-                                className={`option-card ${finishData.definitiva ? "selected" : ""}`}
+                                className={`card-opcao ${finishData.definitiva ? "selecionado" : ""}`}
                                 onClick={() => setFinishData({ ...finishData, definitiva: true })}
                             >
                                 <h4>Saída Definitiva</h4>
@@ -627,7 +618,7 @@ function EditPage() {
                             {finishData.nome_substituto && (
 
                             <div
-                                className={`option-card ${!finishData.definitiva ? "selected" : ""}`}
+                                className={`card-opcao ${!finishData.definitiva ? "selecionado" : ""}`}
                                 onClick={() => setFinishData({ ...finishData, definitiva: false })}
                             >
                                 <h4>Substituto</h4>
@@ -651,17 +642,17 @@ function EditPage() {
                                 padding: 12,
                                 borderRadius: 6,
                                 border: "1px solid #dcdcdc"
-                                }}>
+                            }}>
                                 <p style={{ fontSize: 13, fontWeight: "bold", marginBottom: 10 }}>
                                     Dados do Substituto
                                 </p>
                                 <p><strong>Nome:</strong> {finishData.nome_substituto}</p>
 
-                                <div className="filter-group" style={{ marginBottom: 10 }}>
+                                <div className="filtro-grupo" style={{ marginBottom: 10 }}>
                                     <label>Início Substituto</label>
                                     <input
                                         type="date"
-                                        className="edit-input"
+                                        className="input-edicao"
                                         value={finishData.data_inicio_sub}
                                         onChange={e =>
                                             setFinishData({
@@ -672,11 +663,11 @@ function EditPage() {
                                     />
                                 </div>
 
-                                <div className="filter-group">
+                                <div className="filtro-grupo">
                                     <label>Fim Substituto (Opcional)</label>
                                     <input
                                         type="date"
-                                        className="edit-input"
+                                        className="input-edicao"
                                         value={finishData.data_fim_sub}
                                         onChange={e =>
                                             setFinishData({
@@ -697,11 +688,11 @@ function EditPage() {
                             )
                         }
 
-                        <div className="modal-actions">
-                            <button className="btn btn-secondary" onClick={() => setShowModal(false)}>
+                        <div className="modal-acoes">
+                            <button className="botao botao-cinza-escuro" onClick={() => setShowModal(false)}>
                                 Cancelar
                             </button>
-                            <button className="btn btn-primary" onClick={confirmFinish}>
+                            <button className="botao botao-azul" onClick={confirmFinish}>
                                 Confirmar
                             </button>
                         </div>

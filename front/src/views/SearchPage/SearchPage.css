@@ -12,7 +12,7 @@ search-page
     min-height: 100vh;
 }
 
-.search-page .filtro-container {
+.filtro-container {
     background-color: #ffffff;
     border: 1px solid #dee2e6;
     border-radius: 6px;
@@ -20,14 +20,14 @@ search-page
     margin-bottom: 20px;
 }
 
-.search-page .filtro-linha {
+.filtro-linha {
     display: flex;
     gap: 20px;
     align-items: flex-end;
     flex-wrap: wrap;
 }
 
-.search-page .filtro-grupo {
+.filtro-grupo {
     display: flex;
     flex-direction: column;
     gap: 6px;
@@ -35,14 +35,14 @@ search-page
     min-width: 200px;
 }
 
-.search-page .filtro-grupo label {
+.filtro-grupo label {
     font-size: 14px;
     color: black;
     font-weight: 500;
 }
 
-.search-page .filtro-input, 
-.search-page .filtro-select {
+.filtro-input, 
+.filtro-select {
     padding: 8px 12px;
     border: 1px solid #ccc;                  
     border-radius: 20px;
@@ -54,7 +54,7 @@ search-page
 }
 
 /* --- BOTÕES GERAIS --- */
-.search-page .botao-group {
+.botao-container {
     display: flex;
     gap: 10px;
 }
@@ -73,14 +73,14 @@ search-page
 }
 
 
-.search-page .tabela-container {
+.tabela-container {
     background-color: white;
     border: 1px solid #dee2e6;
     border-radius: 6px;
     overflow-x: auto;
 }
 
-.search-page .dado-tabela {
+.dado-tabela {
     width: 100%;
     border-collapse: collapse;
     font-size: 14px;
@@ -88,7 +88,7 @@ search-page
 }
 
 
-.search-page .dado-tabela thead th {
+.dado-tabela thead th {
     background-color: #9A0000;
     color: #ffffff;
     font-weight: 700;
@@ -101,23 +101,23 @@ search-page
     position: relative;
 }
 
-.search-page .dado-tabela thead th:hover {
+.dado-tabela thead th:hover {
     background-color: #995E5E;
 }
 
 
-.search-page .dado-tabela tbody td {
+.dado-tabela tbody td {
     padding: 10px 15px;
     border-bottom: 1px solid #dee2e6;
     vertical-align: middle;
 }
 
 
-.search-page .dado-tabela tbody tr:nth-child(even) {
+.dado-tabela tbody tr:nth-child(even) {
     background-color: #f8f9fa;
 }
 
-.search-page .dado-tabela tbody tr:hover {
+.dado-tabela tbody tr:hover {
     background-color: #e9ecef;
 }
 
