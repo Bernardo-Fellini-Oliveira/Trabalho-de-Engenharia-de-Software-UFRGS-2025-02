@@ -27,15 +27,14 @@ function App() {
           <Route path="/login" element={<LoginScreen />} />
           <Route path="/check" element={<EligibilityPage />} />
 
-          {/* PROTEGIDAS POR AUTENTICAÇÃO - NÍVEL ADMIN */}
-          <Route path="/signup" element={<PrivateRoute><RegisterScreen/></PrivateRoute>} />
+          {/* PROTEGIDAS POR AUTENTICAÇÃO - NÍVEL USUARIO */}
           <Route path="/insert" element={<PrivateRoute><TestPage /></PrivateRoute>} />
           <Route path="/edit" element={<PrivateRoute><EditPage /></PrivateRoute>} />
           <Route path="/log" element={<PrivateRoute><LogPage /></PrivateRoute>} />
 
-          {/* PROTEGIDAS POR AUTENTICAÇÃO - NÍVEL SUPER ADMIN */}
+          {/* PROTEGIDAS POR AUTENTICAÇÃO - NÍVEL ADMIN */}
           <Route path="/tickets" element={<PrivateRoute roles={["admin"]}><TicketsPage /></PrivateRoute>} />
-
+          <Route path="/signup" element={<PrivateRoute roles= {["admin"]}><RegisterScreen/></PrivateRoute>} />
 
         </Routes>
 
