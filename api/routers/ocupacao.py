@@ -310,6 +310,35 @@ def _get_chain_below_ocupacoes(session: Session, ocupacao_base: Ocupacao) -> Set
     return ids_ocupacoes_substitutas
 
 
+def _get_next_substituto_imediato(session: Session, ocupacao_base: Ocupacao) -> Ocupacao | None:
+    """
+    Retorna a ocupação do substituto imediato (primeiro nível da cadeia),
+    desde que esteja ATIVA (data_fim == None).
+    Se não houver substituto ativo, retorna None.
+    """
+
+    # 1. Cargo atual (ocupado pela ocupação base)
+    cargo_base = session.get(Cargo, ocupacao_base.id_cargo)
+    if not cargo_base or cargo_base.substituto is None:
+        return None
+
+    # 2. Cargo substituto (primeiro nível na cadeia)
+    cargo_substituto = session.get(Cargo, cargo_base.substituto)
+    if not cargo_substituto:
+        return None
+
+    # 3. Buscar ocupação ativa nesse cargo substituto
+    stmt = (
+        select(Ocupacao)
+        .where(Ocupacao.id_cargo == cargo_substituto.id_cargo)
+        .where(Ocupacao.data_fim == None)  # Ativa
+        .order_by(Ocupacao.data_inicio.asc())  # Só pra garantir consistência
+    )
+
+    return session.exec(stmt).first()
+
+ 
+
 def reajustar_mandatos_com_remocao(session: Session, ocupacao_removida: Ocupacao):
 
     cargo = session.get(Cargo, ocupacao_removida.id_cargo)
@@ -666,6 +695,27 @@ def alterar_ocupacao(
         session.rollback()
         raise HTTPException(status_code=500, detail=f"Erro ao alterar Ocupação: {e}")
 
+   # const [finishData, setFinishData] = useState({nome_substituto: '', id_ocupacao: 0, data_fim: '', data_inicio_sub: '', data_fim_sub: '', definitiva: false})
+   # const resp = await api.get(`/ocupacao/substituto_proximo/${idOcupacao}`);
+@router.get("/substituto_proximo/{id_ocupacao}")
+def substituto_proximo(id_ocupacao: int, session: Session = Depends(get_session)):
+    ocupacao_base = session.get(Ocupacao, id_ocupacao)
+    if not ocupacao_base:
+        raise HTTPException(404, "Ocupação não encontrada")
+
+    substituto = _get_next_substituto_imediato(session, ocupacao_base)
+
+    if not substituto:
+        return None
+    
+    pessoa_substituto = session.get(Pessoa, substituto.id_pessoa)
+
+
+    return {
+        "nome_substituto": pessoa_substituto.nome,
+        "data_inicio_sugerida": None,
+        "data_fim_sugerida": None
+    }
 
 
 

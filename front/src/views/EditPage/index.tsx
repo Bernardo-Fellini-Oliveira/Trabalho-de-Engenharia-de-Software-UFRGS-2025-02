@@ -63,10 +63,9 @@ function EditPage() {
 
     // Modal de Finalização
     const [showModal, setShowModal] = useState(false);
-    const [finishData, setFinishData] = useState({ id_ocupacao: 0, data_fim: '', data_inicio_sub: '', data_fim_sub: '', definitiva: false, orgao: ''})//pessoa_substituta: '', cargo_substituto: '',  });
+    const [finishData, setFinishData] = useState({nome_substituto: '', id_ocupacao: 0, data_fim: '', data_inicio_sub: '', data_fim_sub: '', definitiva: true})//pessoa_substituta: '', cargo_substituto: '',  });
 
-    console.log("aux_cargos:", auxCargos);
-    console.log("edit_form:", editForm);
+
 
     // === FETCH DATA ===
     const fetchAux = async () => {
@@ -196,22 +195,48 @@ function EditPage() {
         }
     };
 
-    const openFinishModal = (row: Ocupacao) => {
- 
-
-        
-        setFinishData({
-            id_ocupacao: row.id_ocupacao,
-            data_fim: new Date().toISOString().split('T')[0],
-            data_inicio_sub: '',
-            data_fim_sub: '',
-            definitiva: false,
-            orgao: row.orgao || ''
+    const openFinishModal = async (idOcupacao: number) => {
+        setFinishData({ 
+            id_ocupacao: idOcupacao,
+            definitiva: true,
+            data_fim: "",
+            data_inicio_sub: "",
+            data_fim_sub: "",
+            nome_substituto: ""
         });
+
         setShowModal(true);
+
+        try {
+            const resp = await api.get(`/ocupacao/substituto_proximo/${idOcupacao}`);
+            console.log("Substituto próximo:", resp.data);
+            
+            if (resp.data) {
+                setFinishData(prev => ({
+                    ...prev,
+                    data_inicio_sub: resp.data.data_inicio_sugerida || "",
+                    data_fim_sub: resp.data.data_fim_sugerida || "",
+                    nome_substituto: resp.data.nome_substituto || ""
+                }));
+            }
+        } catch (err) {
+            console.warn("Sem substituto próximo.");
+        }
     };
 
+
     const confirmFinish = async () => {
+
+        if(!finishData.data_fim) {
+            alert("Por favor, preencha a data de fim da ocupação.");
+            return;
+        }
+
+        if(!finishData.definitiva && !finishData.data_inicio_sub) {
+            alert("Por favor, preencha a data de início do substituto ou marque como finalização definitiva.");
+            return;
+        }
+        
         try {
             const payload = {
                 definitiva: finishData.definitiva,
@@ -219,14 +244,21 @@ function EditPage() {
                 data_inicio_substitutos: finishData.data_inicio_sub || null,
                 data_fim_substitutos: finishData.data_fim_sub || null
             };
-            await api.put(`/ocupacao/finalizar/${finishData.id_ocupacao}`, payload);
+
+            await api.put(
+                `/ocupacao/finalizar/${finishData.id_ocupacao}`,
+                payload
+            );
+
             alert("Finalizado com sucesso!");
             setShowModal(false);
             fetchAux();
+
         } catch (err: any) {
             alert("Erro ao finalizar: " + (err.response?.data?.detail || err.message));
         }
     };
+
 
     const fetchFilteredOcupacoes = async () => {
         setLoading(true);
@@ -396,7 +428,7 @@ function EditPage() {
                                         <>
                                             <button className="icon-btn edit" onClick={(e) => {e.stopPropagation(); startEdit(row)}} title="Editar"><IconEdit/></button>
                                             {activeTab === 'ocupacao' && !row.data_fim && (
-                                                <button className="icon-btn finish" onClick={(e) => {e.stopPropagation(); openFinishModal(row)}} title="Finalizar/Substituir">
+                                                <button className="icon-btn finish" onClick={(e) => {e.stopPropagation(); openFinishModal(row.id_ocupacao)}} title="Finalizar/Substituir">
                                                     <IconFinish/>
                                                 </button>
                                             )}
@@ -529,47 +561,131 @@ function EditPage() {
                     {renderTable()}
                 </div>
 
-                {showModal && (
+            {showModal && (
+                <div className="modal-overlay">
+                    <div className="modal-content">
+                        <div className="modal-header">Finalizar Mandato</div>
 
-                    console.log("Finish Data:", finishData),
-                    <div className="modal-overlay">
-                        <div className="modal-content">
-                            <div className="modal-header">Finalizar Mandato</div>
-                            
-                            
-                            <div className="filter-group" style={{marginBottom: 15}}>
-                                <label>Fim do Mandato Atual</label>
-                                <input type="date" className="edit-input" value={finishData.data_fim} onChange={e => setFinishData({...finishData, data_fim: e.target.value})} />
+                        {/* DATA FIM */}
+                        <div className="filter-group" style={{ marginBottom: 15 }}>
+                            <label>Fim do Mandato Atual</label>
+                            <input
+                                type="date"
+                                className="edit-input"
+                                value={finishData.data_fim}
+                                onChange={e =>
+                                    setFinishData({ ...finishData, data_fim: e.target.value })
+                                }
+                            />
+                        </div>
+
+                        {/* OPÇÕES DE FINALIZAÇÃO */}
+                        <div style={{
+                            display: "flex",
+                            gap: "15px",
+                            marginBottom: "20px"
+                        }}>
+                            {/* CARD - SAÍDA DEFINITIVA */}
+                            <div
+                                className={`option-card ${finishData.definitiva ? "selected" : ""}`}
+                                onClick={() => setFinishData({ ...finishData, definitiva: true })}
+                            >
+                                <h4>Saída Definitiva</h4>
+                                <p style={{ fontSize: 13 }}>
+                                    Encerra o mandato sem indicar substituto.
+                                </p>
+                                <input
+                                    type="radio"
+                                    checked={finishData.definitiva}
+                                    onChange={() => setFinishData({ ...finishData, definitiva: true })}
+                                />
                             </div>
 
-                            <div className="filter-group" style={{marginBottom: 15}}>
-                                <label>
-                                    <input type="checkbox" checked={finishData.definitiva} onChange={e => setFinishData({...finishData, definitiva: e.target.checked})} />
-                                    &nbsp; Saída Definitiva (Sem substitutos)
-                                </label>
-                            </div>
+                            {finishData.nome_substituto && (
 
-                            {!finishData.definitiva && (
-                                <div style={{background: '#f8f9fa', padding: 10, borderRadius: 4}}>
-                                    <p style={{fontSize: 12, fontWeight: 'bold', marginBottom: 10}}>Dados do Substituto</p>
-                                    <div className="filter-group" style={{marginBottom: 10}}>
-                                        <label>Início Substituto</label>
-                                        <input type="date" className="edit-input" value={finishData.data_inicio_sub} onChange={e => setFinishData({...finishData, data_inicio_sub: e.target.value})} />
-                                    </div>
-                                    <div className="filter-group">
-                                        <label>Fim Substituto (Opcional)</label>
-                                        <input type="date" className="edit-input" value={finishData.data_fim_sub} onChange={e => setFinishData({...finishData, data_fim_sub: e.target.value})} />
-                                    </div>
-                                </div>
+                            <div
+                                className={`option-card ${!finishData.definitiva ? "selected" : ""}`}
+                                onClick={() => setFinishData({ ...finishData, definitiva: false })}
+                            >
+                                <h4>Substituto</h4>
+                                <p style={{ fontSize: 13 }}>
+                                    Indica um substituto imediato para assumir o cargo.
+                                </p>
+                                <input
+                                    type="radio"
+                                    checked={!finishData.definitiva}
+                                    onChange={() => setFinishData({ ...finishData, definitiva: false })}
+                                />
+                            </div>
                             )}
 
-                            <div className="modal-actions">
-                                <button className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancelar</button>
-                                <button className="btn btn-primary" onClick={confirmFinish}>Confirmar</button>
+                        </div>
+
+                        {/* CAMPOS DO SUBSTITUTO */}
+                        {!finishData.definitiva && finishData.nome_substituto && (
+                            <div style={{
+                                background: "#f1f3f5",
+                                padding: 12,
+                                borderRadius: 6,
+                                border: "1px solid #dcdcdc"
+                                }}>
+                                <p style={{ fontSize: 13, fontWeight: "bold", marginBottom: 10 }}>
+                                    Dados do Substituto
+                                </p>
+                                <p><strong>Nome:</strong> {finishData.nome_substituto}</p>
+
+                                <div className="filter-group" style={{ marginBottom: 10 }}>
+                                    <label>Início Substituto</label>
+                                    <input
+                                        type="date"
+                                        className="edit-input"
+                                        value={finishData.data_inicio_sub}
+                                        onChange={e =>
+                                            setFinishData({
+                                                ...finishData,
+                                                data_inicio_sub: e.target.value
+                                            })
+                                        }
+                                    />
+                                </div>
+
+                                <div className="filter-group">
+                                    <label>Fim Substituto (Opcional)</label>
+                                    <input
+                                        type="date"
+                                        className="edit-input"
+                                        value={finishData.data_fim_sub}
+                                        onChange={e =>
+                                            setFinishData({
+                                                ...finishData,
+                                                data_fim_sub: e.target.value
+                                            })
+                                        }
+                                    />
+                                </div>
                             </div>
+                        )}
+
+                        {
+                            !finishData.definitiva && !finishData.nome_substituto && (
+                                <p style={{marginBottom: 10 }}>
+                                    Nenhum substituto imediato disponível para esta ocupação.
+                                </p>
+                            )
+                        }
+
+                        <div className="modal-actions">
+                            <button className="btn btn-secondary" onClick={() => setShowModal(false)}>
+                                Cancelar
+                            </button>
+                            <button className="btn btn-primary" onClick={confirmFinish}>
+                                Confirmar
+                            </button>
                         </div>
                     </div>
-                )}
+                </div>
+            )}
+
             </div>
         </div>
     );

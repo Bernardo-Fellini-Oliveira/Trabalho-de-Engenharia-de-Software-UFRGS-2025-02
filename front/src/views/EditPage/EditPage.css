@@ -1,5 +1,30 @@
 /* --- WRAPPER: .edit-page-wrapper --- */
 
+
+.option-card {
+    flex: 1;
+    padding: 15px;
+    border: 2px solid #ccc;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: 0.2s;
+    background: white;
+}
+
+.option-card:hover {
+    border-color: #888;
+}
+
+.option-card.selected {
+    border-color: #007bff;
+    background: #e9f2ff;
+}
+
+.option-card h4 {
+    margin-top: 0;
+    margin-bottom: 5px;
+}
+
 /* Reutiliza estilos base do SearchPage para consistência */
 .edit-page-wrapper .search-container {
     padding: 20px 40px;
