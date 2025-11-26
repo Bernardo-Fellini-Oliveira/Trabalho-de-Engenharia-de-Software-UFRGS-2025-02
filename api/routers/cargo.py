@@ -37,6 +37,7 @@ class CargoCreate(SQLModel):
 class CargoUpdateData(SQLModel):
     nome: Optional[str] = None
     id_orgao: Optional[int] = None
+    exclusivo: Optional[bool] = None
 
 def core_adicionar_cargo(
     cargo: CargoCreate,
@@ -105,6 +106,8 @@ def core_adicionar_cargo(
     session.add(novo)
     session.flush()
     acima.substituto = novo.id_cargo
+    session.flush()
+
 
     update_stmt = (
                 update(Cargo) 
@@ -196,9 +199,12 @@ def remover_cargo(
 
     ids_afetados = [c.id_cargo for c in afetados]
 
-
+    print("=============================")
+    print("Cargos afetados na operação:", ids_afetados)
     if soft:
         # marca todos como inativos
+        print(afetados)
+
         for c in afetados:
             if c.ativo:
                 orgao = session.get(Orgao, c.id_orgao)
@@ -323,6 +329,19 @@ def core_alterar_cargo(
     if not cargo:
         raise HTTPException(status_code=404, detail="Cargo não encontrado.")
     
+    if cargo.substituto is not None:
+        if payload.exclusivo is not None and payload.exclusivo is False:
+            raise HTTPException(status_code=400, detail="Não é possível definir 'exclusivo' como False para um cargo que possui substituto.")
+        if payload.id_orgao is not None and payload.id_orgao != cargo.id_orgao:
+            raise HTTPException(status_code=400, detail="Não é possível alterar o órgão de um cargo que possui substituto.")
+    
+    if cargo.substituto_para is not None:
+        if payload.exclusivo is not None and payload.exclusivo is False:
+            raise HTTPException(status_code=400, detail="Não é possível definir 'exclusivo' como False para um cargo que é substituto de outro.")
+        if payload.id_orgao is not None and payload.id_orgao != cargo.id_orgao:
+            raise HTTPException(status_code=400, detail="Não é possível alterar o órgão de um cargo que é substituto de outro.")
+    
+
     novo_nome = payload.nome if payload.nome != cargo.nome else None
     novo_id_orgao = payload.id_orgao if payload.id_orgao != cargo.id_orgao else None
 
@@ -353,7 +372,11 @@ def core_alterar_cargo(
         cargo.nome = novo_nome
     if novo_id_orgao is not None:
         cargo.id_orgao = novo_id_orgao
-    
+    if payload.exclusivo is not None:
+        cargo.exclusivo = payload.exclusivo
+
+    print(cargo)
+    print("Chegou aqui!!!")
     return cargo 
 
 @router.post("/", response_model=CargoRead)
@@ -434,7 +457,9 @@ def remover_cargo_and_commit(
 ):
 
     try:
+        print("Iniciando remoção/inativação de cargo...")
         resultado = remover_cargo(id_cargo=id_cargo, soft=soft, force=force, session=session, em_lote=False)
+        
         session.commit()
 
         return resultado

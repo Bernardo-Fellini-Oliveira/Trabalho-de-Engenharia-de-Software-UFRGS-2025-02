@@ -170,6 +170,36 @@ function EditPage() {
             let url = '';
             if (activeTab === 'ocupacao') url = `/ocupacao/alterar/${editingId}`;
             else url = `/${activeTab}/${editingId}`;
+            
+            // Isto é uma pequena gambiarra para lidar com reativação/desativação
+            // A ideia aqui é que o endpoint de pessoa e órgão para lidar com ativação é simplesmente a alteração do campo, porque para pessoa é simples assim
+            // E isso está embutido na alteração normal
+            // Mas para cargo, existe um endpoint separado para reativar e desativar (soft delete), pois a regra de negócio é muito mais complexa
+            // Então, se o campo 'ativo' foi alterado, precisamos chamar esse endpoint adicional
+            if (activeTab == 'cargo' && editForm.ativo !== undefined) {
+                if(editForm.ativo === 1 || editForm.ativo === true){
+                    editForm.ativo = true;
+                    console.log("Reativando item:", editingId);
+                    try {
+                        await api.put(`cargo/reativar/${editingId}`);
+                    }
+
+                    catch (err) {
+                        console.error("Erro ao reativar:", err);
+                    }
+                }
+                else{
+                    editForm.ativo = false;
+                    console.log("Desativando item:", editingId);
+                    try {
+                        await api.delete(`${activeTab}/delete/${editingId}?soft=true&force=false`);
+                    }
+                    catch (err) {
+                        console.error("Erro ao desativar:", err);
+                    }
+                }
+            }
+            
 
             await api.put(url, editForm);
             alert("Atualizado com sucesso!");
@@ -380,12 +410,7 @@ function EditPage() {
                                                 : (row.exclusivo ? 'Sim' : 'Não')}
                                         </td>
                                         <td>
-                                            {isEditing ?
-                                                <select className="input-edicao" value={editForm.substituto_para || ''} onChange={e => setEditForm({...editForm, substituto_para: e.target.value ? Number(e.target.value) : null})}>
-                                                    <option value="">-</option>
-                                                    {auxCargos.filter(c => c.id_cargo !== editForm.id_cargo).map(c => (<option key={c.id_cargo} value={c.id_cargo}>{c.nome}</option>))}
-                                                </select>
-                                                : (row.substituto_para ? auxCargos.find((c: any) => c.id_cargo === row.substituto_para)?.nome : '-')}
+                                            {(row.substituto_para ? auxCargos.find((c: any) => c.id_cargo === row.substituto_para)?.nome : '-')}
                                         </td>
                                     </>
                                 )}
