@@ -2,8 +2,7 @@ import React, { useState } from 'react';
 import './TeladeRegistro.css';
 import { signUpRequest } from "../../services/auth"; // Importe a função de serviço
 
-// Se você precisar redirecionar para uma página de login após o sucesso,
-// Mantenha o useNavigate (opcional)
+
 import { useNavigate } from 'react-router-dom'; 
 
 
@@ -31,20 +30,14 @@ const RegisterScreen = () => {
     setLoading(true); // Inicia o carregamento
 
     try {
-      // 🚨 ÚNICA REQUISIÇÃO: Apenas registra o usuário.
-      // Espera uma resposta de sucesso do backend (status 200/201).
+      
       await signUpRequest(usuario, senha); 
       
       alert(`Usuário "${usuario}" criado com sucesso! Agora você pode fazer login.`);
       
-      // 💡 Ação Pós-Cadastro: Redirecionar para a tela de Login
-      navigate("/login"); 
+      // 💡 Ação Pós-Cadastro: Redirecionar para a tela de inicio
+      navigate("/"); 
       
-      // OU: Limpar o formulário para adicionar outro usuário
-      // setUsuario('');
-      // setSenha('');
-      // setConfirmaSenha('');
-
     } catch (error) {
       // O erro é capturado aqui (ex: nome de usuário já existe)
       console.error("Falha no registro:", error);

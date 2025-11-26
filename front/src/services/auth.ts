@@ -17,9 +17,7 @@ export async function loginRequest(username: string, password: string) {
 }
 
 
-// 💡 MUDANÇA: O retorno agora é Promise<void> ou o tipo de dados simples
-// que o backend retornar (ex: dados do usuário sem o token).
-// Vamos retornar Promise<void> para simplificar.
+
 export async function signUpRequest(username: string, password: string): Promise<void> {
     
     const endpoint = "/auth/register/"; 
@@ -27,18 +25,16 @@ export async function signUpRequest(username: string, password: string): Promise
     const data = {
         username: username,
         password: password,
-        // Adicione outros campos obrigatórios do seu modelo Pydantic User aqui
+        
     };
     
     try {
-        // Envia a requisição. Não precisamos do retorno, apenas do status de sucesso.
+       
         await api.post(endpoint, data); 
 
-        // Se o post for bem-sucedido, a função retorna implicitamente.
         
     } catch (error) {
         console.error("signUpRequest: Registration failed.", error);
-        // Lança o erro para que a tela possa exibir a mensagem apropriada
         throw error; 
     }
 }
