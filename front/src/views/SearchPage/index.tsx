@@ -22,8 +22,8 @@ interface Ocupacao {
     pessoa?: string;
     data_inicio: string;
     data_fim?: string | null;
-    observacoes?: string; // Corrigido de observacao para observacoes (padrão do backend)
-    substituto_para?: number | string | null; // Novo campo
+    observacoes?: string; 
+    substituto_para?: number | string | null;
     mandato: number;
 }
 

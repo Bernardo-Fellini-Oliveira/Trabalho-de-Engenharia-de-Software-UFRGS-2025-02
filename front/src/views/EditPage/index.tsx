@@ -38,6 +38,7 @@ interface Ocupacao {
     cargo?: string;
     orgao?: string;
     id_orgao?: number;
+    observacoes?: string; 
 }
 
 function EditPage() {
@@ -290,8 +291,8 @@ function EditPage() {
                         {activeTab === 'pessoa' && <><th>ID</th><th>Nome</th><th>Ativo</th></>}
                         {activeTab === 'orgao' && <><th>ID</th><th>Nome</th><th>Ativo</th></>}
                         {/* CORREÇÃO 3: Adicionada coluna Exclusivo */}
-                        {activeTab === 'cargo' && <><th>ID</th><th>Nome</th><th>Órgão</th><th>Ativo</th><th>Exclusivo</th></>}
-                        {activeTab === 'ocupacao' && <><th>Pessoa</th><th>Cargo</th><th>Início</th><th>Fim</th></>}
+                        {activeTab === 'cargo' && <><th>ID</th><th>Nome</th><th>Órgão</th><th>Ativo</th><th>Exclusivo</th><th>Substituto Para</th></>}
+                        {activeTab === 'ocupacao' && <><th>Pessoa</th><th>Cargo</th><th>Início</th><th>Fim</th><th>Observações</th></>}
                         
                         <th style={{width: 100}}>Ações</th>
                     </tr>
@@ -375,6 +376,14 @@ function EditPage() {
                                                 </select>
                                                 : (row.exclusivo ? 'Sim' : 'Não')}
                                         </td>
+                                        <td>
+                                            {isEditing ?
+                                                <select className="edit-input" value={editForm.substituto_para || ''} onChange={e => setEditForm({...editForm, substituto_para: e.target.value ? Number(e.target.value) : null})}>
+                                                    <option value="">-</option>
+                                                    {auxCargos.filter(c => c.id_cargo !== editForm.id_cargo).map(c => (<option key={c.id_cargo} value={c.id_cargo}>{c.nome}</option>))}
+                                                </select>
+                                                : (row.substituto_para ? auxCargos.find((c: any) => c.id_cargo === row.substituto_para)?.nome : '-')}
+                                        </td>
                                     </>
                                 )}
 
@@ -414,6 +423,11 @@ function EditPage() {
                                                     else
                                                     setEditForm({...editForm, data_fim: e.target.value})}} />
                                                 : (row.data_fim || '-')}
+                                        </td>
+                                        <td>
+                                            {isEditing ?
+                                                <input className="edit-input" value={editForm.observacoes} onChange={e => setEditForm({...editForm, observacoes: e.target.value})} />
+                                                : row.observacoes}
                                         </td>
                                     </>
                                 )}
