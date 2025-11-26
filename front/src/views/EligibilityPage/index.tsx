@@ -113,7 +113,7 @@ const EligibilityPage: React.FC = () => {
             <div className="topo">
                 <h1>Verificar Elegibilidade</h1>
                 <p>
-                    Coloque a pessoa, o cargo desejado e a possível data de início do mandato. 
+                    Coloque a pessoa, o cargo desejado e a possível data de início do mandato.<br></br> 
                     Deve aparecer na tela se a pessoa pode se candidatar a essa vaga ou não.
                 </p>
             </div>

@@ -24,8 +24,11 @@
 }
 
 .eligibility-wrapper .form-box {
-    max-width: 600px;
+    max-width: 200px;
     width: 100%;
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
 }
 
 .eligibility-wrapper .input_container {
@@ -36,9 +39,9 @@
     font-family: Arial, sans-serif;
     font-weight: bold;
     margin-bottom: 10px;
-    color: #333;
+    color: black;
 }
-
+/*
 .eligibility-wrapper input[type="text"],
 .eligibility-wrapper input[type="date"] {
     background-color: #f1f3f7;
@@ -46,27 +49,25 @@
     border-radius: 20px;
     padding: 8px 15px;
     font-size: 14px;
-    width: 100%; /* Ajuste para preencher o container */
-    box-sizing: border-box; /* Importante para padding não estourar largura */
+    width: 100%; 
+    box-sizing: border-box; 
     box-shadow: none;
     outline: none;
     color: #333;
     margin-top: 5px;
 }
-
+*/
 .eligibility-wrapper .botao-confirmar {
-    background-color: #39BC2D;
-    color: white;
+    background-color: #39BC2D;     /* fundo azul claro */
+    color: white;                  /* texto branco */
     font-weight: bold;
-    border: 2px solid #39BC2D;
+    border: 2px solid #39BC2D;     /* mesma cor da borda */
     border-radius: 10px;
     padding: 10px 20px;
     font-size: 20px;
     cursor: pointer;
     transition: all 0.3s ease;
-    margin-top: 20px;
-    width: 100%; /* Botão largo fica melhor em mobile/form */
-    display: block;
+    margin-top: 10px;
 }
 
 .eligibility-wrapper .botao-confirmar:hover {
