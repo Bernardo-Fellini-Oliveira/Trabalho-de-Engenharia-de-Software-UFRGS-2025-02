@@ -22,6 +22,8 @@ interface Ocupacao {
     pessoa?: string;
     data_inicio: string;
     data_fim?: string | null;
+    observacoes?: string; // Corrigido de observacao para observacoes (padrão do backend)
+    substituto_para?: number | string | null; // Novo campo
     mandato: number;
 }
 
@@ -464,6 +466,8 @@ function SearchPage() {
                                         {renderHeader("Início", "data_inicio")}
                                         {renderHeader("Fim", "data_fim")}
                                         {renderHeader("Mandato", "mandato")}
+                                        {renderHeader("Substituto de", "substituto_para")}
+                                        {renderHeader("Observações", "observacoes")}
                                     </tr>
                                 )}
                                 {modo === 'pessoa' && (
@@ -474,6 +478,8 @@ function SearchPage() {
                                         {renderHeader("Início", "data_inicio")}
                                         {renderHeader("Fim", "data_fim")}
                                         {renderHeader("Mandato", "mandato")}
+                                        {renderHeader("Substituto de", "substituto_para")}
+                                        {renderHeader("Observações", "observacoes")}
                                     </tr>
                                 )}
                                 {modo === 'orgao' && (
@@ -484,6 +490,8 @@ function SearchPage() {
                                         {renderHeader("Início", "data_inicio")}
                                         {renderHeader("Fim", "data_fim")}
                                         {renderHeader("Mandato", "mandato")}
+                                        {renderHeader("Substituto de", "substituto_para")}
+                                        {renderHeader("Observações", "observacoes")}
                                     </tr>
                                 )}
                                 {modo === 'cargo' && (
@@ -494,6 +502,8 @@ function SearchPage() {
                                         {renderHeader("Início", "data_inicio")}
                                         {renderHeader("Fim", "data_fim")}
                                         {renderHeader("Mandato", "mandato")}
+                                        {renderHeader("Substituto de", "substituto_para")}
+                                        {renderHeader("Observações", "observacoes")}
                                     </tr>
                                 )}
                             </thead>
@@ -507,6 +517,8 @@ function SearchPage() {
                                         <td>{row.data_inicio}</td>
                                         <td>{row.data_fim || '-'}</td>
                                         <td>{row.mandato}</td>
+                                        <td>{row.substituto_para || '-'}</td>
+                                        <td>{row.observacoes || '-'}</td>
                                     </tr>
                                 ))}
 
@@ -520,6 +532,8 @@ function SearchPage() {
                                             <td>{subItem.data_inicio}</td>
                                             <td>{subItem.data_fim || '-'}</td>
                                             <td>{subItem.mandato}</td>
+                                            <td>{subItem.substituto_para || '-'}</td>
+                                            <td>{subItem.observacoes || '-'}</td>
                                         </tr>
                                     ))
                                 ))}
@@ -534,6 +548,8 @@ function SearchPage() {
                                             <td>{subItem.data_inicio}</td>
                                             <td>{subItem.data_fim || '-'}</td>
                                             <td>{subItem.mandato}</td>
+                                            <td>{subItem.substituto_para || '-'}</td>
+                                            <td>{subItem.observacoes || '-'}</td>
                                         </tr>
                                     ))
                                 ))}
@@ -548,6 +564,8 @@ function SearchPage() {
                                             <td>{subItem.data_inicio}</td>
                                             <td>{subItem.data_fim || '-'}</td>
                                             <td>{subItem.mandato}</td>
+                                            <td>{subItem.substituto_para || '-'}</td>
+                                            <td>{subItem.observacoes || '-'}</td>
                                         </tr>
                                     ))
                                 ))}
