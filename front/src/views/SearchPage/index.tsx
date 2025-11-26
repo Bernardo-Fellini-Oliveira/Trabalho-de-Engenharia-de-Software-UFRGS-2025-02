@@ -1,5 +1,6 @@
 import React, { useEffect, useState, useMemo, use } from 'react';
-import api from '../../services/api'; 
+import api from '../../services/api';
+import '../../../styles.css' 
 import './SearchPage.css'; 
 import { useNavigate } from 'react-router';
 import { useAuth } from '../../context/auth_context';
@@ -334,8 +335,10 @@ function SearchPage() {
         <div className="search-page-wrapper">
             <Header role={user?.role} />
             <div className="search-container">
-                <h1 className="search-title">Consulta de Dados</h1>
-                <p className='search-description'>Consulta de dados</p>
+                <div className='topo'>
+                    <h1>Consulta de Dados</h1>
+                    <p>Consulta de dados</p>
+                </div>
 
                 {/* CARD DE FILTROS */}
                 <div className="filter-card">

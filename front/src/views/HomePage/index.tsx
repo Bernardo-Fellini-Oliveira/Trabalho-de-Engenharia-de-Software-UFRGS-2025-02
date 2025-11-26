@@ -1,8 +1,10 @@
 import React, { use } from 'react';
+import '../../../styles.css'
 import './HomePage.css';
 import { useNavigate } from 'react-router';
 import LogoutButton from '../../components/LogoutButton';
 import { useAuth } from '../../context/auth_context';
+
 
 // === Ícones SVG Inline para ilustrar os botões ===
 const IconCheck = () => (
@@ -78,8 +80,10 @@ function HomePage() {
     console.log("HomePage: isAuthenticated =", isAuthenticated, "user =", user);
     return (
         <div className="home-page-wrapper">
-            <h1 className="home-title">Gestão de Mandatos e Órgãos</h1>
-            <p className="home-subtitle">Selecione uma opção para começar</p>
+            <div className='topo'>
+                <h1>Gestão de Mandatos e Órgãos</h1>
+                <p>Selecione uma opção para começar</p>
+            </div>
 
             <div className="menu-grid">
                 

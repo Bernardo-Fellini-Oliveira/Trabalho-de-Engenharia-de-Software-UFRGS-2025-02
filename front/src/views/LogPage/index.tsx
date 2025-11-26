@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../services/api'; 
+import '../../../styles.css'
 import './LogPage.css';
 import Header from '../../components/Header';
 import { useAuth } from '../../context/auth_context';
@@ -69,8 +70,10 @@ const LogPage: React.FC = () => {
             <Header role={user?.role} />
 
             <div className="search-container">
-                <h1 className="page-title">Histórico de Operações</h1>
-                <span className="page-description">Registro de atividades e auditoria do sistema</span>
+                <div className='topo'>
+                    <h1>Histórico de Operações</h1>
+                    <p>Registro de atividades e auditoria do sistema</p>
+                </div>
 
                 <div className="table-container">
                     {loading ? (

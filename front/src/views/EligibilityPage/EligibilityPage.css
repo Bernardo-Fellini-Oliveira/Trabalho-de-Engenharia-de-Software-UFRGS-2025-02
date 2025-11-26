@@ -14,40 +14,6 @@
     font-style: normal;
 }
 
-.eligibility-wrapper .topo {
-    text-align: center;
-    margin-bottom: 30px;
-    padding-top: 20px;
-}
-
-.eligibility-wrapper .topo h1 {
-    font-family: 'Gilroy', 'Montserrat', sans-serif;
-    font-weight: 800;
-    font-size: 32px;
-    color: #213649;
-    text-align: center;
-    position: relative;
-    display: inline-block;
-    margin: 20px auto 20px auto;
-}
-
-.eligibility-wrapper .topo h1::after {
-    content: "";
-    display: block;
-    height: 4px;
-    background-color: #1a2b3c;
-    border-radius: 2px;
-    width: 80%;
-    margin: 8px auto 0 auto;
-}
-
-.eligibility-wrapper .topo p {
-    font-family: Arial, sans-serif;
-    font-weight: bold;
-    max-width: 1350px;
-    margin: 0 auto;
-    color: #333;
-}
 
 .eligibility-wrapper .conteudo {
     display: flex;

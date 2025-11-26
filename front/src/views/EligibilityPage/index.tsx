@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import api from '../../services/api'; 
+import api from '../../services/api';
+import '../../../styles.css' 
 import './EligibilityPage.css';
 import Header from '../../components/Header';
 import { useAuth } from '../../context/auth_context';
@@ -92,7 +93,7 @@ const EligibilityPage: React.FC = () => {
     return (
         <div className="eligibility-wrapper">
 
-        <Header role={user?.role} />
+            <Header role={user?.role} />
 
  
             {/* DATALISTS (Invisíveis, usados pelos inputs) */}

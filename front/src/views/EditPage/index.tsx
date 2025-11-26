@@ -1,6 +1,7 @@
 import React, { use, useEffect, useState } from 'react';
 import api from '../../services/api';
 import './EditPage.css';
+import '../../../styles.css'
 import Header from '../../components/Header';
 import { useAuth } from '../../context/auth_context';
 
@@ -466,8 +467,10 @@ function EditPage() {
             <Header role={user?.role} />
 
             <div className="search-container">
-                <h1 className="search-title">Edição de Dados</h1>
-                <p className='search-description'>Editando os dados</p>
+                <div className='topo'>
+                    <h1>Edição de Dados</h1>
+                    <p>Editando os dados</p>
+                </div>
                 <div className="filter-card">
                     <div className="filter-row">
                         <div className="filter-group" style={{flex: 2}}>

@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import api from '../../services/api'; // Ajuste o caminho conforme sua estrutura
+import '../../../styles.css'
 import './TicketsPage.css';
 
 // === Ícones SVG ===
@@ -122,8 +123,10 @@ const NotificationsPage: React.FC = () => {
                 <div id="header-line"></div>
             </header>
             <div className="search-container">
-                <h1 className="page-title">Central de Notificações</h1>
-                <span className="page-description">Gerenciamento de solicitações e tickets pendentes</span>
+                <div className='topo'>
+                    <h1>Central de Notificações</h1>
+                    <p>Gerenciamento de solicitações e tickets pendentes</p>
+                </div>
 
                 <div className="table-container">
                     {loading ? (
