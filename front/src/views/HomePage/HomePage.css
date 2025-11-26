@@ -1,7 +1,7 @@
 /* HomePage.css */
 
 /* Wrapper principal para isolar o estilo */
-.home-page-wrapper {
+.home-page {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: #f8f9fa;
     min-height: 100vh;
@@ -11,37 +11,9 @@
     padding: 40px 20px;
 }
 
-/* Título Principal */
-.home-page-wrapper .home-title {
-    font-family: 'Gilroy', 'Montserrat', sans-serif;
-    font-weight: 800;
-    font-size: 42px;
-    color: #9A0000;
-    text-align: center;
-    margin-bottom: 10px;
-    position: relative;
-}
-
-.home-page-wrapper .home-title::after {
-    content: "";
-    display: block;
-    height: 5px;
-    background-color: #D0D0D0;
-    border-radius: 2px;
-    width: 100px;
-    margin: 15px auto 0 auto;
-}
-
-/* Subtítulo */
-.home-page-wrapper .home-subtitle {
-    font-size: 18px;
-    color: #666;
-    margin-bottom: 60px;
-    text-align: center;
-}
 
 /* Grid de Botões */
-.home-page-wrapper .menu-grid {
+.home-page .menu-grid {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 30px;
@@ -50,52 +22,20 @@
 }
 
 /* Estilo do Cartão/Botão */
-.home-page-wrapper .menu-card {
-    background-color: white;
-    border: 1px solid #dee2e6;
+.home-page .menu-card {
+    background-color: #9A0000;
+    border: 2px solid #9A0000;
+    font-weight: bold;
+    color: white;
     border-radius: 12px;
     padding: 40px 20px;
     text-align: center;
     cursor: pointer;
     transition: all 0.3s ease;
-    box-shadow: 0 4px 6px rgba(0,0,0,0.05);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
     gap: 20px;
 }
 
-.home-page-wrapper .menu-card:hover {
-    transform: translateY(-5px);
-    box-shadow: 0 10px 20px rgba(154, 0, 0, 0.15); /* Sombra avermelhada */
-    border-color: #9A0000;
-}
-
-/* Ícone dentro do botão */
-.home-page-wrapper .card-icon {
-    color: #9A0000;
-    margin-bottom: 10px;
-    transition: transform 0.3s ease;
-}
-
-.home-page-wrapper .menu-card:hover .card-icon {
-    transform: scale(1.1);
-}
-
-/* Texto do botão */
-.home-page-wrapper .card-text {
-    font-size: 20px;
-    font-weight: 700;
-    color: #333;
-}
-
-/* Responsividade */
-@media (max-width: 600px) {
-    .home-page-wrapper .home-title {
-        font-size: 32px;
-    }
-    .home-page-wrapper .menu-grid {
-        grid-template-columns: 1fr;
-    }
+.home-page .menu-card:hover {
+    background-color: transparent; /* fundo transparente */
+    color: #9A0000;                /* texto azul */
 }
