@@ -32,10 +32,14 @@ def core_adicionar_orgaos_lote(
             resultados.append({"orgao": orgao.nome, "result": {
                 "status": "success",
                 "message": "Órgão adicionada com sucesso",
-                "id_orgao": resultado.id_orgao
+                "id_orgao": resultado.id_orgao,
+                "nome": resultado.nome
             }})
         except HTTPException as he:
-            resultados.append({"orgao": orgao.nome, "error": he.detail})
+            raise he
+        except Exception as e:
+            raise e
+        
     return resultados
 
 
@@ -81,6 +85,15 @@ def adicionar_orgao(orgao: Orgao, session: Session = Depends(get_session)):
 def adicionar_orgaos_lote(orgaos: list[Orgao], session: Session = Depends(get_session)):
     try:
         resultados = core_adicionar_orgaos_lote(orgaos, session)
+
+        for resultado in resultados:
+            add_to_log(
+                session=session,
+                tipo_operacao=TipoOperacao.ADICAO,
+                entidade_alvo=EntidadeAlvo.ORGAO,
+                operation=f"[ADD] O Órgão {resultado['nome']} foi adicionado(a)",
+            )
+
         session.commit()
         return {"results": resultados}
     except Exception as e:

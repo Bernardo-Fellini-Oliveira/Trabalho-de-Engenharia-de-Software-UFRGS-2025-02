@@ -70,22 +70,18 @@ const EligibilityPage: React.FC = () => {
         setLoading(true);
         
         // --- PLACEHOLDER: Aqui chamaremos o backend no futuro ---
-        console.log("Payload de Verificação:", payload);
-        
-        // Simulando um delay de rede
-        setTimeout(() => {
-            alert(`[MOCK] Função de Backend chamada!\n\nVerificando elegibilidade para:\nPessoa ID: ${idPessoa}\nCargo ID: ${idCargo}\nData: ${selectedDate}`);
-            setLoading(false);
-        }, 500);
-        
-        /* Exemplo de como será a chamada real:
-        try {
-            const response = await api.post('/ocupacao/verificar-elegibilidade', payload);
-            alert(response.data.message);
-        } catch (error) {
+
+        try{
+            const response = await api.get('/elegibilidade/verificar_elegibilidade?id_pessoa=' + payload.id_pessoa + '&id_cargo=' + payload.id_cargo + '&data_inicio=' + payload.data_inicio);
+            alert(response.data.elegivel ? "A pessoa é elegível para o cargo." : `A pessoa NÃO é elegível para o cargo. Motivo: ${response.data.detalhe || 'Não especificado.'}`);
+        } catch (error : any) {
             alert("Erro na verificação: " + error.message);
         }
-        */
+
+        setLoading(false);
+
+        console.log("Payload de Verificação:", payload);
+
     };
 
     return (

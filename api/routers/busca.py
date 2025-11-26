@@ -99,6 +99,29 @@ def safe_key(valor):
     return (1, valor)
 
 
+def verificar_eligibilidade(id_pessoa: int, id_cargo: int, data_inicio, session: Session) -> bool:
+    """Verifica se a pessoa é elegível para ocupar o cargo na data de início."""
+    
+    cargo = session.get(Cargo, id_cargo)
+
+    # Regra 0: se o cargo não é exclusivo, qualquer pessoa é elegível
+    if not cargo.exclusivo:
+        return True
+    
+
+    # Regra 1: se alguém já ocupa o cargo na data de início, não é elegível
+    pessoa = session.get(Pessoa, id_pessoa)
+
+    
+    # Regra 2: se a pessoa completar o terceiro mandato consecutivo, não é elegível
+
+
+
+
+    
+
+    return True
+
 
 def obter_chave_ordenacao(sort_by_order_str: str) -> Tuple[Callable[[Dict[str, Any]], Any], bool]:
     """

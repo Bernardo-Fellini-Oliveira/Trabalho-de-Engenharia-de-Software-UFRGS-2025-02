@@ -53,9 +53,12 @@ def _get_next_occupacao(session: Session, id_cargo: int, data_inicio, id_ocupaca
     return session.exec(stmt).first()
 
 
+
+
 def core_adicionar_ocupacao(
     ocupacao: Ocupacao,
-    session: Session
+    session: Session,
+    bypass_rules: bool = False
 ):
         # Carregar objetos para logs e notificações
         cargo = session.get(Cargo, ocupacao.id_cargo)
@@ -111,18 +114,7 @@ def core_adicionar_ocupacao(
                 )
 
         # === Regra 2: impedir 3ª ocupação consecutiva da mesma pessoa ===
-
-        """
-        if len(ultimas) >= 2 and all(pid == ocupacao.id_pessoa for pid in ultimas) and cargo and cargo.exclusivo:
-            dadospayload = ocupacao.model_dump()
-            solicitacao = Notificacoes(
-                operation=f"As últimas duas ou mais ocupações do cargo {cargo.nome} já foram de {pessoa.nome}. Criada uma solicitação de aprovação para esta ocupação.",
-                tipo_operacao=TipoOperacao.ASSOCIACAO,
-                entidade_alvo=EntidadeAlvo.OCUPACAO,
-                dados_payload=dadospayload,
-                regra=2   
-            )
-        """
+    
         previous_ocupation = _get_prev_occupacao(session, ocupacao.id_cargo, ocupacao.data_inicio or date.min)
         next_ocupation = _get_next_occupacao(session, ocupacao.id_cargo, ocupacao.data_inicio or date.min)
 
@@ -138,7 +130,7 @@ def core_adicionar_ocupacao(
             contador += 1
             atual = _get_next_occupacao(session, atual.id_cargo, atual.data_inicio or date.min, atual.id_ocupacao)
 
-        if contador > 2:
+        if contador > 2 and not bypass_rules:
             # Se ultrapassar 2 mandatos, cria notificação em vez de apenas bloquear
             session.rollback()
             try:
@@ -238,6 +230,7 @@ def core_adicionar_ocupacao(
 
         # === Inserção da nova ocupação ===
         session.add(nova_ocupacao)
+        session.flush()
 
         return nova_ocupacao
 
@@ -250,16 +243,17 @@ def core_adicionar_ocupacoes_lote(
     for ocupacao in ocupacoes:
         try:
             nova_ocupacao = core_adicionar_ocupacao(ocupacao, session)
+            print(nova_ocupacao)
             resultados.append({
                 "status": "success",
                 "message": "Ocupação adicionada com sucesso",
                 "id_ocupacao": nova_ocupacao.id_ocupacao
             })
         except HTTPException as he:
-            resultados.append({
-                "status": "error",
-                "detail": he.detail
-            })
+            raise he
+        except Exception as e:
+            raise e
+        
     return resultados
 
 def _get_chain_below_ocupacoes(session: Session, ocupacao_base: Ocupacao) -> Set[int]:
@@ -476,6 +470,22 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
 def adicionar_ocupacoes_lote(ocupacoes: List[Ocupacao], session: Session = Depends(get_session)):
     try:
         resultados = core_adicionar_ocupacoes_lote(ocupacoes, session)
+
+        for resultado in resultados:
+            if resultado["status"] == "success":
+                # Adicionar Log
+                nova_ocupacao = session.get(Ocupacao, resultado["id_ocupacao"])
+                cargo = session.get(Cargo, nova_ocupacao.id_cargo)
+                pessoa = session.get(Pessoa, nova_ocupacao.id_pessoa)
+                orgao = session.get(Orgao, cargo.id_orgao)
+                
+                add_to_log(
+                    session=session,
+                    tipo_operacao=TipoOperacao.ASSOCIACAO,
+                    entidade_alvo=EntidadeAlvo.OCUPACAO,
+                    operation=f"[ADD] Adicionada ocupação de {pessoa.nome} no cargo de {cargo.nome}, no órgão {orgao.nome}." 
+                )
+
         session.commit()
         return {"results": resultados}
     except Exception as e:

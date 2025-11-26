@@ -1,6 +1,7 @@
 from datetime import date, datetime  # <--- Importe a classe datetime diretamente
 from fastapi import APIRouter, HTTPException, Path, Query, Depends
 from sqlmodel import Field, SQLModel, Session, select
+from routers.ocupacao import core_adicionar_ocupacao
 from models.cargo import Cargo
 from models.orgao import Orgao
 from models.pessoa import Pessoa
@@ -83,7 +84,9 @@ def aprovar_ocupacao(
 
                 notificacao.status_aprovacao = Status.APROVADO
                 notificacao.data_aprovacao = datetime.now()
-                session.add(nova_entidade)
+
+                nova_entidade = core_adicionar_ocupacao(nova_entidade, session, bypass_rules=True)
+
                 add_to_log(
                     session=session,
                     tipo_operacao=notificacao.tipo_operacao,

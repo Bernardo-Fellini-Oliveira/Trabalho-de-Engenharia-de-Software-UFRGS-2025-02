@@ -124,7 +124,6 @@ def core_adicionar_cargos_lote(
     for cargo in cargos:
         try:
             novo = core_adicionar_cargo(cargo, session)
-            # Log individual para lote é opcional, mas recomendado se o volume não for gigante
             orgao = session.get(Orgao, novo.id_orgao)
             add_to_log(
                 session=session,

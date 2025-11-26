@@ -25,7 +25,7 @@ ALGORITHM = os.getenv("ALGORITHM", "HS256")
 try:
     ACCESS_TOKEN_EXPIRE_MINUTES = int(os.getenv("ACCESS_TOKEN_EXPIRE_MINUTES", "1"))
 except ValueError:
-    ACCESS_TOKEN_EXPIRE_MINUTES = 1 
+    ACCESS_TOKEN_EXPIRE_MINUTES = 1
  
 if not SECRET_KEY:
     raise RuntimeError("SECRET KEY não encontrada.")
