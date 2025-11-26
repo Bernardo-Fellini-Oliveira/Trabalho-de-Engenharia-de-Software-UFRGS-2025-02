@@ -36,7 +36,7 @@ router = APIRouter(
 )
 
 
-def verificar_regra_cargo_exclusivo(session: Session, id_cargo: int, data_inicio, data_fim):
+def verificar_regra_cargo_exclusivo(session: Session, id_cargo: int, data_inicio):
     cargo = session.get(Cargo, id_cargo)
     if not cargo or not cargo.exclusivo:
         return None   # regra não se aplica
@@ -97,9 +97,9 @@ def verificar_regra_terceiro_mandato(session: Session, id_pessoa, id_cargo, data
     return None
 
 
-def verificar_elegibilidade(session: Session, id_pessoa: int, id_cargo: int, data_inicio, data_fim=None):
+def verificar_elegibilidade(session: Session, id_pessoa: int, id_cargo: int, data_inicio):
     # Regra 1 — cargo ocupado
-    regra1 = verificar_regra_cargo_exclusivo(session, id_cargo, data_inicio, data_fim)
+    regra1 = verificar_regra_cargo_exclusivo(session, id_cargo, data_inicio)
     if regra1:
         return regra1
 
@@ -117,10 +117,9 @@ def verificar_elegibilidade_endpoint(
     id_pessoa: int = Query(..., description="ID da Pessoa a ser verificada"),
     id_cargo: int = Query(..., description="ID do Cargo a ser verificado"),
     data_inicio: date = Query(..., description="Data de início da ocupação"),
-    data_fim: date | None = Query(None, description="Data de fim da ocupação"),
     session: Session = Depends(get_session)
 ):
-    resultado = verificar_elegibilidade(session, id_pessoa, id_cargo, data_inicio, data_fim)
+    resultado = verificar_elegibilidade(session, id_pessoa, id_cargo, data_inicio)
     return resultado.to_dict()
     
 

@@ -338,7 +338,7 @@ function EditPage() {
                         const isEditing = editingId === id;
 
                         return (
-                            <tr key={id} onClick={() => handleClickRow(id)} style={{backgroundColor: selectedIds.includes(id) ? "#FFEEF0" : "transparent"}}>
+                            <tr key={id} onClick={() => handleClickRow(id)} style={{backgroundColor: selectedIds.includes(id) ? "#ffdbdfff" : "transparent"}}>
 
                                 {/* === PESSOA === */}
                                 {activeTab === 'pessoa' && (
@@ -486,6 +486,8 @@ function EditPage() {
             </table>
         );
     };
+
+
 
     return (
         // Alterado Wrapper para 'search-page' para herdar estilos globais

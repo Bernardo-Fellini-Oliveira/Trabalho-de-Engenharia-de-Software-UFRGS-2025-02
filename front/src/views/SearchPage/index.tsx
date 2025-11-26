@@ -28,6 +28,7 @@ interface Ocupacao {
     observacoes?: string; 
     substituto_para?: number | string | null;
     mandato: number;
+    exclusivo?: boolean;
 }
 
 interface Cargo {
@@ -53,6 +54,7 @@ function SearchPage() {
     const [dados, setDados] = useState<any[]>([]);
     const [cargosList, setCargosList] = useState<Cargo[]>([]);
 
+    console.log("Dados atuais:", dados);
     // Filtros
     const [modo, setModo] = useState<Modo>("pessoa");
     const [filtroBusca, setFiltroBusca] = useState<string>("");
@@ -571,13 +573,13 @@ const processedData = useMemo(() => {
                                         <td>{row.cargo}</td>
                                         <td>{row.orgao}</td>
                                         <td>{row.data_inicio}</td>
-                                        <td>{row.data_fim || '-'}</td>
-                                        <td>{row.mandato}</td>
-                                        <td>{row.substituto_para || '-'}</td>
-                                        <td>{row.observacoes || '-'}</td>
+                                        <td>{row.data_fim || row.id_ocupacao? '-' : ''}</td>
+                                        <td>{row.exclusivo? row.mandato : row.id_ocupacao? '-' : ''}</td>
+                                        <td>{row.substituto_para || row.id_ocupacao? '-' : ''}</td>
+                                        <td>{row.observacoes || row.id_ocupacao? '-' : ''}</td>
                                     </tr>
                                 ))}
-
+                                
                                 {/* --- MODO AGRUPADO POR PESSOA --- */}
                                 {modo === 'pessoa' && (processedData as PessoaAgrupada[]).map((group, i) => (
                                     group.cargos?.map((subItem, j) => (
@@ -586,10 +588,10 @@ const processedData = useMemo(() => {
                                             <td>{subItem.cargo}</td>
                                             <td>{subItem.orgao}</td>
                                             <td>{subItem.data_inicio}</td>
-                                            <td>{subItem.data_fim || '-'}</td>
-                                            <td>{subItem.mandato}</td>
-                                            <td>{subItem.substituto_para || '-'}</td>
-                                            <td>{subItem.observacoes || '-'}</td>
+                                            <td>{subItem.data_fim || subItem.id_ocupacao? '-' : ''}</td>
+                                            <td>{subItem.exclusivo? subItem.mandato : subItem.id_ocupacao? '-' : ''}</td>
+                                            <td>{subItem.substituto_para || subItem.id_ocupacao? '-' : ''}</td>
+                                            <td>{subItem.observacoes || subItem.id_ocupacao? '-' : ''}</td>
                                         </tr>
                                     ))
                                 ))}
@@ -602,10 +604,10 @@ const processedData = useMemo(() => {
                                             <td>{subItem.cargo}</td>
                                             <td>{subItem.pessoa}</td>
                                             <td>{subItem.data_inicio}</td>
-                                            <td>{subItem.data_fim || '-'}</td>
-                                            <td>{subItem.mandato}</td>
-                                            <td>{subItem.substituto_para || '-'}</td>
-                                            <td>{subItem.observacoes || '-'}</td>
+                                            <td>{subItem.data_fim || subItem.id_ocupacao? '-' : ''}</td>
+                                            <td>{subItem.exclusivo? subItem.mandato : subItem.id_ocupacao? '-' : ''}</td>
+                                            <td>{subItem.substituto_para || subItem.id_ocupacao? '-' : ''}</td>
+                                            <td>{subItem.observacoes || subItem.id_ocupacao? '-' : ''}</td>
                                         </tr>
                                     ))
                                 ))}
@@ -618,10 +620,10 @@ const processedData = useMemo(() => {
                                             <td>{group.orgao}</td>
                                             <td>{subItem.pessoa}</td>
                                             <td>{subItem.data_inicio}</td>
-                                            <td>{subItem.data_fim || '-'}</td>
-                                            <td>{subItem.mandato}</td>
-                                            <td>{subItem.substituto_para || '-'}</td>
-                                            <td>{subItem.observacoes || '-'}</td>
+                                            <td>{subItem.data_fim || subItem.id_ocupacao? '-' : ''}</td>
+                                            <td>{subItem.exclusivo? subItem.mandato : subItem.id_ocupacao? '-' : ''}</td>
+                                            <td>{subItem.substituto_para || subItem.id_ocupacao? '-' : ''}</td>
+                                            <td>{subItem.observacoes || subItem.id_ocupacao? '-' : ''}</td>
                                         </tr>
                                     ))
                                 ))}

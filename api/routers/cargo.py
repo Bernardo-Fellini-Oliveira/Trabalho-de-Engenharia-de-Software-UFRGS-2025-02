@@ -79,7 +79,17 @@ def core_adicionar_cargo(
     # ------------------------------------------
     # 3. O cargo acima já possui substituto?
     # ------------------------------------------
+
+    print("==============================")
+    print("Cargo acima:")
+    print(acima)
+
+    if acima.substituto:
+        print("Já possui substituto:", acima.substituto)
+
+
     if acima.substituto is not None:
+        print("Erro: já possui substituto.")
         raise HTTPException(
             400,
             f"O cargo {acima.id_cargo} já possui um substituto definido."
@@ -135,8 +145,9 @@ def core_adicionar_cargos_lote(
                 operation=f"[ADD] O cargo {novo.nome}, do órgão {orgao.nome}, foi adicionado(a)",
             )
             resultados.append({"status": "success", "cargo": novo})
-        except HTTPException as he:
-            resultados.append({"status": "error", "detail": he.detail})
+
+        except Exception as e:
+            raise HTTPException(status_code=500, detail=f"Erro ao adicionar Cargo '{cargo.nome}': {e}")
     return resultados
 
 def coletar_cadeia_abaixo(session: Session, cargo: Cargo, hard_delete: bool) -> List[Cargo]:
