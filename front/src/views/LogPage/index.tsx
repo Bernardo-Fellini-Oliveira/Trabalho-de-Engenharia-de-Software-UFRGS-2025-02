@@ -60,6 +60,22 @@ const LogPage: React.FC = () => {
 
     return (
         <div className="log-page-wrapper">
+            <header>
+                <div id="header-container">
+                    <nav>
+                        <ul>
+                            <li><a href="/">MENU PRINCIPAL</a></li>
+                            <li><a href="/check">VERIFICAR ELEGIBILIDADE</a></li>
+                            <li><a href="/search">CONSULTAR</a></li>
+                            <li><a href="/insert">INSERIR</a></li>
+                            <li><a href="/edit">EDITAR</a></li>
+                            <li><a href="/log">HISTÓRICO</a></li>
+                            <li><a href="/tickets">NOTIFICAÇÕES</a></li>
+                        </ul>
+                    </nav>
+                </div>
+                <div id="header-line"></div>
+            </header>
             <div className="search-container">
                 <h1 className="page-title">Histórico de Operações</h1>
                 <span className="page-description">Registro de atividades e auditoria do sistema</span>

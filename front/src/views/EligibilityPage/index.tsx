@@ -86,6 +86,22 @@ const EligibilityPage: React.FC = () => {
 
     return (
         <div className="eligibility-wrapper">
+            <header>
+                <div id="header-container">
+                    <nav>
+                        <ul>
+                            <li><a href="/">MENU PRINCIPAL</a></li>
+                            <li><a href="/check">VERIFICAR ELEGIBILIDADE</a></li>
+                            <li><a href="/search">CONSULTAR</a></li>
+                            <li><a href="/insert">INSERIR</a></li>
+                            <li><a href="/edit">EDITAR</a></li>
+                            <li><a href="/log">HISTÓRICO</a></li>
+                            <li><a href="/tickets">NOTIFICAÇÕES</a></li>
+                        </ul>
+                    </nav>
+                </div>
+                <div id="header-line"></div>
+            </header>
             {/* DATALISTS (Invisíveis, usados pelos inputs) */}
             <datalist id="dl-pessoas-eleg">
                 {dbPessoas.map(p => p.ativo && (

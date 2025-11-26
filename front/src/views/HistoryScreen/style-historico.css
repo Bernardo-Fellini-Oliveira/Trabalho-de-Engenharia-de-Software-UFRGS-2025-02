@@ -3,7 +3,7 @@
 html, body {
   margin: 0;
   padding: 0;
-  background: #c9c5c5 !important; /* mesmo fundo do .hist-root */
+  background-color: white !important; /* mesmo fundo do .hist-root */
   height: 100%;
 }
 

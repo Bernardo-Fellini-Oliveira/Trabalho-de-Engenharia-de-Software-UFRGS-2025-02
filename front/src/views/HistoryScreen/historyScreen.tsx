@@ -34,7 +34,6 @@ export default function HistoricoAlteracoes() {
 
   return (
     <div className="hist-root">
-      
       <header className="hist-header">
         <button className="back-btn">↩</button>
         <h1>Histórico de Alterações</h1>
