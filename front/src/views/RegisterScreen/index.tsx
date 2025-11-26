@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import './TeladeRegistro.css';
 import { signUpRequest } from "../../services/auth"; // Importe a função de serviço
-
+import Header from '../../components/Header';
+import { useAuth } from '../../context/auth_context';
 
 import { useNavigate } from 'react-router-dom'; 
 
@@ -13,6 +14,8 @@ const RegisterScreen = () => {
   const [loading, setLoading] = useState(false); // Mantido para UX
   
   const navigate = useNavigate(); // 💡 Mantido para redirecionar após o cadastro
+
+  const {user} = useAuth();
 
   const handleRegister = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault(); 
@@ -48,50 +51,53 @@ const RegisterScreen = () => {
   };
 
   return (
-    <div className="register-page-container">
-      <div className="register-box">
-        <h1 className="register-title">Controle de Mandatos</h1>
-        
-        <form className="register-form" onSubmit={handleRegister}>
+    <div className="container">
+      <Header role={user?.role} />
+      <div className="register-page-container">
+        <div className="register-box">
+          <h1 className="register-title">Controle de Mandatos</h1>
           
-          <label htmlFor="usuario">Usuário</label>
-          <input
-            type="text"
-            id="usuario"
-            value={usuario}
-            onChange={(e) => setUsuario(e.target.value)}
-            required
-            disabled={loading}
-          />
+          <form className="register-form" onSubmit={handleRegister}>
+            
+            <label htmlFor="usuario">Usuário</label>
+            <input
+              type="text"
+              id="usuario"
+              value={usuario}
+              onChange={(e) => setUsuario(e.target.value)}
+              required
+              disabled={loading}
+            />
 
-          <label htmlFor="senha">Senha</label>
-          <input
-            type="password"
-            id="senha"
-            value={senha}
-            onChange={(e) => setSenha(e.target.value)}
-            required
-            disabled={loading}
-          />
+            <label htmlFor="senha">Senha</label>
+            <input
+              type="password"
+              id="senha"
+              value={senha}
+              onChange={(e) => setSenha(e.target.value)}
+              required
+              disabled={loading}
+            />
 
-          <label htmlFor="confirma-senha">Confirme a sua senha</label>
-          <input
-            type="password"
-            id="confirma-senha"
-            value={confirmaSenha}
-            onChange={(e) => setConfirmaSenha(e.target.value)}
-            required
-            disabled={loading}
-          />
+            <label htmlFor="confirma-senha">Confirme a sua senha</label>
+            <input
+              type="password"
+              id="confirma-senha"
+              value={confirmaSenha}
+              onChange={(e) => setConfirmaSenha(e.target.value)}
+              required
+              disabled={loading}
+            />
 
-          <button 
-            type="submit" 
-            className="register-button"
-            disabled={loading} 
-          >
-            {loading ? 'Criando usuário...' : 'Criar Conta'}
-          </button>
-        </form>
+            <button 
+              type="submit" 
+              className="register-button"
+              disabled={loading} 
+            >
+              {loading ? 'Criando usuário...' : 'Criar Conta'}
+            </button>
+          </form>
+        </div>
       </div>
     </div>
   );
