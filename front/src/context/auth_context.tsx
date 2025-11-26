@@ -1,5 +1,4 @@
 import { createContext, useContext, useState, useEffect } from "react";
-import api from "../services/api"; // axios com interceptor
 import { getUserMe } from "../services/auth"; // função que chama GET /auth/users/me
 
 interface UserData {

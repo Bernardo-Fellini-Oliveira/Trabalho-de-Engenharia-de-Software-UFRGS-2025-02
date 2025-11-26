@@ -63,7 +63,7 @@ function HomePage() {
             { isAuthenticated && user && user.role == 'admin' &&
 
                 <>
-                <div className="menu-card" onClick={() => handleNavigation("/")}>
+                <div className="menu-card" onClick={() => handleNavigation("/signup")}>
                     <div className="card-text">Sign Up</div>
                 </div>
 

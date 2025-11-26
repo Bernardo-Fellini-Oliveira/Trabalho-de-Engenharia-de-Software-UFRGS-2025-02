@@ -6,8 +6,8 @@ import TicketsPage from "./views/TicketsPage";
 import LogPage from "./views/LogPage";
 import HomePage from "./views/HomePage";
 import EligibilityPage from "./views/EligibilityPage";
-import RegisterScreen from "./views/TeladeRegistro";
-import LoginScreen from "./views/TeladeLogin";
+import RegisterScreen from "./views/RegisterScreen";
+import LoginScreen from "./views/LoginScreen";
 import { AuthProvider } from "./context/auth_context";
 import PrivateRoute from "./components/PrivateRoute";
 
@@ -22,12 +22,13 @@ function App() {
         <Routes>
 
           {/* ROTAS PÚBLICAS */}
+          <Route path="/" element={<HomePage />} />
           <Route path="/search" element={<SearchPage />} />
           <Route path="/login" element={<LoginScreen />} />
           <Route path="/check" element={<EligibilityPage />} />
 
           {/* PROTEGIDAS POR AUTENTICAÇÃO - NÍVEL ADMIN */}
-          <Route path="/" element={<HomePage />} />
+          <Route path="/signup" element={<PrivateRoute><RegisterScreen/></PrivateRoute>} />
           <Route path="/insert" element={<PrivateRoute><TestPage /></PrivateRoute>} />
           <Route path="/edit" element={<PrivateRoute><EditPage /></PrivateRoute>} />
           <Route path="/log" element={<PrivateRoute><LogPage /></PrivateRoute>} />
