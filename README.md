@@ -47,6 +47,7 @@ Após a instalação, lembre-se de colocar a pasta bin da instalação do Postgr
     PG_PASSWORD = "minha-senha-configurada"
     PG_HOST = "localhost"
     PG_PORT = 5432
+    SECRET_KEY = "minha_senha_muito_secreta"
     ```
 
 ---
