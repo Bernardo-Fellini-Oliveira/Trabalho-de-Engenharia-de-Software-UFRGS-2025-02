@@ -47,6 +47,10 @@ class UserOut(BaseModel):
         orm_mode = True
 
 
+class DeleteAccountRequest(BaseModel):
+    password: str
+
+
 # Example of setting a proper hashed password
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
 oauth_2_scheme = OAuth2PasswordBearer(tokenUrl="auth/token") 
@@ -249,3 +253,49 @@ async def register_new_user(user: User, db: Session = Depends(get_session)):
 @router.get("/only_admin", dependencies=[Depends(role_required(UserRole.ADMIN))])
 async def get_only_admin():
     return True
+
+
+@router.delete("/delete_account")
+async def delete_account(
+    body: DeleteAccountRequest,
+    current_user: UserTable = Depends(get_current_active_user),
+    db: Session = Depends(get_session)
+):
+    """
+    Permite o usuário excluir a própria conta,
+    exigindo senha para confirmação.
+    """
+
+    if(current_user.role == UserRole.ADMIN):
+        raise HTTPException(
+            status_code=403,
+            detail="Contas de administradores não podem ser excluídas via API."
+        )
+    
+    # Verifica senha - A gente pode alterar o código de erro para 401 se quisermos que o usuário deslogue na hora
+    if not verify_password(body.password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=403,
+            detail="Senha incorreta."
+        )
+
+    # Tenta excluir a cont
+    try:
+        db.delete(current_user)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=500,
+            detail=f"Erro ao excluir conta: {e}"
+        )
+
+    # Resposta + remoção do refresh token
+    response = JSONResponse({"detail": "Conta excluída com sucesso."})
+
+    response.delete_cookie(
+        key="refresh_token",
+        path="/api/auth/refresh"
+    )
+
+    return response
