@@ -27,7 +27,32 @@ def carregar_notificacoes(session: Session = Depends(get_session)):
         return notificacoes
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Erro ao carregar Notificações: {str(e)}")
+
+
+@router.post("/recusar/{id_ocupacao}")
+def recusar_ocupacao(
+    id_ocupacao: int = Path(..., description="ID da Notificação de Ocupação a ser recusada"),
+    session: Session = Depends(get_session)):
+    try:
+        notificacao = session.get(Notificacoes, id_ocupacao)
+        if not notificacao:
+            raise HTTPException(status_code=404, detail="Notificação não encontrado.")
+        if notificacao.status_aprovacao != Status.PENDENTE:
+            raise HTTPException(status_code=400, detail="Notificação já foi processada")
+        
+        notificacao.status_aprovacao = Status.RECUSADO
+        notificacao.data_aprovacao = datetime.now()
+        session.commit()
+        session.refresh(notificacao)
+        return {
+            "status": "success",
+            "message": "Notificação recusada com sucesso"
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erro ao recusar a notificação: {str(e)}")
     
+
+
 @router.post("/aprovar/{id_ocupacao}")
 def aprovar_ocupacao(
     id_ocupacao: int = Path(..., description="ID da Notificação de Ocupação a ser aprovada"),

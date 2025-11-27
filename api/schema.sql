@@ -4,7 +4,6 @@ DROP FUNCTION IF EXISTS atualizar_timestamp CASCADE;
 DROP SEQUENCE IF EXISTS Pessoa_id_pessoa_seq CASCADE;
 DROP SEQUENCE IF EXISTS Orgao_id_orgao_seq CASCADE;
 DROP SEQUENCE IF EXISTS Cargo_id_cargo_seq CASCADE;
-DROP SEQUENCE IF EXISTS Portaria_id_portaria_seq CASCADE;
 DROP SEQUENCE IF EXISTS Ocupacao_id_ocupacao_seq CASCADE;
 DROP SEQUENCE IF EXISTS Usuario_id_user_seq CASCADE;
 
@@ -46,7 +45,6 @@ CREATE TABLE IF NOT EXISTS Ocupacao (
     id_ocupacao SERIAL PRIMARY KEY,
     id_pessoa INTEGER REFERENCES Pessoa (id_pessoa) NOT NULL,
     id_cargo INTEGER REFERENCES Cargo (id_cargo) NOT NULL,
-    id_portaria INTEGER REFERENCES Portaria (id_portaria),
     data_inicio DATE,
     data_fim DATE,
     mandato INTEGER NOT NULL,

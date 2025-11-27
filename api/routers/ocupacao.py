@@ -175,7 +175,6 @@ def core_adicionar_ocupacao(
         nova_ocupacao = Ocupacao(
             id_pessoa=ocupacao.id_pessoa,
             id_cargo=ocupacao.id_cargo,
-            id_portaria=ocupacao.id_portaria,
             data_inicio=ocupacao.data_inicio,
             data_fim=ocupacao.data_fim,
             mandato=num_mandatos_seguidos,
@@ -492,7 +491,7 @@ def adicionar_ocupacao(ocupacao: Ocupacao, session: Session = Depends(get_sessio
         session.rollback()
         raise HTTPException(
             status_code=500,
-            detail=f"Erro ao adicionar Ocupação. Verifique se os IDs de Pessoa, Cargo e Portaria existem: {e}"
+            detail=f"Erro ao adicionar Ocupação. Verifique se os IDs de Pessoa, Cargo existem: {e}"
         )
     
 @router.post("/lote/")
@@ -644,7 +643,6 @@ def alterar_ocupacao(
         # 3. SE NÃO HOUVE ALTERAÇÃO COMPLEXA, PROSSEGUIMOS SIMPLESMENTE ALTERANDO OS CAMPOS RESTANTES, 
         # O QUE É BEM MAIS EFICIENTE QUE A OPÇÃO DE REMOVER + ADICIONAR
         if not houve_alteracao_complexa:
-            ocupacao_antiga.id_portaria = ocupacao_atualizada.id_portaria
             ocupacao_antiga.observacoes = ocupacao_atualizada.observacoes
             
             session.commit()

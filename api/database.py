@@ -32,7 +32,7 @@ def init_db():
         # Verifica se já existe alguma tabela no schema público
     with engine.begin() as conn:
 
-        # conn.execute(text("""
+        #conn.execute(text("""
         #                  DROP SCHEMA public CASCADE;
         #                  CREATE SCHEMA public;
         #                  """))

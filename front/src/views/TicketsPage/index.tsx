@@ -77,7 +77,14 @@ const NotificationsPage: React.FC = () => {
 
     const handleDelete = async (id: number) => {
         if (!confirm('Deseja realmente EXCLUIR esta notificação do banco de dados?')) return;
-        alert(`Funcionalidade de exclusão não implementada no backend (Endpoint DELETE /api/notificacoes/${id} não encontrado).`);
+        try {
+            await api.post(`/notificacoes/recusar/${id}`);
+            alert('Notificação excluída com sucesso!');
+            fetchNotificacoes(); 
+        } catch (error: any) {
+            console.error('Erro ao excluir:', error);
+            alert('Erro ao excluir: ' + (error.response?.data?.detail || error.message));
+        }
     };
 
     const getStatusClass = (status: string) => {
