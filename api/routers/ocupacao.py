@@ -1,7 +1,7 @@
 from datetime import date
 from fastapi import APIRouter, Depends, HTTPException, Path, Query
 from sqlalchemy.exc import IntegrityError
-from sqlmodel import SQLModel, Session, nulls_first, or_, select, and_
+from sqlmodel import SQLModel, Session, nulls_first, nullslast, or_, select, and_
 from typing import List, Optional, Set
 
 from models.notificacoes import Notificacoes
@@ -30,9 +30,12 @@ def _get_prev_occupacao(session: Session, id_cargo: int, data_inicio, id_ocupaca
     stmt = (
         select(Ocupacao)
         .where(Ocupacao.id_cargo == id_cargo)
-        .where(Ocupacao.data_inicio <= data_inicio)
+        .where(or_(Ocupacao.data_inicio <= data_inicio, Ocupacao.data_inicio == None))
         .where(Ocupacao.id_ocupacao != id_ocupacao if id_ocupacao is not None else True)
-        .order_by(Ocupacao.data_inicio.desc(), Ocupacao.id_ocupacao.desc())
+        .order_by(
+            nullslast(Ocupacao.data_inicio.desc()),
+            Ocupacao.id_ocupacao.desc()
+        )
         .limit(1)
     )
     return session.exec(stmt).first()
