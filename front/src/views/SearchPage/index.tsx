@@ -29,6 +29,7 @@ interface Ocupacao {
     substituto_para?: number | string | null;
     mandato: number;
     exclusivo?: boolean;
+    id_cargo?: number;
 }
 
 interface Cargo {
@@ -39,7 +40,7 @@ interface Cargo {
 
 // Estruturas agrupadas vindas do backend
 type PessoaAgrupada = { pessoa: string; cargos: Ocupacao[] };
-type CargoAgrupado = { cargo: string; orgao: string; ocupacoes: Ocupacao[] };
+type CargoAgrupado = { cargo: string; orgao: string; id_cargo: number; ocupacoes: Ocupacao[] };
 type OrgaoAgrupado = { orgao: string; cargos: Ocupacao[] };
 
 type Modo = 'pessoa' | 'orgao' | 'cargo' | 'flat';
@@ -342,6 +343,7 @@ const processedData = useMemo(() => {
 
     };
 
+    console.log("Processed Data:", processedData);
     // === Helper para renderizar TH com ícone de sort ===
     const renderHeader = (label: string, sortKey: string) => (
         <th onClick={() => requestSort(sortKey)} title="Clique para ordenar">
@@ -558,7 +560,13 @@ const processedData = useMemo(() => {
                             </thead>
                             <tbody>
                                 {/* --- MODO FLAT (LISTA SIMPLES) --- */}
-                                {modo === 'flat' && (processedData as Ocupacao[]).map((row, i) => (
+                                {modo === 'flat' && (processedData as Ocupacao[]).map((row, i) => {
+                                    const nomeCargoParaSubstituir = processedData.find(
+                                        r => r.id_cargo === row.substituto_para
+                                    )?.cargo;
+
+                                    
+                                    return (
                                     <tr key={i}>
                                         <td>{row.pessoa}</td>
                                         <td>{row.cargo}</td>
@@ -566,57 +574,97 @@ const processedData = useMemo(() => {
                                         <td>{row.data_inicio}</td>
                                         <td>{row.data_fim ?? (row.id_ocupacao ? '-' : '')}</td>
                                         <td>{row.exclusivo ? row.mandato : (row.id_ocupacao ? '-' : '')}</td>
-                                        <td>{row.substituto_para ?? (row.id_ocupacao ? '-' : '')}</td>
+                                        <td>{row.id_cargo ? (nomeCargoParaSubstituir ? nomeCargoParaSubstituir : '') : ''}</td>
                                         <td>{row.observacoes ?? (row.id_ocupacao ? '-' : '')}</td>
                                     </tr>
-                                ))}
+                                )})}
                                 
                                 {/* --- MODO AGRUPADO POR PESSOA --- */}
                                 {modo === 'pessoa' && (processedData as PessoaAgrupada[]).map((group, i) => (
-                                    group.cargos?.map((subItem, j) => (
-                                        <tr key={`${i}-${j}`}>
-                                            <td style={{fontWeight: '600'}}>{group.pessoa}</td>
-                                            <td>{subItem.cargo}</td>
-                                            <td>{subItem.orgao}</td>
-                                            <td>{subItem.data_inicio}</td>
-                                            <td>{subItem.data_fim ?? (subItem.id_ocupacao ? '-' : '')}</td>
-                                            <td>{subItem.exclusivo ? subItem.mandato : (subItem.id_ocupacao ? '-' : '')}</td>
-                                            <td>{subItem.substituto_para ?? (subItem.id_ocupacao ? '-' : '')}</td>
-                                            <td>{subItem.observacoes ?? (subItem.id_ocupacao ? '-' : '')}</td>
-                                        </tr>
-                                    ))
+                                    group.cargos?.map((subItem, j) => {
+                                        const cargoSubstitutoNome = group.cargos.find(
+                                            c => c.id_cargo === subItem.substituto_para
+                                        )?.cargo;
+
+                                        console.log(group);
+                                        console.log("Substituto para ID:", subItem.substituto_para, "Nome encontrado:", cargoSubstitutoNome);
+                                        
+                                        console.log(subItem);
+                                        
+                                        const displaySubstituto = cargoSubstitutoNome ? cargoSubstitutoNome : '';
+
+                                        console.log(cargoSubstitutoNome, displaySubstituto);
+
+                                        return (
+                                            <tr key={`${i}-${j}`}>
+                                                <td style={{fontWeight: '600'}}>{group.pessoa}</td>
+                                                <td>{subItem.cargo}</td>
+                                                <td>{subItem.orgao}</td>
+                                                <td>{subItem.data_inicio}</td>
+                                                <td>{subItem.data_fim ?? (subItem.id_ocupacao ? '-' : '')}</td>
+                                                <td>{subItem.exclusivo ? subItem.mandato : (subItem.id_ocupacao ? '-' : '')}</td>
+                                                
+                                                {/* Aplica a variável refatorada */}
+                                                <td>{displaySubstituto}</td> 
+                                                
+                                                <td>{subItem.observacoes ?? (subItem.id_ocupacao ? '-' : '')}</td>
+                                            </tr>
+                                        );
+                                    })
                                 ))}
 
                                 {/* --- MODO AGRUPADO POR ORGÃO --- */}
                                 {modo === 'orgao' && (processedData as OrgaoAgrupado[]).map((group, i) => (
-                                    group.cargos?.map((subItem, j) => (
-                                        <tr key={`${i}-${j}`}>
-                                            <td style={{fontWeight: '600'}}>{group.orgao}</td>
-                                            <td>{subItem.cargo}</td>
-                                            <td>{subItem.pessoa}</td>
-                                            <td>{subItem.data_inicio}</td>
-                                            <td>{subItem.data_fim ?? (subItem.id_ocupacao ? '-' : '')}</td>
-                                            <td>{subItem.exclusivo ? subItem.mandato : (subItem.id_ocupacao ? '-' : '')}</td>
-                                            <td>{subItem.substituto_para ?? (subItem.id_ocupacao ? '-' : '')}</td>
-                                            <td>{subItem.observacoes ?? (subItem.id_ocupacao ? '-' : '')}</td>
-                                        </tr>
-                                    ))
+                                    group.cargos?.map((subItem, j) => {
+                                        // 🌟 REFACTOR: Calcula a variável antes do retorno JSX
+                                        const cargoSubstitutoNome = group.cargos.find(
+                                            r => r.id_cargo === subItem.substituto_para
+                                        )?.cargo;
+
+                                        const displaySubstituto = cargoSubstitutoNome ? cargoSubstitutoNome : '';
+
+                                        return (
+                                            <tr key={`${i}-${j}`}>
+                                                <td style={{fontWeight: '600'}}>{group.orgao}</td>
+                                                <td>{subItem.cargo}</td>
+                                                <td>{subItem.pessoa}</td>
+                                                <td>{subItem.data_inicio}</td>
+                                                <td>{subItem.data_fim ?? (subItem.id_ocupacao ? '-' : '')}</td>
+                                                <td>{subItem.exclusivo ? subItem.mandato : (subItem.id_ocupacao ? '-' : '')}</td>
+                                                
+                                                {/* Aplica a variável refatorada */}
+                                                <td>{displaySubstituto}</td> 
+                                                
+                                                <td>{subItem.observacoes ?? (subItem.id_ocupacao ? '-' : '')}</td>
+                                            </tr>
+                                        );
+                                    })
                                 ))}
 
                                 {/* --- MODO AGRUPADO POR CARGO --- */}
                                 {modo === 'cargo' && (processedData as CargoAgrupado[]).map((group, i) => (
-                                    group.ocupacoes?.map((subItem, j) => (
-                                        <tr key={`${i}-${j}`}>
-                                            <td style={{fontWeight: '600'}}>{group.cargo}</td>
-                                            <td>{group.orgao}</td>
-                                            <td>{subItem.pessoa}</td>
-                                            <td>{subItem.data_inicio}</td>
-                                            <td>{subItem.data_fim ?? (subItem.id_ocupacao ? '-' : '')}</td>
-                                            <td>{subItem.exclusivo ? subItem.mandato : (subItem.id_ocupacao ? '-' : '')}</td>
-                                            <td>{subItem.substituto_para ?? (subItem.id_ocupacao ? '-' : '')}</td>
-                                            <td>{subItem.observacoes ?? (subItem.id_ocupacao ? '-' : '')}</td>
-                                        </tr>
-                                    ))
+                                    group.ocupacoes?.map((subItem, j) => {
+                                    const cargoSubstitutoNome = 
+                                    cargosList.find(g => g.id_cargo === subItem.substituto_para)
+                                    ?.nome ?? '';
+                                        
+                                    const displaySubstituto = cargoSubstitutoNome ? cargoSubstitutoNome : '';
+
+                                        return (
+                                            <tr key={`${i}-${j}`}>
+                                                <td style={{fontWeight: '600'}}>{group.cargo}</td>
+                                                <td>{group.orgao}</td>
+                                                <td>{subItem.pessoa}</td>
+                                                <td>{subItem.data_inicio}</td>
+                                                <td>{subItem.data_fim ?? (subItem.id_ocupacao ? '-' : '')}</td>
+                                                <td>{subItem.exclusivo ? subItem.mandato : (subItem.id_ocupacao ? '-' : '')}</td>
+                                                
+                                                <td>{displaySubstituto}</td> 
+                                                
+                                                <td>{subItem.observacoes ?? (subItem.id_ocupacao ? '-' : '')}</td>
+                                            </tr>
+                                        );
+                                    })
                                 ))}
                             </tbody>
                         </table>

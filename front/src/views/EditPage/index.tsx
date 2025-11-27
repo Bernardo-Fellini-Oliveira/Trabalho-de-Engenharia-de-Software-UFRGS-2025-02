@@ -315,7 +315,7 @@ function EditPage() {
                     <tr>
                         {activeTab === 'pessoa' && <><th>ID</th><th>Nome</th><th>Ativo</th></>}
                         {activeTab === 'orgao' && <><th>ID</th><th>Nome</th><th>Ativo</th></>}
-                        {activeTab === 'cargo' && <><th>ID</th><th>Nome</th><th>Órgão</th><th>Ativo</th><th>Exclusivo</th><th>Substituto Para</th></>}
+                        {activeTab === 'cargo' && <><th>ID</th><th>Nome</th><th>Órgão</th><th>Ativo</th><th>Exclusivo</th><th>Substituto De</th></>}
                         {activeTab === 'ocupacao' && <><th>Pessoa</th><th>Cargo</th><th>Início</th><th>Fim</th><th>Observações</th></>}
                         
                         <th style={{width: 100}}>Ações</th>

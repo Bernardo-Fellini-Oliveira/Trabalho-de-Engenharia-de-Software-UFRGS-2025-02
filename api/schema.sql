@@ -41,16 +41,6 @@ CREATE TABLE IF NOT EXISTS Cargo (
 
 );
 
-CREATE TABLE IF NOT EXISTS Portaria (
-    id_portaria SERIAL PRIMARY KEY,
-    numero INTEGER NOT NULL,
-    data_portaria TEXT NOT NULL,
-    observacoes TEXT,
-    ativo BOOLEAN NOT NULL,
-    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
-    UNIQUE (numero, data_portaria)
-);
 
 CREATE TABLE IF NOT EXISTS Ocupacao (
     id_ocupacao SERIAL PRIMARY KEY,
@@ -109,12 +99,6 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
-
-
-CREATE TRIGGER update_portaria_timestamp
-BEFORE UPDATE ON Portaria
-FOR EACH ROW
-EXECUTE FUNCTION atualizar_timestamp();
 
 ------------------------
 

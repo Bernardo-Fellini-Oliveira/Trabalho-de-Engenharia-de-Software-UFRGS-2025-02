@@ -25,7 +25,8 @@ QUERY_BASE = {
             Ocupacao.observacoes,
             Cargo.substituto_para,
             Ocupacao.id_ocupacao,
-            Cargo.exclusivo
+            Cargo.exclusivo,
+            Cargo.id_cargo
         )
         .select_from(Pessoa)
         .join(Ocupacao, Ocupacao.id_pessoa == Pessoa.id_pessoa, isouter=True)
@@ -41,7 +42,8 @@ QUERY_BASE = {
             Ocupacao.observacoes,
             Cargo.substituto_para,
             Ocupacao.id_ocupacao,
-            Cargo.exclusivo
+            Cargo.exclusivo,
+            Cargo.id_cargo
         )
         .select_from(Orgao)
         .join(Cargo, Cargo.id_orgao == Orgao.id_orgao, isouter=True)
@@ -57,7 +59,8 @@ QUERY_BASE = {
             Ocupacao.observacoes,
             Cargo.substituto_para,
             Ocupacao.id_ocupacao,
-            Cargo.exclusivo
+            Cargo.exclusivo,
+            Cargo.id_cargo
         )
         .select_from(Cargo)
         .join(Orgao, Orgao.id_orgao == Cargo.id_orgao, isouter=True)
@@ -73,7 +76,8 @@ QUERY_BASE = {
             Ocupacao.observacoes,
             Cargo.substituto_para,
             Ocupacao.id_ocupacao,
-            Cargo.exclusivo
+            Cargo.exclusivo,
+            Cargo.id_cargo
         )
         .join(Ocupacao, Ocupacao.id_pessoa == Pessoa.id_pessoa)
         .join(Cargo, Cargo.id_cargo == Ocupacao.id_cargo)
@@ -200,7 +204,7 @@ def core_busca_generica(
                 agrupado[nome].append({
                     "cargo": r[1], "orgao": r[2], "data_inicio": r[3], "data_fim": r[4], 
                     "mandato": r[5], "observacoes": r[6], "substituto_para": r[7], 
-                    "id_ocupacao": r[8], "exclusivo": r[9]
+                    "id_ocupacao": r[8], "exclusivo": r[9], "id_cargo": r[10]
                 })
             resultados_agrupados = [{"pessoa": nome, "cargos": cargos or []} 
                                     for nome, cargos in agrupado.items()]
@@ -211,7 +215,7 @@ def core_busca_generica(
                 agrupado[orgao_nome].append({
                     "cargo": r[1], "pessoa": r[0], "data_inicio": r[3], "data_fim": r[4], 
                     "mandato": r[5], "observacoes": r[6], "substituto_para": r[7], 
-                    "id_ocupacao": r[8], "exclusivo": r[9]
+                    "id_ocupacao": r[8], "exclusivo": r[9], "id_cargo": r[10]
                 })
             resultados_agrupados = [{"orgao": nome, "cargos": cargos or []} 
                                     for nome, cargos in agrupado.items()]
@@ -222,7 +226,7 @@ def core_busca_generica(
                 agrupado[chave].append({
                     "orgao": r[2], "pessoa": r[0], "data_inicio": r[3], "data_fim": r[4], 
                     "mandato": r[5], "observacoes": r[6], "substituto_para": r[7], 
-                    "id_ocupacao": r[8], "exclusivo": r[9]
+                    "id_ocupacao": r[8], "exclusivo": r[9], "id_cargo": r[10]
                 })
             resultados_agrupados = [{"cargo": cargo, "orgao": orgao, "ocupacoes": cargos or []} 
                                     for (cargo, orgao), cargos in agrupado.items()]
@@ -231,7 +235,7 @@ def core_busca_generica(
             resultados_agrupados = [{
                 "pessoa": r[0], "cargo": r[1], "orgao": r[2], "data_inicio": r[3], "data_fim": r[4], 
                 "mandato": r[5], "observacoes": r[6], "substituto_para": r[7], 
-                "id_ocupacao": r[8], "exclusivo": r[9]
+                "id_ocupacao": r[8], "exclusivo": r[9], "id_cargo": r[10]
             } for r in results]
 
         # 4. ORDENAÇÃO EM MEMÓRIA
