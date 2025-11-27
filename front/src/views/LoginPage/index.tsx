@@ -3,7 +3,8 @@ import { loginRequest } from "../../services/auth";
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../context/auth_context';
 import Header from '../../components/Header';
-const LoginScreen = () => {
+
+const LoginPage = () => {
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
 
@@ -60,4 +61,4 @@ const LoginScreen = () => {
   );
 };
 
-export default LoginScreen;
+export default LoginPage;

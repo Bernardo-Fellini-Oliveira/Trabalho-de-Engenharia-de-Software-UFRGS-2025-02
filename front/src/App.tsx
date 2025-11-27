@@ -6,10 +6,10 @@ import TicketsPage from "./views/TicketsPage";
 import LogPage from "./views/LogPage";
 import HomePage from "./views/HomePage";
 import EligibilityPage from "./views/EligibilityPage";
-import RegisterScreen from "./views/RegisterScreen";
-import LoginScreen from "./views/LoginScreen";
+import LoginPage from "./views/LoginPage";
 import { AuthProvider } from "./context/auth_context";
 import PrivateRoute from "./components/PrivateRoute";
+import RegisterPage from "./views/RegisterPage";
 
 
 function App() {
@@ -24,7 +24,7 @@ function App() {
           {/* ROTAS PÚBLICAS */}
           <Route path="/" element={<HomePage />} />
           <Route path="/search" element={<SearchPage />} />
-          <Route path="/login" element={<LoginScreen />} />
+          <Route path="/login" element={<LoginPage />} />
           <Route path="/check" element={<EligibilityPage />} />
 
           {/* PROTEGIDAS POR AUTENTICAÇÃO - NÍVEL USUARIO */}
@@ -34,7 +34,7 @@ function App() {
 
           {/* PROTEGIDAS POR AUTENTICAÇÃO - NÍVEL ADMIN */}
           <Route path="/tickets" element={<PrivateRoute roles={["admin"]}><TicketsPage /></PrivateRoute>} />
-          <Route path="/signup" element={<PrivateRoute roles= {["admin"]}><RegisterScreen/></PrivateRoute>} />
+          <Route path="/signup" element={<PrivateRoute roles= {["admin"]}><RegisterPage /></PrivateRoute>} />
 
         </Routes>
 

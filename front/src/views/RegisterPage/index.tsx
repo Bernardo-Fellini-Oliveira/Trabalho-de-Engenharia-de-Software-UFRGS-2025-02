@@ -7,7 +7,7 @@ import { useAuth } from '../../context/auth_context';
 import { useNavigate } from 'react-router-dom'; 
 
 
-const RegisterScreen = () => {
+const RegisterPage = () => {
   const [usuario, setUsuario] = useState('');
   const [senha, setSenha] = useState('');
   const [confirmaSenha, setConfirmaSenha] = useState('');
@@ -79,7 +79,7 @@ const RegisterScreen = () => {
               disabled={loading}
             />
 
-            <label htmlFor="confirma-senha">Confirme a sua senha</label>
+            <label htmlFor="confirma-senha">Confirme a senha</label>
             <input
               type="password"
               id="confirma-senha"
@@ -103,4 +103,4 @@ const RegisterScreen = () => {
   );
 };
 
-export default RegisterScreen;
+export default RegisterPage;
